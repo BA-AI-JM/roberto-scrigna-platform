@@ -1,13 +1,14 @@
 -- Roberto Scrigna Platform: Initial Database Schema
--- Batch 2 — Supabase migration
+-- Reconciled with all tRPC routers and Inngest functions
 --
--- Tables: Client, ClientSnapshot, Plan, TrainingLog, CheckIn,
---         SupplementProtocol, SupplementItem, GuidanceBlock, Document,
---         Invoice, Partner, Notification, Task, Message, DiaryEntry, ExampleMeal
+-- Tables: Partner, Client, ClientSnapshot, Plan, TrainingLog, CheckIn,
+--         CheckInToken, SupplementProtocol, SupplementItem, GuidanceBlock,
+--         Document, Invoice, Notification, NotificationSettings, Task,
+--         Message, DiaryEntry, ExampleMeal
 --
 -- Conventions:
 -- - UUIDs as primary keys (gen_random_uuid())
--- - Soft deletes (deleted_at)
+-- - Soft deletes (deleted_at) where applicable
 -- - Audit columns (created_at, updated_at)
 -- - snake_case naming
 -- - RLS enabled on all tables
@@ -111,7 +112,7 @@ CREATE TABLE plan (
   end_date DATE,
 
   -- TDEE & macro targets per day type (JSONB for flexibility)
-  -- Structure: { training: { tdee, protein, fat, carbs, ... }, rest: { ... }, ... }
+  -- Also stores plan_bundle and macro_payload from the engine
   daily_targets JSONB NOT NULL DEFAULT '{}',
 
   -- Hydration
@@ -138,18 +139,26 @@ CREATE INDEX idx_plan_client ON plan(client_id);
 CREATE INDEX idx_plan_status ON plan(status) WHERE deleted_at IS NULL;
 
 -- ── Training Log ──────────────────────────────────────────────────────────────
+-- Used by training-log.ts router (partner-facing) and portal.ts (client-facing)
 
 CREATE TABLE training_log (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   client_id UUID NOT NULL REFERENCES client(id),
+  partner_id UUID REFERENCES partner(id),
   plan_id UUID REFERENCES plan(id),
 
+  -- Date/time
   logged_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  day_type TEXT NOT NULL CHECK (day_type IN ('training', 'rest', 'refeed', 'deload')),
+  session_date DATE, -- ISO date from training-log router
+
+  -- Day/session classification
+  day_type TEXT CHECK (day_type IN ('training', 'rest', 'refeed', 'deload')),
+  session_type TEXT CHECK (session_type IN ('strength', 'hypertrophy', 'cardio', 'hiit', 'flexibility', 'deload', 'other')),
 
   -- Exercise data
   exercise_method TEXT CHECK (exercise_method IN ('heart_rate', 'met_value', 'session_estimate', 'default_estimate')),
   duration_min INTEGER,
+  duration_minutes INTEGER, -- used by training-log router
   avg_heart_rate INTEGER,
   met_value NUMERIC(4,1),
   kcal_estimated INTEGER,
@@ -161,51 +170,107 @@ CREATE TABLE training_log (
   -- Adherence
   training_notes TEXT,
   rpe NUMERIC(3,1), -- Rate of Perceived Exertion (1-10)
+  perceived_effort INTEGER CHECK (perceived_effort BETWEEN 1 AND 10),
 
+  -- Exercise details (JSON array of exercise entries)
+  exercises JSONB DEFAULT '[]',
+
+  -- Screenshot / OCR
+  screenshot_urls TEXT[] DEFAULT '{}',
+  ocr_extracted BOOLEAN DEFAULT false,
+  ocr_raw_text TEXT,
+  ocr_confidence NUMERIC(3,2),
+
+  notes TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  deleted_at TIMESTAMPTZ
 );
 
 CREATE INDEX idx_training_log_client ON training_log(client_id);
 CREATE INDEX idx_training_log_date ON training_log(client_id, logged_at DESC);
+CREATE INDEX idx_training_log_session_date ON training_log(client_id, session_date DESC);
+CREATE INDEX idx_training_log_partner ON training_log(partner_id) WHERE partner_id IS NOT NULL;
 
 -- ── Check-In ──────────────────────────────────────────────────────────────────
+-- Matches checkin.ts router columns exactly
 
 CREATE TABLE check_in (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   client_id UUID NOT NULL REFERENCES client(id),
+  partner_id UUID NOT NULL REFERENCES partner(id),
   plan_id UUID REFERENCES plan(id),
 
-  check_in_date DATE NOT NULL,
+  -- Token-based auth for client-facing form
+  token UUID NOT NULL DEFAULT gen_random_uuid(),
+
+  -- Lifecycle
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'completed', 'reviewed')),
+  due_date DATE,
+  completed_at TIMESTAMPTZ,
+  reviewed_at TIMESTAMPTZ,
+
+  -- Measurements
   weight_kg NUMERIC(5,2),
   body_fat_pct NUMERIC(4,1),
+  waist_cm NUMERIC(5,1),
+  hip_cm NUMERIC(5,1),
+
+  -- Also keep check_in_date for portal router compatibility
+  check_in_date DATE,
 
   -- Subjective markers
   energy_level INTEGER CHECK (energy_level BETWEEN 1 AND 10),
   sleep_quality INTEGER CHECK (sleep_quality BETWEEN 1 AND 10),
   stress_level INTEGER CHECK (stress_level BETWEEN 1 AND 10),
   hunger_level INTEGER CHECK (hunger_level BETWEEN 1 AND 10),
-  digestion INTEGER CHECK (digestion BETWEEN 1 AND 10),
+  digestive_health INTEGER CHECK (digestive_health BETWEEN 1 AND 10),
 
   -- Adherence
+  adherence_pct INTEGER CHECK (adherence_pct BETWEEN 0 AND 100),
   nutrition_adherence INTEGER CHECK (nutrition_adherence BETWEEN 0 AND 100),
   training_adherence INTEGER CHECK (training_adherence BETWEEN 0 AND 100),
   supplement_adherence INTEGER CHECK (supplement_adherence BETWEEN 0 AND 100),
 
-  -- Photos
-  photo_front_url TEXT,
-  photo_side_url TEXT,
-  photo_back_url TEXT,
+  -- Photos (array of URLs)
+  photos TEXT[] DEFAULT '{}',
 
-  client_notes TEXT,
-  coach_notes TEXT,
+  -- Notes
+  notes TEXT,
+  review_notes TEXT,
+
+  -- Weight deviation tracking
+  weight_deviation_kg NUMERIC(5,2),
+  weight_flagged BOOLEAN NOT NULL DEFAULT false,
+
+  -- AI summary
+  ai_summary TEXT,
 
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+CREATE UNIQUE INDEX idx_checkin_token ON check_in(token);
 CREATE INDEX idx_checkin_client ON check_in(client_id);
+CREATE INDEX idx_checkin_partner ON check_in(partner_id);
+CREATE INDEX idx_checkin_status ON check_in(partner_id, status);
 CREATE INDEX idx_checkin_date ON check_in(client_id, check_in_date DESC);
+CREATE INDEX idx_checkin_flagged ON check_in(partner_id, weight_flagged) WHERE weight_flagged = true;
+
+-- ── Check-In Token ────────────────────────────────────────────────────────────
+-- Used by portal.ts getCheckInStatus
+
+CREATE TABLE check_in_token (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  client_id UUID NOT NULL REFERENCES client(id),
+  token UUID NOT NULL DEFAULT gen_random_uuid(),
+  expires_at TIMESTAMPTZ NOT NULL,
+  used_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE UNIQUE INDEX idx_checkin_token_value ON check_in_token(token);
+CREATE INDEX idx_checkin_token_client ON check_in_token(client_id);
 
 -- ── Supplement Protocol ───────────────────────────────────────────────────────
 
@@ -309,25 +374,44 @@ CREATE INDEX idx_invoice_status ON invoice(status) WHERE deleted_at IS NULL;
 CREATE UNIQUE INDEX idx_invoice_number ON invoice(invoice_number) WHERE deleted_at IS NULL;
 
 -- ── Notification ──────────────────────────────────────────────────────────────
+-- Matches notification.ts router and inngest/functions.ts
 
 CREATE TABLE notification (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  recipient_id UUID NOT NULL, -- can be partner or client auth_user_id
-  sender_id UUID, -- null for system notifications
+  partner_id UUID NOT NULL REFERENCES partner(id),
+  client_id UUID REFERENCES client(id),
+
+  trigger TEXT NOT NULL CHECK (trigger IN (
+    'checkin_overdue', 'checkin_completed', 'weight_deviation', 'low_adherence',
+    'plan_expiring', 'invoice_overdue', 'invoice_paid',
+    'task_due_today', 'task_overdue', 'new_message',
+    'training_logged', 'milestone_reached'
+  )),
+  priority TEXT NOT NULL DEFAULT 'medium' CHECK (priority IN ('low', 'medium', 'high', 'urgent')),
 
   title TEXT NOT NULL,
   body TEXT,
-  notification_type TEXT NOT NULL CHECK (notification_type IN ('check_in_due', 'plan_ready', 'message', 'payment', 'system', 'reminder')),
-  action_url TEXT,
+  metadata JSONB DEFAULT '{}',
 
-  is_read BOOLEAN NOT NULL DEFAULT false,
+  read BOOLEAN NOT NULL DEFAULT false,
   read_at TIMESTAMPTZ,
 
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_notification_recipient ON notification(recipient_id, is_read);
-CREATE INDEX idx_notification_created ON notification(recipient_id, created_at DESC);
+CREATE INDEX idx_notification_partner ON notification(partner_id, read);
+CREATE INDEX idx_notification_created ON notification(partner_id, created_at DESC);
+
+-- ── Notification Settings ─────────────────────────────────────────────────────
+-- Per-partner notification preferences (notification.ts getSettings/updateSettings)
+
+CREATE TABLE notification_settings (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  partner_id UUID NOT NULL REFERENCES partner(id) UNIQUE,
+  triggers JSONB NOT NULL DEFAULT '{}', -- { trigger_name: { enabled, email, inApp } }
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 
 -- ── Task ──────────────────────────────────────────────────────────────────────
 
@@ -443,12 +527,14 @@ ALTER TABLE client_snapshot ENABLE ROW LEVEL SECURITY;
 ALTER TABLE plan ENABLE ROW LEVEL SECURITY;
 ALTER TABLE training_log ENABLE ROW LEVEL SECURITY;
 ALTER TABLE check_in ENABLE ROW LEVEL SECURITY;
+ALTER TABLE check_in_token ENABLE ROW LEVEL SECURITY;
 ALTER TABLE supplement_protocol ENABLE ROW LEVEL SECURITY;
 ALTER TABLE supplement_item ENABLE ROW LEVEL SECURITY;
 ALTER TABLE guidance_block ENABLE ROW LEVEL SECURITY;
 ALTER TABLE document ENABLE ROW LEVEL SECURITY;
 ALTER TABLE invoice ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notification ENABLE ROW LEVEL SECURITY;
+ALTER TABLE notification_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE task ENABLE ROW LEVEL SECURITY;
 ALTER TABLE message ENABLE ROW LEVEL SECURITY;
 ALTER TABLE diary_entry ENABLE ROW LEVEL SECURITY;
@@ -483,7 +569,7 @@ CREATE POLICY plan_partner_access ON plan
     partner_id IN (SELECT id FROM partner WHERE auth_user_id = auth.uid())
   );
 
--- Training Log: via client → partner
+-- Training Log: via client → partner (or direct partner_id)
 CREATE POLICY training_log_partner_access ON training_log
   FOR ALL USING (
     client_id IN (
@@ -493,8 +579,14 @@ CREATE POLICY training_log_partner_access ON training_log
     )
   );
 
--- Check-In: via client → partner
+-- Check-In: via partner_id
 CREATE POLICY checkin_partner_access ON check_in
+  FOR ALL USING (
+    partner_id IN (SELECT id FROM partner WHERE auth_user_id = auth.uid())
+  );
+
+-- Check-In Token: via client → partner
+CREATE POLICY checkin_token_partner_access ON check_in_token
   FOR ALL USING (
     client_id IN (
       SELECT id FROM client WHERE partner_id IN (
@@ -543,9 +635,17 @@ CREATE POLICY invoice_partner_access ON invoice
     partner_id IN (SELECT id FROM partner WHERE auth_user_id = auth.uid())
   );
 
--- Notification: recipient can see own
-CREATE POLICY notification_recipient ON notification
-  FOR ALL USING (recipient_id = auth.uid());
+-- Notification: partner owns
+CREATE POLICY notification_partner_access ON notification
+  FOR ALL USING (
+    partner_id IN (SELECT id FROM partner WHERE auth_user_id = auth.uid())
+  );
+
+-- Notification Settings: partner owns
+CREATE POLICY notification_settings_partner_access ON notification_settings
+  FOR ALL USING (
+    partner_id IN (SELECT id FROM partner WHERE auth_user_id = auth.uid())
+  );
 
 -- Task: partner owns
 CREATE POLICY task_partner_access ON task
@@ -598,7 +698,8 @@ BEGIN
     SELECT unnest(ARRAY[
       'partner', 'client', 'client_snapshot', 'plan', 'training_log',
       'check_in', 'supplement_protocol', 'supplement_item', 'guidance_block',
-      'document', 'invoice', 'task', 'diary_entry', 'example_meal'
+      'document', 'invoice', 'notification_settings', 'task',
+      'diary_entry', 'example_meal'
     ])
   LOOP
     EXECUTE format(

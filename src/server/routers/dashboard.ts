@@ -66,21 +66,21 @@ export const dashboardRouter = router({
 
     // Pending check-ins
     const { count: pendingCheckins } = await ctx.supabase
-      .from("checkin")
+      .from("check_in")
       .select("id", { count: "exact", head: true })
       .eq("partner_id", partnerId)
       .eq("status", "pending");
 
     // Completed check-ins awaiting review
     const { count: awaitingReview } = await ctx.supabase
-      .from("checkin")
+      .from("check_in")
       .select("id", { count: "exact", head: true })
       .eq("partner_id", partnerId)
       .eq("status", "completed");
 
     // Flagged check-ins (weight deviation)
     const { count: flaggedCheckins } = await ctx.supabase
-      .from("checkin")
+      .from("check_in")
       .select("id", { count: "exact", head: true })
       .eq("partner_id", partnerId)
       .eq("weight_flagged", true)
@@ -92,7 +92,7 @@ export const dashboardRouter = router({
       .select("amount_cents")
       .eq("partner_id", partnerId)
       .eq("status", "paid")
-      .gte("paid_at", monthStart());
+      .gte("paid_date", monthStart());
 
     const revenueThisMonth =
       paidInvoices?.reduce((sum, inv) => sum + (inv.amount_cents ?? 0), 0) ?? 0;
@@ -167,7 +167,7 @@ export const dashboardRouter = router({
 
     // 1. Overdue check-ins (pending > 3 days)
     const { data: overdueCheckins } = await ctx.supabase
-      .from("checkin")
+      .from("check_in")
       .select("id, due_date, client:client_id (id, full_name)")
       .eq("partner_id", partnerId)
       .eq("status", "pending")
@@ -190,7 +190,7 @@ export const dashboardRouter = router({
 
     // 2. Weight deviation flags
     const { data: flaggedCheckins } = await ctx.supabase
-      .from("checkin")
+      .from("check_in")
       .select(
         "id, weight_kg, weight_deviation_kg, client:client_id (id, full_name)"
       )
@@ -307,7 +307,7 @@ export const dashboardRouter = router({
 
     // Get check-ins in the last 12 weeks
     const { data: checkins } = await ctx.supabase
-      .from("checkin")
+      .from("check_in")
       .select("client_id, completed_at")
       .eq("partner_id", partnerId)
       .eq("status", "completed")
@@ -390,10 +390,10 @@ export const dashboardRouter = router({
 
     const { data: invoices } = await ctx.supabase
       .from("invoice")
-      .select("amount_cents, paid_at")
+      .select("amount_cents, paid_date")
       .eq("partner_id", partnerId)
       .eq("status", "paid")
-      .gte("paid_at", twelveMonthsAgo.toISOString());
+      .gte("paid_date", twelveMonthsAgo.toISOString());
 
     // Group by month
     const months: Array<{ month: string; revenueCents: number }> = [];
@@ -407,8 +407,8 @@ export const dashboardRouter = router({
       const total =
         invoices
           ?.filter((inv) => {
-            if (!inv.paid_at) return false;
-            const paidDate = new Date(inv.paid_at);
+            if (!inv.paid_date) return false;
+            const paidDate = new Date(inv.paid_date);
             return paidDate >= d && paidDate < nextMonth;
           })
           .reduce((sum, inv) => sum + (inv.amount_cents ?? 0), 0) ?? 0;

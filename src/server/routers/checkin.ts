@@ -119,7 +119,7 @@ export const checkinRouter = router({
 
       // Create check-in request with token
       const { data: checkin, error } = await ctx.supabase
-        .from("checkin")
+        .from("check_in")
         .insert({
           client_id: input.clientId,
           partner_id: ctx.partnerId,
@@ -151,7 +151,7 @@ export const checkinRouter = router({
     .input(z.object({ token: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       const { data: checkin } = await ctx.supabase
-        .from("checkin")
+        .from("check_in")
         .select(
           `id, status, due_date, created_at,
            client:client_id (id, full_name)`
@@ -175,7 +175,7 @@ export const checkinRouter = router({
     .mutation(async ({ ctx, input }) => {
       // 1. Validate token
       const { data: checkin } = await ctx.supabase
-        .from("checkin")
+        .from("check_in")
         .select("id, client_id, partner_id, status")
         .eq("token", input.token)
         .eq("status", "pending")
@@ -190,7 +190,7 @@ export const checkinRouter = router({
 
       // 2. Get previous weight for deviation calculation
       const { data: previousCheckin } = await ctx.supabase
-        .from("checkin")
+        .from("check_in")
         .select("weight_kg")
         .eq("client_id", checkin.client_id)
         .eq("status", "completed")
@@ -224,7 +224,7 @@ export const checkinRouter = router({
 
       // 3. Update the check-in record
       const { error } = await ctx.supabase
-        .from("checkin")
+        .from("check_in")
         .update({
           status: "completed",
           completed_at: new Date().toISOString(),
@@ -271,7 +271,7 @@ export const checkinRouter = router({
     )
     .query(async ({ ctx, input }) => {
       let query = ctx.supabase
-        .from("checkin")
+        .from("check_in")
         .select(
           `id, token, status, weight_kg, weight_deviation_kg, weight_flagged,
            energy_level, sleep_quality, adherence_pct, ai_summary,
@@ -303,7 +303,7 @@ export const checkinRouter = router({
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       const { data: checkin, error } = await ctx.supabase
-        .from("checkin")
+        .from("check_in")
         .select(
           `*, client:client_id (id, full_name, email)`
         )
@@ -329,7 +329,7 @@ export const checkinRouter = router({
     )
     .query(async ({ ctx, input }) => {
       const { data, error } = await ctx.supabase
-        .from("checkin")
+        .from("check_in")
         .select(
           `id, weight_kg, weight_deviation_kg, weight_flagged,
            energy_level, sleep_quality, stress_level, adherence_pct,
@@ -361,7 +361,7 @@ export const checkinRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       const { error } = await ctx.supabase
-        .from("checkin")
+        .from("check_in")
         .update({
           status: "reviewed",
           reviewed_at: new Date().toISOString(),

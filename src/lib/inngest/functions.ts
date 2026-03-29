@@ -181,7 +181,7 @@ export const onCheckinDue = inngest.createFunction(
     const isCompleted = await step.run("check-if-completed", async () => {
       const db = getServiceDb();
       const { data } = await db
-        .from("checkin")
+        .from("check_in")
         .select("status")
         .eq("id", checkinId)
         .single();
@@ -206,7 +206,7 @@ export const onCheckinDue = inngest.createFunction(
       const stillPending = await step.run("check-if-still-pending", async () => {
         const db = getServiceDb();
         const { data } = await db
-          .from("checkin")
+          .from("check_in")
           .select("status")
           .eq("id", checkinId)
           .single();
@@ -404,7 +404,7 @@ export const scanColdClients = inngest.createFunction(
 
       for (const client of activeClients ?? []) {
         const { count: recentCheckins } = await db
-          .from("checkin")
+          .from("check_in")
           .select("id", { count: "exact", head: true })
           .eq("client_id", client.id)
           .gte("created_at", fourteenDaysAgo);
