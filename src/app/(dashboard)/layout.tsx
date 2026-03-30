@@ -14,10 +14,9 @@ export default async function DashboardLayout({
   const supabase = await createSupabaseServer();
   const { data: { user } } = await supabase.auth.getUser();
 
-  // AUTH BYPASS — temporary for preview
-  // if (!user) {
-  //   redirect("/login");
-  // }
+  if (!user) {
+    redirect("/login");
+  }
 
   // Get partner record for the sidebar
   let partnerName = "Roberto Scrigna";
