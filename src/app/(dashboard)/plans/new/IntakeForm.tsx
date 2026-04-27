@@ -875,6 +875,7 @@ export default function IntakeForm() {
       await createSnapshot.mutateAsync({
         clientId: client.id,
         weightKg: parseNum(form.weight_kg),
+        heightCm: parseNum(form.height_cm),
         circumferences: hasCircumferences ? circumferences : undefined,
         skinfolds: hasSkinfolds ? skinfolds : undefined,
         medicalHistory: hasMedHistory ? medHistory : undefined,

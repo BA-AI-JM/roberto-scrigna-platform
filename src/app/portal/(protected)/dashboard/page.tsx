@@ -94,6 +94,24 @@ function Skeleton({ width, height }: { width?: string; height?: string }) {
 
 // ── Active Plan Section ───────────────────────────────────────────────────────
 
+type MealSlot = {
+  slot: string;
+  primary: {
+    template: { name: string };
+    scaledIngredients: Array<{ name: string; grams: number }>;
+    actualMacros: { kcal: number; proteinG: number; carbsG: number; fatG: number };
+  };
+};
+
+type DayTypeMealPlan = {
+  dayType: string;
+  label: string;
+  mealPlan?: {
+    withinTolerance: boolean;
+    slots: MealSlot[];
+  };
+};
+
 type ActivePlan = {
   id: string;
   name: string;
@@ -103,6 +121,7 @@ type ActivePlan = {
   daily_targets?: Record<string, unknown> | null;
   meals_per_day?: number | null;
   meal_distribution?: unknown | null;
+  mealPlan?: DayTypeMealPlan[] | null;
   notes?: string | null;
   supplement_protocol?: Array<{
     id: string;
@@ -231,9 +250,9 @@ function ActivePlanSection({ plan, loading }: { plan: ActivePlan | null | undefi
         </div>
       ) : null}
 
-      {/* Meal distribution — show today's meals */}
-      {plan.meal_distribution != null && (
-        <MealDistribution mealDistribution={plan.meal_distribution} />
+      {/* Meal plan — show meals with scaled ingredients from plan bundle */}
+      {Array.isArray(plan.mealPlan) && plan.mealPlan.length > 0 && (
+        <MealPlanSection dayTypePlans={plan.mealPlan} />
       )}
 
       {/* Supplements */}
@@ -260,122 +279,112 @@ function ActivePlanSection({ plan, loading }: { plan: ActivePlan | null | undefi
   );
 }
 
-function MealDistribution({ mealDistribution }: { mealDistribution: unknown }) {
-  // meal_distribution is stored as JSON: { breakfast: { protein_g, carbs_g, fat_g, kcal, items: [...] }, ... }
-  // or could be an array of meal objects — handle both shapes gracefully
-  let meals: Array<{ type: string; label: string; data: Record<string, unknown> }> = [];
+function MealPlanSection({ dayTypePlans }: { dayTypePlans: DayTypeMealPlan[] }) {
+  const plansWithMeals = dayTypePlans.filter((p) => p.mealPlan && p.mealPlan.slots.length > 0);
 
-  if (typeof mealDistribution === "object" && mealDistribution !== null && !Array.isArray(mealDistribution)) {
-    const dist = mealDistribution as Record<string, unknown>;
-    meals = Object.entries(dist).map(([type, data]) => ({
-      type,
-      label: MEAL_LABELS[type] ?? type,
-      data: (typeof data === "object" && data !== null ? data : {}) as Record<string, unknown>,
-    }));
-  } else if (Array.isArray(mealDistribution)) {
-    meals = (mealDistribution as Array<Record<string, unknown>>).map((m) => ({
-      type: String(m.type ?? m.meal_type ?? ""),
-      label: MEAL_LABELS[String(m.type ?? m.meal_type ?? "")] ?? String(m.name ?? m.type ?? ""),
-      data: m,
-    }));
-  }
-
-  if (meals.length === 0) return null;
+  if (plansWithMeals.length === 0) return null;
 
   return (
     <div>
       <p style={{ fontSize: "14px", fontWeight: 700, color: "#374151", marginBottom: "12px" }}>
-        I tuoi pasti di oggi
+        I tuoi pasti
       </p>
-      <div style={{ display: "flex", flexDirection: "column" as const, gap: "10px" }}>
-        {meals.map((meal) => (
-          <MealCard key={meal.type} label={meal.label} data={meal.data} />
-        ))}
-      </div>
-    </div>
-  );
-}
+      {plansWithMeals.map((dayPlan) => (
+        <div key={dayPlan.dayType} style={{ marginBottom: "20px" }}>
+          {/* Day type label */}
+          <div
+            style={{
+              fontSize: "13px",
+              fontWeight: 600,
+              color: "#6b7280",
+              marginBottom: "8px",
+              textTransform: "uppercase" as const,
+              letterSpacing: "0.05em",
+            }}
+          >
+            {dayPlan.label}
+          </div>
 
-function MealCard({ label, data }: { label: string; data: Record<string, unknown> }) {
-  const items = Array.isArray(data.items) ? (data.items as Array<Record<string, unknown>>) : [];
-  const kcal = data.kcal ?? data.kcal_target;
-  const protein = data.protein_g ?? data.protein;
-  const carbs = data.carbs_g ?? data.carbs;
-  const fat = data.fat_g ?? data.fat;
+          <div style={{ display: "flex", flexDirection: "column" as const, gap: "10px" }}>
+            {dayPlan.mealPlan!.slots.map((slot) => {
+              const macros = slot.primary.actualMacros;
+              const ingredients = slot.primary.scaledIngredients;
 
-  return (
-    <div
-      style={{
-        border: "1px solid #e2e8f0",
-        borderRadius: "10px",
-        overflow: "hidden",
-      }}
-    >
-      {/* Meal header */}
-      <div
-        style={{
-          padding: "12px 16px",
-          background: "#f8fafc",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-        }}
-      >
-        <span style={{ fontSize: "14px", fontWeight: 700, color: "#1a1a2e" }}>{label}</span>
-        <div style={{ display: "flex", gap: "12px" }}>
-          {kcal != null && (
-            <span style={{ fontSize: "12px", color: "#6b7280" }}>{String(kcal)} kcal</span>
-          )}
-          {protein != null && (
-            <span style={{ fontSize: "12px", color: "#3b82f6" }}>P {String(protein)}g</span>
-          )}
-          {carbs != null && (
-            <span style={{ fontSize: "12px", color: "#f59e0b" }}>C {String(carbs)}g</span>
-          )}
-          {fat != null && (
-            <span style={{ fontSize: "12px", color: "#ef4444" }}>G {String(fat)}g</span>
-          )}
+              return (
+                <div
+                  key={slot.slot}
+                  style={{
+                    border: "1px solid #e2e8f0",
+                    borderRadius: "10px",
+                    overflow: "hidden",
+                  }}
+                >
+                  {/* Slot header */}
+                  <div
+                    style={{
+                      padding: "12px 16px",
+                      background: "#f8fafc",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                    }}
+                  >
+                    <span style={{ fontSize: "14px", fontWeight: 700, color: "#1a1a2e" }}>
+                      {MEAL_LABELS[slot.slot] ?? slot.slot.replace(/_/g, " ")}
+                    </span>
+                    <div style={{ display: "flex", gap: "10px" }}>
+                      <span style={{ fontSize: "12px", color: "#6b7280" }}>{Math.round(macros.kcal)} kcal</span>
+                      <span style={{ fontSize: "12px", color: "#3b82f6" }}>P {Math.round(macros.proteinG)}g</span>
+                      <span style={{ fontSize: "12px", color: "#f59e0b" }}>C {Math.round(macros.carbsG)}g</span>
+                      <span style={{ fontSize: "12px", color: "#ef4444" }}>G {Math.round(macros.fatG)}g</span>
+                    </div>
+                  </div>
+
+                  {/* Meal template name */}
+                  <div
+                    style={{
+                      padding: "10px 16px 4px",
+                      fontSize: "13px",
+                      fontWeight: 600,
+                      color: "#374151",
+                    }}
+                  >
+                    {slot.primary.template.name}
+                  </div>
+
+                  {/* Scaled ingredients */}
+                  {ingredients.length > 0 ? (
+                    <div style={{ padding: "4px 16px 12px" }}>
+                      {ingredients.map((ing, idx) => (
+                        <div
+                          key={idx}
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            padding: "5px 0",
+                            borderBottom: idx < ingredients.length - 1 ? "1px solid #f1f5f9" : "none",
+                          }}
+                        >
+                          <span style={{ fontSize: "13px", color: "#374151" }}>{ing.name}</span>
+                          <span style={{ fontSize: "13px", fontWeight: 600, color: "#1a1a2e", whiteSpace: "nowrap" as const }}>
+                            {ing.grams}g
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{ padding: "8px 16px 12px" }}>
+                      <p style={{ fontSize: "13px", color: "#9ca3af", margin: 0 }}>
+                        Nessun ingrediente specificato.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
-      </div>
-
-      {/* Ingredients */}
-      {items.length > 0 && (
-        <div style={{ padding: "12px 16px" }}>
-          {items.map((item, idx) => (
-            <div
-              key={idx}
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                padding: "6px 0",
-                borderBottom: idx < items.length - 1 ? "1px solid #f1f5f9" : "none",
-              }}
-            >
-              <span style={{ fontSize: "13px", color: "#374151" }}>
-                {String(item.name ?? item.food ?? "—")}
-              </span>
-              <span
-                style={{
-                  fontSize: "13px",
-                  fontWeight: 600,
-                  color: "#1a1a2e",
-                  whiteSpace: "nowrap" as const,
-                }}
-              >
-                {item.grams != null ? `${String(item.grams)}g` : ""}
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {items.length === 0 && (
-        <div style={{ padding: "12px 16px" }}>
-          <p style={{ fontSize: "13px", color: "#9ca3af", margin: 0 }}>
-            Il coach aggiungerà presto i dettagli di questo pasto.
-          </p>
-        </div>
-      )}
+      ))}
     </div>
   );
 }

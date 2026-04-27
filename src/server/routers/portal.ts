@@ -135,7 +135,18 @@ export const portalRouter = router({
       throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Errore nel caricamento dei dati." });
     }
 
-    return data ?? null;
+    if (!data) return null;
+
+    // Extract the meal plan from the plan bundle stored in daily_targets.
+    // The engine writes meal data to daily_targets.plan_bundle.reportData.dayTypePlans,
+    // not to the meal_distribution column (which is never written during plan generation).
+    const planBundle = (data.daily_targets as Record<string, unknown> | null)?.plan_bundle as Record<string, unknown> | undefined;
+    const dayTypePlans = (planBundle?.reportData as Record<string, unknown> | undefined)?.dayTypePlans ?? [];
+
+    return {
+      ...data,
+      mealPlan: dayTypePlans as Array<{ dayType: string; label: string; mealPlan?: { withinTolerance: boolean; slots: Array<{ slot: string; primary: { template: { name: string }; scaledIngredients: Array<{ name: string; grams: number }>; actualMacros: { kcal: number; proteinG: number; carbsG: number; fatG: number } } }> } }>,
+    };
   }),
 
   /**
