@@ -49,13 +49,16 @@ export async function createTrpcContext(opts?: {
       .maybeSingle();
     partnerId = partner?.id ?? null;
 
-    // If not a partner, check client table using service role (no client RLS policies)
+    // If not a partner, check client table using service role (no client RLS policies).
+    // Only active, non-deleted clients are granted portal access.
     if (!partnerId) {
       const serviceDb = createSupabaseServiceRole();
       const { data: client } = await serviceDb
         .from("client")
         .select("id")
         .eq("auth_user_id", user.id)
+        .eq("status", "active")
+        .is("deleted_at", null)
         .maybeSingle();
       clientId = client?.id ?? null;
     }

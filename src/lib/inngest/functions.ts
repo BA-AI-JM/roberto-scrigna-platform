@@ -282,21 +282,19 @@ export const onCheckinDue = inngest.createFunction(
 
     await step.run("email-checkin-due", async () => {
       const db = getServiceDb();
-      // Fetch the check-in token to include in the email link
-      const { data: token } = await db
-        .from("check_in_token")
+      // Tokens live on the check_in row itself (check_in.token column).
+      // The check_in_token table does not exist — token storage is on check_in.
+      const { data: checkinRow } = await db
+        .from("check_in")
         .select("token")
-        .eq("client_id", clientId)
-        .is("used_at", null)
-        .gte("expires_at", new Date().toISOString())
-        .order("created_at", { ascending: false })
-        .limit(1)
+        .eq("id", checkinId)
+        .eq("status", "pending")
         .maybeSingle();
 
       const email = await getClientEmail(clientId);
       if (email) {
-        const checkinLink = token?.token
-          ? portalUrl(`/checkin/${token.token}`)
+        const checkinLink = checkinRow?.token
+          ? portalUrl(`/checkin/${checkinRow.token}`)
           : portalUrl("/dashboard");
 
         const html = emailWrapper(
@@ -515,6 +513,15 @@ export const scanOverdueInvoices = inngest.createFunction(
         .is("deleted_at", null);
 
       for (const inv of overdue7 ?? []) {
+        // Idempotency: skip if a notification for this invoice already exists today (N7)
+        const { count: existingN7 } = await db
+          .from("notification")
+          .select("id", { count: "exact", head: true })
+          .eq("trigger", "invoice_overdue")
+          .eq("metadata->>invoiceId", inv.id)
+          .gte("created_at", today);
+        if ((existingN7 ?? 0) > 0) continue;
+
         // Look up client name separately to avoid join type issues
         const { data: client } = await db
           .from("client")
@@ -542,6 +549,16 @@ export const scanOverdueInvoices = inngest.createFunction(
         .is("deleted_at", null);
 
       for (const inv of overdue14 ?? []) {
+        // Idempotency: skip if an escalation notification for this invoice already exists today (N8)
+        const { count: existingN8 } = await db
+          .from("notification")
+          .select("id", { count: "exact", head: true })
+          .eq("trigger", "invoice_overdue")
+          .eq("metadata->>invoiceId", inv.id)
+          .eq("metadata->>escalated", "true")
+          .gte("created_at", today);
+        if ((existingN8 ?? 0) > 0) continue;
+
         const { data: client } = await db
           .from("client")
           .select("full_name")
@@ -601,6 +618,16 @@ export const scanColdClients = inngest.createFunction(
           .gte("created_at", fourteenDaysAgo);
 
         if ((recentCheckins ?? 0) === 0 && (recentTraining ?? 0) === 0) {
+          const todayCold = new Date().toISOString().split("T")[0];
+          // Idempotency: skip if a cold-client task for this client was already created today (N9)
+          const { count: existingColdTask } = await db
+            .from("task")
+            .select("id", { count: "exact", head: true })
+            .eq("client_id", client.id)
+            .eq("title", `Cliente inattivo — ${client.full_name}`)
+            .gte("created_at", todayCold);
+          if ((existingColdTask ?? 0) > 0) continue;
+
           await createTask({
             partnerId: client.partner_id,
             clientId: client.id,
@@ -633,6 +660,15 @@ export const scanExpiringPlans = inngest.createFunction(
         .is("deleted_at", null);
 
       for (const plan of expiringPlans ?? []) {
+        // Idempotency: skip if a notification for this plan already exists today (N10)
+        const { count: existingN10 } = await db
+          .from("notification")
+          .select("id", { count: "exact", head: true })
+          .eq("trigger", "plan_expiring")
+          .eq("metadata->>planId", plan.id)
+          .gte("created_at", today);
+        if ((existingN10 ?? 0) > 0) continue;
+
         const { data: client } = await db
           .from("client")
           .select("full_name")

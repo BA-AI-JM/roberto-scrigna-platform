@@ -87,6 +87,12 @@ const createSnapshotSchema = z.object({
     .optional(),
 
   // Lifestyle (page 6)
+  // occupationalLevel drives NEAT calculation in the engine — required for plan
+  // generation. Falls back to "sedentary" in buildEngineSnapshot if absent.
+  occupationalLevel: z
+    .enum(["sedentary", "light", "moderate", "heavy", "very_heavy"])
+    .optional(),
+
   lifestyle: z
     .object({
       daily_steps: z.number().min(0).max(200000).optional(),
@@ -396,14 +402,59 @@ export const clientRouter = router({
         }
       }
 
-      // Pack all extended data into skinfold_data JSONB
-      const extendedData = {
-        circumferences: input.circumferences ?? null,
-        skinfolds: input.skinfolds ?? null,
-        medical_history: input.medicalHistory ?? null,
-        training_sessions: input.trainingSessions ?? null,
-        lifestyle: input.lifestyle ?? null,
-        goal: input.goal ?? null,
+      // Determine body fat method and build an engine-readable skinfold_data object.
+      // buildEngineSnapshot (plan.ts) reads skinfold_data.method to pick the
+      // right formula. We nest the raw intake skinfolds under an "intake_raw"
+      // key so the engine keys (chest, midaxillary, tricep, …) can be mapped.
+      let bodyFatMethod: string | null = null;
+      let engineSkinfoldData: Record<string, unknown> | null = null;
+
+      if (input.skinfolds) {
+        const filledSites = Object.values(input.skinfolds).filter(
+          (v) => v != null && v > 0
+        ).length;
+
+        if (filledSites >= 7) {
+          bodyFatMethod = "7site";
+          // Map intake field names → engine field names
+          engineSkinfoldData = {
+            method: "7site",
+            chest: input.skinfolds.chest,
+            midaxillary: input.skinfolds.midaxillary,
+            tricep: input.skinfolds.triceps,
+            subscapular: input.skinfolds.subscapular,
+            abdominal: input.skinfolds.abdomen,
+            suprailiac: input.skinfolds.suprailiac,
+            thigh: input.skinfolds.thigh,
+          };
+        } else if (filledSites >= 3) {
+          bodyFatMethod = "3site";
+          engineSkinfoldData = {
+            method: "3site",
+            chest: input.skinfolds.chest,
+            abdominal: input.skinfolds.abdomen,
+            thigh: input.skinfolds.thigh,
+            // Female 3-site uses tricep + suprailiac + thigh
+            tricep: input.skinfolds.triceps,
+            suprailiac: input.skinfolds.suprailiac,
+          };
+        }
+      }
+
+      // Pack ALL extended intake data into skinfold_data JSONB so nothing is lost.
+      // The engine reads top-level "method" + measurement keys; other keys are ignored.
+      const skinfoldDataPayload: Record<string, unknown> = {
+        // Engine-readable fields (method + measurements at top level)
+        ...(engineSkinfoldData ?? {}),
+        // Extended intake data preserved for audit / future use
+        _intake: {
+          circumferences: input.circumferences ?? null,
+          skinfolds: input.skinfolds ?? null,
+          medical_history: input.medicalHistory ?? null,
+          training_sessions: input.trainingSessions ?? null,
+          lifestyle: input.lifestyle ?? null,
+          goal: input.goal ?? null,
+        },
       };
 
       // Build notes text from medical history for readability
@@ -426,16 +477,6 @@ export const clientRouter = router({
         noteLines.push(`Peso target: ${input.goal.target_weight_kg} kg`);
       }
 
-      // Determine body fat method based on provided skinfold data
-      let bodyFatMethod: string | null = null;
-      if (input.skinfolds) {
-        const filledSites = Object.values(input.skinfolds).filter(
-          (v) => v != null && v > 0
-        ).length;
-        if (filledSites >= 7) bodyFatMethod = "7site";
-        else if (filledSites >= 3) bodyFatMethod = "3site";
-      }
-
       const { data: snapshot, error: snapshotError } = await ctx.supabase
         .from("client_snapshot")
         .insert({
@@ -444,8 +485,10 @@ export const clientRouter = router({
           height_cm: input.heightCm ?? null,
           age_years: ageYears,
           daily_steps: input.lifestyle?.daily_steps ?? null,
+          // occupational_level is consumed by buildEngineSnapshot to compute NEAT
+          occupational_level: input.occupationalLevel ?? null,
           week_schedule: weekSchedule,
-          skinfold_data: extendedData,
+          skinfold_data: skinfoldDataPayload,
           body_fat_method: bodyFatMethod,
           notes: noteLines.length > 0 ? noteLines.join("\n") : null,
         })

@@ -10,6 +10,8 @@
 "use client";
 
 import { useState } from "react";
+import { trpc } from "@/lib/trpc/client";
+import { useQueryClient } from "@tanstack/react-query";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -83,10 +85,36 @@ function formatTimeAgo(iso: string): string {
 
 // ── Page Component ────────────────────────────────────────────────────────────
 
-const MOCK_NOTIFICATIONS: NotificationItem[] = [];
-
 export default function NotificationsPage() {
   const [activeTab, setActiveTab] = useState<"feed" | "settings">("feed");
+
+  // Real notification data
+  const { data: notifData, isLoading: notifLoading, isError: notifError } =
+    trpc.notification.list.useQuery({ limit: 50, offset: 0 });
+
+  const notifications: NotificationItem[] = (notifData?.notifications ?? []).map((n) => ({
+    id: n.id,
+    trigger: n.trigger,
+    priority: n.priority,
+    title: n.title,
+    body: n.body,
+    read: n.read,
+    createdAt: n.created_at,
+    client: (() => {
+      const raw = Array.isArray(n.client) ? (n.client[0] ?? null) : n.client;
+      if (!raw) return null;
+      const r = raw as { id: string; full_name?: string; fullName?: string };
+      return { id: r.id, fullName: r.fullName ?? r.full_name ?? "" };
+    })(),
+  }));
+
+  const queryClient = useQueryClient();
+  const markRead = trpc.notification.markRead.useMutation({
+    onSuccess: () => {
+      // Invalidate the notification list and unread count so both re-fetch
+      void queryClient.invalidateQueries();
+    },
+  });
 
   // Default settings — all enabled
   const [settings, setSettings] = useState<Record<string, TriggerSetting>>(
@@ -162,7 +190,18 @@ export default function NotificationsPage() {
       {/* Feed view */}
       {activeTab === "feed" && (
         <>
-          {MOCK_NOTIFICATIONS.length === 0 ? (
+          {notifLoading ? (
+            <div style={{ textAlign: "center", padding: "80px 24px", color: "#9ca3af" }}>
+              <div style={{ fontSize: "16px" }}>Caricamento notifiche...</div>
+            </div>
+          ) : notifError ? (
+            <div style={{ textAlign: "center", padding: "80px 24px", color: "#b91c1c" }}>
+              <div style={{ fontSize: "16px", fontWeight: 600 }}>Errore nel caricamento dei dati.</div>
+              <p style={{ fontSize: "14px", marginTop: "8px", color: "#6b7280" }}>
+                Ricarica la pagina per riprovare.
+              </p>
+            </div>
+          ) : notifications.length === 0 ? (
             <div style={{ textAlign: "center", padding: "80px 24px", color: "#9ca3af" }}>
               <div style={{ fontSize: "48px", marginBottom: "16px" }}>🔔</div>
               <h3 style={{ fontSize: "16px", fontWeight: 600, color: "#374151" }}>
@@ -174,19 +213,24 @@ export default function NotificationsPage() {
             </div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-              {MOCK_NOTIFICATIONS.map((n) => {
+              {notifications.map((n) => {
                 const priorityColor =
                   PRIORITY_COLORS[n.priority] ?? PRIORITY_COLORS.low!;
                 return (
                   <div
                     key={n.id}
+                    onClick={() => {
+                      if (!n.read) {
+                        markRead.mutate({ id: n.id });
+                      }
+                    }}
                     style={{
                       padding: "16px 20px",
                       background: n.read ? "#ffffff" : "#f8fafc",
                       border: "1px solid #e2e8f0",
                       borderLeft: `4px solid ${priorityColor.text}`,
                       borderRadius: "8px",
-                      cursor: "pointer",
+                      cursor: n.read ? "default" : "pointer",
                       transition: "background 0.15s",
                     }}
                   >

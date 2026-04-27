@@ -287,11 +287,19 @@ export const checkinRouter = router({
       // Dispatch weight alert if deviation exceeds threshold
       if (deviation?.flagged) {
         try {
+          // Fetch client name — needed by onWeightAlert to label the notification/task
+          const { data: alertClient } = await ctx.supabase
+            .from("client")
+            .select("full_name")
+            .eq("id", checkin.client_id)
+            .single();
+
           await inngest.send({
             name: "checkin/weight-alert",
             data: {
-              checkinId: input.token,
+              checkinId: checkin.id,
               clientId: checkin.client_id,
+              clientName: alertClient?.full_name ?? "Cliente",
               partnerId: checkin.partner_id,
               weightKg: input.weightKg,
               deviationKg: deviation.deviationKg,

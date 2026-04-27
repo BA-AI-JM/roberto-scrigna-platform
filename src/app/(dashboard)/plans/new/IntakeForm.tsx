@@ -79,6 +79,7 @@ interface FormData {
   // Page 6 – Stile di Vita
   daily_steps: string;
   occupation: string;
+  occupational_level: "sedentary" | "light" | "moderate" | "heavy" | "very_heavy";
   hunger_timing: string;
   meal_count: string;
   preferred_training_time: string;
@@ -578,6 +579,23 @@ function Page6({ form, set }: { form: FormData; set: (k: keyof FormData, v: stri
         />
       </FieldGroup>
 
+      <FieldGroup
+        label="Livello di attività lavorativa *"
+        note="Usato per calcolare il fabbisogno energetico NEAT nel piano."
+      >
+        <select
+          className={s.select}
+          value={form.occupational_level}
+          onChange={(e) => set("occupational_level", e.target.value)}
+        >
+          <option value="sedentary">Sedentario (lavoro d'ufficio / studio)</option>
+          <option value="light">Leggero (in piedi buona parte del giorno)</option>
+          <option value="moderate">Moderato (lavoro fisico medio)</option>
+          <option value="heavy">Pesante (lavoro fisico intenso)</option>
+          <option value="very_heavy">Molto pesante (lavoro manuale estremo)</option>
+        </select>
+      </FieldGroup>
+
       <FieldGroup label="Senso di fame (quando e quanto)">
         <textarea
           className={s.textarea}
@@ -744,6 +762,7 @@ const initialForm: FormData = {
 
   daily_steps: "",
   occupation: "",
+  occupational_level: "sedentary",
   hunger_timing: "",
   meal_count: "4",
   preferred_training_time: "",
@@ -881,6 +900,8 @@ export default function IntakeForm() {
         medicalHistory: hasMedHistory ? medHistory : undefined,
         trainingSessions:
           Object.keys(trainingSessions).length > 0 ? trainingSessions : undefined,
+        // occupationalLevel drives NEAT calculation in the plan engine
+        occupationalLevel: form.occupational_level,
         lifestyle: {
           daily_steps: parseNum(form.daily_steps),
           occupation: form.occupation || undefined,

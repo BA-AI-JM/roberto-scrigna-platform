@@ -359,11 +359,19 @@ export const invoiceRouter = router({
       // Dispatch invoice/sent event when transitioning to 'sent'
       if (input.status === "sent") {
         try {
+          // Fetch client name for the Inngest consumer (onInvoiceSent uses it directly)
+          const { data: invoiceClient } = await ctx.supabase
+            .from("client")
+            .select("full_name")
+            .eq("id", existing.client_id)
+            .single();
+
           await inngest.send({
             name: "invoice/sent",
             data: {
               invoiceId: existing.id,
               clientId: existing.client_id,
+              clientName: invoiceClient?.full_name ?? "Cliente",
               partnerId: ctx.partnerId,
               amountEur: (existing.amount_cents ?? 0) / 100,
               dueDate: existing.due_date ?? null,

@@ -13,6 +13,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { trpc } from "@/lib/trpc/client";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -131,20 +132,61 @@ function SummaryCard({
 
 // ── Page Component ────────────────────────────────────────────────────────────
 
-/** Mock data for initial shell — replaced with tRPC data when wired */
-const MOCK_CHECKINS: CheckinListItem[] = [];
-
 export default function MonitoringPage() {
   const [activeStatus, setActiveStatus] = useState<CheckinStatus>("all");
 
-  const filteredCheckins =
-    activeStatus === "all"
-      ? MOCK_CHECKINS
-      : MOCK_CHECKINS.filter((c) => c.status === activeStatus);
+  const { data, isLoading, isError } = trpc.checkin.list.useQuery({
+    status: activeStatus === "all" ? undefined : activeStatus,
+    limit: 200,
+    offset: 0,
+  });
 
-  const pendingCount = MOCK_CHECKINS.filter((c) => c.status === "pending").length;
-  const reviewCount = MOCK_CHECKINS.filter((c) => c.status === "completed").length;
-  const flaggedCount = MOCK_CHECKINS.filter((c) => c.weightFlagged).length;
+  // The router returns snake_case columns — map to the camelCase shape the UI expects
+  const checkins: CheckinListItem[] = (data?.checkins ?? []).map((c) => ({
+    id: c.id,
+    status: c.status,
+    weightKg: (c as Record<string, unknown>).weight_kg as number | null ?? null,
+    weightDeviationKg: (c as Record<string, unknown>).weight_deviation_kg as number | null ?? null,
+    weightFlagged: Boolean((c as Record<string, unknown>).weight_flagged),
+    energyLevel: (c as Record<string, unknown>).energy_level as number | null ?? null,
+    sleepQuality: (c as Record<string, unknown>).sleep_quality as number | null ?? null,
+    adherencePct: (c as Record<string, unknown>).adherence_pct as number | null ?? null,
+    aiSummary: (c as Record<string, unknown>).ai_summary as string | null ?? null,
+    dueDate: (c as Record<string, unknown>).due_date as string | null ?? null,
+    completedAt: (c as Record<string, unknown>).completed_at as string | null ?? null,
+    createdAt: c.created_at,
+    client: (() => {
+      const raw = Array.isArray(c.client) ? (c.client[0] ?? null) : c.client;
+      if (!raw) return null;
+      const r = raw as { id: string; full_name?: string; fullName?: string };
+      return { id: r.id, fullName: r.fullName ?? r.full_name ?? "" };
+    })(),
+  }));
+
+  // For summary cards we always need counts across all statuses — use the unfiltered total query
+  const { data: allData } = trpc.checkin.list.useQuery({ limit: 200, offset: 0 });
+  const allCheckins: CheckinListItem[] = (allData?.checkins ?? []).map((c) => ({
+    id: c.id,
+    status: c.status,
+    weightKg: null,
+    weightDeviationKg: null,
+    weightFlagged: Boolean((c as Record<string, unknown>).weight_flagged),
+    energyLevel: null,
+    sleepQuality: null,
+    adherencePct: null,
+    aiSummary: null,
+    dueDate: null,
+    completedAt: null,
+    createdAt: c.created_at,
+    client: null,
+  }));
+
+  const pendingCount = allCheckins.filter((c) => c.status === "pending").length;
+  const reviewCount = allCheckins.filter((c) => c.status === "completed").length;
+  const flaggedCount = allCheckins.filter((c) => c.weightFlagged).length;
+  const totalCount = allData?.total ?? 0;
+
+  const filteredCheckins = checkins;
 
   return (
     <div
@@ -209,7 +251,7 @@ export default function MonitoringPage() {
         <SummaryCard label="In attesa" value={String(pendingCount)} accent />
         <SummaryCard label="Da revisionare" value={String(reviewCount)} />
         <SummaryCard label="Segnalati" value={String(flaggedCount)} />
-        <SummaryCard label="Totale check-in" value={String(MOCK_CHECKINS.length)} />
+        <SummaryCard label="Totale check-in" value={String(totalCount)} />
       </div>
 
       {/* Status Tabs */}
@@ -247,7 +289,18 @@ export default function MonitoringPage() {
       </div>
 
       {/* Check-in Table */}
-      {filteredCheckins.length === 0 ? (
+      {isLoading ? (
+        <div style={{ textAlign: "center", padding: "80px 24px", color: "#9ca3af" }}>
+          <div style={{ fontSize: "16px" }}>Caricamento check-in...</div>
+        </div>
+      ) : isError ? (
+        <div style={{ textAlign: "center", padding: "80px 24px", color: "#b91c1c" }}>
+          <div style={{ fontSize: "16px", fontWeight: 600 }}>Errore nel caricamento dei dati.</div>
+          <p style={{ fontSize: "14px", marginTop: "8px", color: "#6b7280" }}>
+            Ricarica la pagina per riprovare.
+          </p>
+        </div>
+      ) : filteredCheckins.length === 0 ? (
         <div style={{ textAlign: "center", padding: "80px 24px", color: "#9ca3af" }}>
           <div style={{ fontSize: "48px", marginBottom: "16px" }}>📋</div>
           <h3 style={{ fontSize: "16px", fontWeight: 600, color: "#374151" }}>

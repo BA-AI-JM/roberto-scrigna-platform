@@ -164,15 +164,27 @@ export const portalRouter = router({
         limit: z.number().int().min(1).max(20).default(6),
       })
     )
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
       const db = svc();
       const tol = 0.15; // ±15% tolerance on protein
+
+      // Resolve this client's partner so example meals are scoped to that
+      // nutritionist's database only — prevents cross-tenant data exposure.
+      const { data: clientRecord } = await db
+        .from("client")
+        .select("partner_id")
+        .eq("id", ctx.clientId)
+        .single();
+      if (!clientRecord) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Cliente non trovato." });
+      }
 
       let query = db
         .from("example_meal")
         .select(
           "id, name, description, meal_type, kcal_per_serving, protein_g, carbs_g, fat_g, tags"
         )
+        .eq("partner_id", clientRecord.partner_id)
         .eq("meal_type", input.mealType)
         .eq("is_active", true)
         .is("deleted_at", null)
@@ -551,20 +563,21 @@ export const portalRouter = router({
       .limit(1)
       .maybeSingle();
 
-    // Check for a pending check-in token
-    const { data: token } = await db
-      .from("check_in_token")
-      .select("token, expires_at, used_at")
+    // Check for a pending check-in token.
+    // Tokens are stored on the check_in row (check_in.token column) — there is
+    // no separate check_in_token table. Query the most recent pending check-in.
+    const { data: pendingCheckin } = await db
+      .from("check_in")
+      .select("token")
       .eq("client_id", ctx.clientId)
-      .is("used_at", null)
-      .gte("expires_at", new Date().toISOString())
+      .eq("status", "pending")
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
 
     return {
       latestCheckIn: latest ?? null,
-      pendingToken: token?.token ?? null,
+      pendingToken: pendingCheckin?.token ?? null,
     };
   }),
 
