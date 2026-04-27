@@ -14,6 +14,8 @@
 import { z } from "zod/v4";
 import { router, protectedProcedure, publicProcedure } from "../trpc";
 import { TRPCError } from "@trpc/server";
+import { inngest } from "../../lib/inngest/client";
+import { rateLimit } from "../../lib/rate-limit";
 
 // ── Schemas ──────────────────────────────────────────────────────────────────
 
@@ -136,6 +138,22 @@ export const checkinRouter = router({
         });
       }
 
+      // Dispatch checkin/due event — wrapped so dispatch failure never breaks the response
+      try {
+        await inngest.send({
+          name: "checkin/due",
+          data: {
+            checkinId: checkin.id,
+            clientId: input.clientId,
+            clientName: client.full_name,
+            partnerId: ctx.partnerId,
+            dueDate: input.dueDate ?? null,
+          },
+        });
+      } catch (err) {
+        console.error("[router/checkin.sendCheckin] inngest.send failed:", err);
+      }
+
       return {
         checkinId: checkin.id,
         token: checkin.token,
@@ -150,6 +168,12 @@ export const checkinRouter = router({
   validateToken: publicProcedure
     .input(z.object({ token: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
+      const ip = ctx.headers?.get("x-forwarded-for") ?? "unknown";
+      const { success } = rateLimit(`validateToken:${ip}`, 30, 60_000);
+      if (!success) {
+        throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "Troppi tentativi. Riprova tra poco." });
+      }
+
       const { data: checkin } = await ctx.supabase
         .from("check_in")
         .select(
@@ -173,6 +197,12 @@ export const checkinRouter = router({
   submitCheckin: publicProcedure
     .input(checkinSubmissionSchema)
     .mutation(async ({ ctx, input }) => {
+      const ip = ctx.headers?.get("x-forwarded-for") ?? "unknown";
+      const { success } = rateLimit(`submitCheckin:${ip}`, 10, 60_000);
+      if (!success) {
+        throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "Troppi tentativi. Riprova tra poco." });
+      }
+
       // 1. Validate token
       const { data: checkin } = await ctx.supabase
         .from("check_in")
@@ -247,10 +277,29 @@ export const checkinRouter = router({
         .eq("id", checkin.id);
 
       if (error) {
+        console.error("[router/checkin.submitCheckin]", error);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: error.message,
+          message: "Errore nel salvataggio. Riprova tra poco.",
         });
+      }
+
+      // Dispatch weight alert if deviation exceeds threshold
+      if (deviation?.flagged) {
+        try {
+          await inngest.send({
+            name: "checkin/weight-alert",
+            data: {
+              checkinId: input.token,
+              clientId: checkin.client_id,
+              partnerId: checkin.partner_id,
+              weightKg: input.weightKg,
+              deviationKg: deviation.deviationKg,
+            },
+          });
+        } catch (err) {
+          console.error("[router/checkin.submitCheckin] inngest.send weight-alert failed:", err);
+        }
       }
 
       return { success: true, flagged: deviation?.flagged ?? false };
@@ -290,7 +339,8 @@ export const checkinRouter = router({
       const { data, count, error } = await query;
 
       if (error) {
-        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
+        console.error("[router/checkin.list]", error);
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Errore nel caricamento dei dati." });
       }
 
       return { checkins: data ?? [], total: count ?? 0 };
@@ -343,7 +393,8 @@ export const checkinRouter = router({
         .limit(input.limit);
 
       if (error) {
-        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
+        console.error("[router/checkin.batchReview]", error);
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Errore nel caricamento dei dati." });
       }
 
       return data ?? [];
@@ -371,7 +422,8 @@ export const checkinRouter = router({
         .eq("partner_id", ctx.partnerId);
 
       if (error) {
-        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
+        console.error("[router/checkin.markReviewed]", error);
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Errore nell'aggiornamento. Riprova." });
       }
 
       return { success: true };

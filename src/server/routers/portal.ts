@@ -26,6 +26,7 @@ import { z } from "zod/v4";
 import { router, clientProcedure } from "../trpc";
 import { TRPCError } from "@trpc/server";
 import { createSupabaseServiceRole } from "../../lib/supabase/service";
+import { rateLimit } from "../../lib/rate-limit";
 
 // ── Shared Helpers ────────────────────────────────────────────────────────────
 
@@ -130,7 +131,8 @@ export const portalRouter = router({
       .maybeSingle();
 
     if (error) {
-      throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
+      console.error("[router/portal.getActivePlan]", error);
+      throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Errore nel caricamento dei dati." });
     }
 
     return data ?? null;
@@ -174,7 +176,8 @@ export const portalRouter = router({
       const { data, error } = await query;
 
       if (error) {
-        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
+        console.error("[router/portal.getExampleMeals]", error);
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Errore nel caricamento dei dati." });
       }
 
       return data ?? [];
@@ -246,7 +249,8 @@ export const portalRouter = router({
         .order("created_at", { ascending: true });
 
       if (error) {
-        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
+        console.error("[router/portal.getDiaryEntries]", error);
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Errore nel caricamento dei dati." });
       }
 
       return data ?? [];
@@ -327,7 +331,8 @@ export const portalRouter = router({
         .range(input.offset, input.offset + input.limit - 1);
 
       if (error) {
-        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
+        console.error("[router/portal.getTrainingLogs]", error);
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Errore nel caricamento dei dati." });
       }
 
       return { logs: data ?? [], total: count ?? 0 };
@@ -397,7 +402,8 @@ export const portalRouter = router({
         .limit(input.limit);
 
       if (error) {
-        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
+        console.error("[router/portal.getSnapshots]", error);
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Errore nel caricamento dei dati." });
       }
 
       return data ?? [];
@@ -458,7 +464,8 @@ export const portalRouter = router({
       const { data, error } = await query;
 
       if (error) {
-        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
+        console.error("[router/portal.getMessages]", error);
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Errore nel caricamento dei dati." });
       }
 
       return (data ?? []).reverse(); // chronological order
@@ -470,6 +477,12 @@ export const portalRouter = router({
   sendMessage: clientProcedure
     .input(z.object({ body: z.string().min(1).max(5000) }))
     .mutation(async ({ ctx, input }) => {
+      const ip = ctx.headers?.get("x-forwarded-for") ?? ctx.clientId ?? "unknown";
+      const { success } = rateLimit(`portal:sendMessage:${ip}`, 30, 60_000);
+      if (!success) {
+        throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "Troppi tentativi. Riprova tra poco." });
+      }
+
       const db = svc();
       const { data, error } = await db
         .from("message")
@@ -506,7 +519,8 @@ export const portalRouter = router({
       .eq("is_read", false);
 
     if (error) {
-      throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
+      console.error("[router/portal.markMessagesRead]", error);
+      throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Errore nell'aggiornamento. Riprova." });
     }
 
     return { success: true };

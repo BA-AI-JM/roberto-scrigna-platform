@@ -1,11 +1,35 @@
 /**
  * Puppeteer-based PDF generator for Roberto Scrigna branded nutrition reports.
  * Renders the HTML template into a high-quality A4 PDF.
+ *
+ * Uses @sparticuz/chromium + puppeteer-core for Vercel serverless compatibility.
+ * On Vercel, chromium.executablePath() resolves the bundled serverless binary.
+ * Locally, set CHROMIUM_PATH to your system Chromium/Chrome path, or leave
+ * unset to let puppeteer-core fall back to the default system browser.
  */
 
-import puppeteer from "puppeteer";
+import chromium from "@sparticuz/chromium";
+import puppeteerCore from "puppeteer-core";
 import type { PdfReportData, PdfGenerateOptions } from "./types";
 import { renderReportHtml } from "./html-renderer";
+
+/**
+ * Resolve the executable path for the Chromium/Chrome binary.
+ *
+ * Resolution order:
+ *  1. CHROMIUM_PATH env var (explicit override — useful for CI or custom setups)
+ *  2. On Vercel (VERCEL env var present): @sparticuz/chromium auto-detected path
+ *  3. Locally: undefined — puppeteer-core falls back to the system browser
+ */
+async function resolveExecutablePath(): Promise<string | undefined> {
+  if (process.env.CHROMIUM_PATH) {
+    return process.env.CHROMIUM_PATH;
+  }
+  if (process.env.VERCEL) {
+    return chromium.executablePath();
+  }
+  return undefined;
+}
 
 /**
  * Generate a branded PDF report as a Buffer.
@@ -23,9 +47,13 @@ export async function generatePdf(
 ): Promise<Uint8Array> {
   const html = renderReportHtml(data, options);
 
-  const browser = await puppeteer.launch({
+  const executablePath = await resolveExecutablePath();
+
+  const browser = await puppeteerCore.launch({
+    args: chromium.args,
+    defaultViewport: { width: 1280, height: 800 },
+    executablePath,
     headless: true,
-    args: ["--no-sandbox", "--disable-setuid-sandbox"],
   });
 
   try {

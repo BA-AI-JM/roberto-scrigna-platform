@@ -18,6 +18,7 @@
 
 import { inngest } from "./client";
 import { createClient } from "@supabase/supabase-js";
+import { resend, FROM_EMAIL } from "../resend/client";
 
 // ── Supabase service-role client for background jobs ────────────────────────
 
@@ -26,6 +27,90 @@ function getServiceDb() {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
+}
+
+// ── Helper: send email via Resend ───────────────────────────────────────────
+
+async function sendEmail(to: string, subject: string, html: string): Promise<void> {
+  try {
+    await resend.emails.send({
+      from: FROM_EMAIL,
+      to,
+      subject,
+      html,
+    });
+  } catch (err) {
+    console.error("[inngest/sendEmail] Failed to send email:", { to, subject, err });
+  }
+}
+
+// ── Helper: fetch client email from DB ─────────────────────────────────────
+
+async function getClientEmail(clientId: string): Promise<string | null> {
+  const db = getServiceDb();
+  const { data } = await db
+    .from("client")
+    .select("email")
+    .eq("id", clientId)
+    .single();
+  return data?.email ?? null;
+}
+
+// ── Helper: portal base URL ─────────────────────────────────────────────────
+
+function portalUrl(path = ""): string {
+  const base =
+    process.env.NEXT_PUBLIC_APP_URL ??
+    process.env.NEXT_PUBLIC_SITE_URL ??
+    "https://app.robertoscrigna.it";
+  return `${base}/portal${path}`;
+}
+
+// ── Email Templates ─────────────────────────────────────────────────────────
+
+function emailWrapper(title: string, body: string): string {
+  return `<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>${title}</title>
+</head>
+<body style="margin:0;padding:0;background:#f8fafc;font-family:system-ui,-apple-system,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;padding:32px 0;">
+    <tr>
+      <td align="center">
+        <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;">
+          <!-- Header -->
+          <tr>
+            <td style="background:#1a1a2e;padding:24px 32px;">
+              <p style="margin:0;font-size:13px;color:#9ca3af;">Roberto Scrigna — Nutrizione Sportiva</p>
+            </td>
+          </tr>
+          <!-- Body -->
+          <tr>
+            <td style="padding:32px;">
+              ${body}
+            </td>
+          </tr>
+          <!-- Footer -->
+          <tr>
+            <td style="padding:20px 32px;border-top:1px solid #f1f5f9;">
+              <p style="margin:0;font-size:11px;color:#d1d5db;text-align:center;">
+                Roberto Scrigna — Nutrizione Sportiva · Portale Clienti
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}
+
+function btnHtml(href: string, label: string): string {
+  return `<a href="${href}" style="display:inline-block;padding:12px 28px;background:#1a1a2e;color:#ffffff;border-radius:8px;text-decoration:none;font-size:14px;font-weight:600;margin-top:20px;">${label}</a>`;
 }
 
 // ── Helper: create notification ─────────────────────────────────────────────
@@ -108,6 +193,26 @@ export const onPlanDelivered = inngest.createFunction(
       });
     });
 
+    // N1: Email the client — piano pronto
+    await step.run("email-plan-delivered", async () => {
+      const email = await getClientEmail(clientId);
+      if (email) {
+        const html = emailWrapper(
+          "Il tuo piano nutrizionale è pronto",
+          `<h2 style="margin:0 0 12px;font-size:20px;color:#1a1a2e;">Il tuo piano nutrizionale è pronto!</h2>
+<p style="margin:0 0 16px;font-size:14px;color:#374151;line-height:1.6;">
+  Ciao ${clientName},<br/>
+  il tuo piano nutrizionale personalizzato è stato preparato ed è ora disponibile nel portale.
+</p>
+<p style="margin:0;font-size:14px;color:#374151;line-height:1.6;">
+  Accedi all'area clienti per visualizzare i tuoi pasti, gli obiettivi giornalieri e il protocollo integratori.
+</p>
+${btnHtml(portalUrl("/dashboard"), "Visualizza il piano")}`
+        );
+        await sendEmail(email, "Il tuo piano nutrizionale è pronto!", html);
+      }
+    });
+
     // N2: Follow-up if not viewed in 48h
     await step.sleep("wait-48h", "48h");
 
@@ -119,7 +224,7 @@ export const onPlanDelivered = inngest.createFunction(
         .eq("id", planId)
         .single();
 
-      if (plan) {
+      if (plan && plan.status === "delivered") {
         await createNotification({
           partnerId,
           clientId,
@@ -163,7 +268,7 @@ export const onCheckinDue = inngest.createFunction(
     const d = event.data as EventData;
     const { checkinId, clientId, clientName, partnerId, dueDate } = d;
 
-    // N4: Notify on due date
+    // N4: Notify on due date + send email to client with check-in link
     await step.run("notify-checkin-due", async () => {
       await createNotification({
         partnerId,
@@ -173,6 +278,41 @@ export const onCheckinDue = inngest.createFunction(
         body: `Il check-in di ${clientName} è previsto per oggi.`,
         metadata: { checkinId, dueDate },
       });
+    });
+
+    await step.run("email-checkin-due", async () => {
+      const db = getServiceDb();
+      // Fetch the check-in token to include in the email link
+      const { data: token } = await db
+        .from("check_in_token")
+        .select("token")
+        .eq("client_id", clientId)
+        .is("used_at", null)
+        .gte("expires_at", new Date().toISOString())
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const email = await getClientEmail(clientId);
+      if (email) {
+        const checkinLink = token?.token
+          ? portalUrl(`/checkin/${token.token}`)
+          : portalUrl("/dashboard");
+
+        const html = emailWrapper(
+          "È il momento del check-in settimanale",
+          `<h2 style="margin:0 0 12px;font-size:20px;color:#1a1a2e;">È il momento del check-in!</h2>
+<p style="margin:0 0 16px;font-size:14px;color:#374151;line-height:1.6;">
+  Ciao ${clientName},<br/>
+  è arrivato il momento del tuo check-in settimanale. Registra il tuo peso e le tue sensazioni per aiutare il tuo coach a ottimizzare il piano.
+</p>
+<p style="margin:0;font-size:14px;color:#374151;line-height:1.6;">
+  Il link è valido per 7 giorni.
+</p>
+${btnHtml(checkinLink, "Inizia il check-in")}`
+        );
+        await sendEmail(email, "È il momento del check-in settimanale", html);
+      }
     });
 
     // N5: Wait 5 days, then check if completed
@@ -254,6 +394,51 @@ export const onInvoiceSent = inngest.createFunction(
         body: `Fattura di €${Number(amountEur).toFixed(2)} inviata. Scadenza: ${dueDate}.`,
         metadata: { invoiceId, amountEur },
       });
+    });
+
+    // N6: Email the client with invoice details
+    await step.run("email-invoice-sent", async () => {
+      const email = await getClientEmail(clientId);
+      if (email) {
+        // Fetch invoice number from DB for a precise reference
+        const db = getServiceDb();
+        const { data: invoice } = await db
+          .from("invoice")
+          .select("invoice_number, amount_cents")
+          .eq("id", invoiceId)
+          .single();
+
+        const invoiceNumber = invoice?.invoice_number ?? invoiceId;
+        const amount =
+          invoice?.amount_cents != null
+            ? (invoice.amount_cents / 100).toFixed(2)
+            : Number(amountEur).toFixed(2);
+
+        const html = emailWrapper(
+          "Nuova fattura disponibile",
+          `<h2 style="margin:0 0 12px;font-size:20px;color:#1a1a2e;">Nuova fattura disponibile</h2>
+<p style="margin:0 0 16px;font-size:14px;color:#374151;line-height:1.6;">
+  Ciao ${clientName},<br/>
+  è disponibile una nuova fattura per i servizi di consulenza nutrizionale.
+</p>
+<table cellpadding="0" cellspacing="0" style="width:100%;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;margin-bottom:4px;">
+  <tr style="background:#f8fafc;">
+    <td style="padding:12px 16px;font-size:13px;color:#6b7280;font-weight:600;">Numero fattura</td>
+    <td style="padding:12px 16px;font-size:13px;color:#1a1a2e;font-weight:700;text-align:right;">${invoiceNumber}</td>
+  </tr>
+  <tr>
+    <td style="padding:12px 16px;font-size:13px;color:#6b7280;font-weight:600;">Importo</td>
+    <td style="padding:12px 16px;font-size:14px;color:#1a1a2e;font-weight:700;text-align:right;">€ ${amount}</td>
+  </tr>
+  <tr style="background:#f8fafc;">
+    <td style="padding:12px 16px;font-size:13px;color:#6b7280;font-weight:600;">Scadenza</td>
+    <td style="padding:12px 16px;font-size:13px;color:#1a1a2e;font-weight:700;text-align:right;">${dueDate}</td>
+  </tr>
+</table>
+${btnHtml(portalUrl("/dashboard"), "Accedi all'area clienti")}`
+        );
+        await sendEmail(email, `Nuova fattura disponibile — ${invoiceNumber}`, html);
+      }
     });
   }
 );

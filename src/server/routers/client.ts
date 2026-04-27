@@ -34,6 +34,10 @@ const trainingSessionSchema = z.object({
 const createSnapshotSchema = z.object({
   clientId: z.string().uuid(),
 
+  // Basic measurements (page 1)
+  weightKg: z.number().min(30).max(300).optional(),
+  heightCm: z.number().min(50).max(280).optional(),
+
   // Circumferences (page 2)
   circumferences: z
     .object({
@@ -253,17 +257,19 @@ export const clientRouter = router({
       }
 
       if (input?.search) {
+        const escaped = input.search.replace(/[%_]/g, "\\$&");
         query = query.or(
-          `full_name.ilike.%${input.search}%,email.ilike.%${input.search}%`
+          `full_name.ilike.%${escaped}%,email.ilike.%${escaped}%`
         );
       }
 
       const { data, count, error } = await query;
 
       if (error) {
+        console.error("[router/client.list]", error);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: error.message,
+          message: "Errore nel caricamento dei dati.",
         });
       }
 
@@ -335,9 +341,10 @@ export const clientRouter = router({
         .single();
 
       if (error) {
+        console.error("[router/client.create]", error);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: error.message,
+          message: "Errore nel salvataggio. Riprova tra poco.",
         });
       }
 
@@ -419,23 +426,37 @@ export const clientRouter = router({
         noteLines.push(`Peso target: ${input.goal.target_weight_kg} kg`);
       }
 
+      // Determine body fat method based on provided skinfold data
+      let bodyFatMethod: string | null = null;
+      if (input.skinfolds) {
+        const filledSites = Object.values(input.skinfolds).filter(
+          (v) => v != null && v > 0
+        ).length;
+        if (filledSites >= 7) bodyFatMethod = "7site";
+        else if (filledSites >= 3) bodyFatMethod = "3site";
+      }
+
       const { data: snapshot, error: snapshotError } = await ctx.supabase
         .from("client_snapshot")
         .insert({
           client_id: input.clientId,
+          weight_kg: input.weightKg ?? null,
+          height_cm: input.heightCm ?? null,
           age_years: ageYears,
           daily_steps: input.lifestyle?.daily_steps ?? null,
           week_schedule: weekSchedule,
           skinfold_data: extendedData,
+          body_fat_method: bodyFatMethod,
           notes: noteLines.length > 0 ? noteLines.join("\n") : null,
         })
         .select("id")
         .single();
 
       if (snapshotError) {
+        console.error("[router/client.createSnapshot]", snapshotError);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: snapshotError.message,
+          message: "Errore nel salvataggio. Riprova tra poco.",
         });
       }
 
@@ -471,13 +492,56 @@ export const clientRouter = router({
         .single();
 
       if (error) {
+        console.error("[router/client.update]", error);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: error.message,
+          message: "Errore nell'aggiornamento. Riprova.",
         });
       }
 
       return data;
+    }),
+
+  /**
+   * List all snapshots for a client ordered by most recent first.
+   * Scoped to the current partner via RLS (uses ctx.supabase, not service role).
+   */
+  listSnapshots: protectedProcedure
+    .input(z.object({ clientId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      // Verify client belongs to this partner before returning snapshots
+      const { data: clientCheck, error: clientError } = await ctx.supabase
+        .from("client")
+        .select("id")
+        .eq("id", input.clientId)
+        .eq("partner_id", ctx.partnerId)
+        .is("deleted_at", null)
+        .single();
+
+      if (clientError || !clientCheck) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Cliente non trovato.",
+        });
+      }
+
+      const { data, error } = await ctx.supabase
+        .from("client_snapshot")
+        .select(
+          "id, taken_at, weight_kg, height_cm, body_fat_pct, body_fat_method, lean_mass_kg, fat_mass_kg, daily_steps, bmr_kcal"
+        )
+        .eq("client_id", input.clientId)
+        .order("taken_at", { ascending: false });
+
+      if (error) {
+        console.error("[router/client.listSnapshots]", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Errore nel caricamento degli snapshot.",
+        });
+      }
+
+      return data ?? [];
     }),
 
   /**
@@ -496,9 +560,10 @@ export const clientRouter = router({
         .eq("partner_id", ctx.partnerId);
 
       if (error) {
+        console.error("[router/client.archive]", error);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: error.message,
+          message: "Errore nell'eliminazione. Riprova.",
         });
       }
 
@@ -578,9 +643,10 @@ export const clientRouter = router({
         .single();
 
       if (snapshotError) {
+        console.error("[router/client.submitIntakeForm]", snapshotError);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: snapshotError.message,
+          message: "Errore nel salvataggio. Riprova tra poco.",
         });
       }
 

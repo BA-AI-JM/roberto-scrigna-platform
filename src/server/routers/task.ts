@@ -72,7 +72,8 @@ export const taskRouter = router({
       const { data, error } = await query;
 
       if (error) {
-        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
+        console.error("[router/task.list]", error);
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Errore nel caricamento dei dati." });
       }
 
       return data ?? [];
@@ -109,7 +110,8 @@ export const taskRouter = router({
         .order("due_date", { ascending: true });
 
       if (error) {
-        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
+        console.error("[router/task.getUpcoming]", error);
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Errore nel caricamento dei dati." });
       }
 
       return data ?? [];
@@ -195,7 +197,8 @@ export const taskRouter = router({
         .is("deleted_at", null);
 
       if (error) {
-        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
+        console.error("[router/task.update]", error);
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Errore nell'aggiornamento. Riprova." });
       }
 
       return { success: true };
@@ -217,7 +220,8 @@ export const taskRouter = router({
         .eq("partner_id", ctx.partnerId);
 
       if (error) {
-        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
+        console.error("[router/task.delete]", error);
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Errore nell'eliminazione. Riprova." });
       }
 
       return { success: true };

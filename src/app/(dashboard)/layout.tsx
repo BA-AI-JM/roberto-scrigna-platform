@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { createSupabaseServer } from "@/lib/supabase/server";
-import { Sidebar } from "./sidebar";
+import { DashboardShell } from "./dashboard-shell";
 
 /**
  * Dashboard layout — requires authenticated partner.
@@ -12,7 +12,9 @@ export default async function DashboardLayout({
   children: React.ReactNode;
 }) {
   const supabase = await createSupabaseServer();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   if (!user) {
     redirect("/login");
@@ -29,10 +31,5 @@ export default async function DashboardLayout({
     partnerName = partner?.full_name ?? user.email ?? "Coach";
   }
 
-  return (
-    <div className="flex min-h-screen">
-      <Sidebar partnerName={partnerName} />
-      <main className="flex-1 overflow-y-auto bg-zinc-50 p-8">{children}</main>
-    </div>
-  );
+  return <DashboardShell partnerName={partnerName}>{children}</DashboardShell>;
 }

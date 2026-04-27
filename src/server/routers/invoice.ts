@@ -14,6 +14,7 @@
 import { z } from "zod/v4";
 import { router, protectedProcedure } from "../trpc";
 import { TRPCError } from "@trpc/server";
+import { inngest } from "../../lib/inngest/client";
 
 // ── Schemas ──────────────────────────────────────────────────────────────────
 
@@ -147,9 +148,10 @@ export const invoiceRouter = router({
       const { data, error } = await query;
 
       if (error) {
+        console.error("[router/invoice.list]", error);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: error.message,
+          message: "Errore nel caricamento dei dati.",
         });
       }
 
@@ -291,7 +293,8 @@ export const invoiceRouter = router({
         .eq("id", input.id);
 
       if (error) {
-        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
+        console.error("[router/invoice.update]", error);
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Errore nell'aggiornamento. Riprova." });
       }
 
       return { success: true };
@@ -306,7 +309,7 @@ export const invoiceRouter = router({
     .mutation(async ({ ctx, input }) => {
       const { data: existing, error: fetchError } = await ctx.supabase
         .from("invoice")
-        .select("id, status")
+        .select("id, status, client_id, amount_cents, due_date")
         .eq("id", input.id)
         .eq("partner_id", ctx.partnerId)
         .is("deleted_at", null)
@@ -349,7 +352,26 @@ export const invoiceRouter = router({
         .eq("id", input.id);
 
       if (error) {
-        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
+        console.error("[router/invoice.updateStatus]", error);
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Errore nell'aggiornamento. Riprova." });
+      }
+
+      // Dispatch invoice/sent event when transitioning to 'sent'
+      if (input.status === "sent") {
+        try {
+          await inngest.send({
+            name: "invoice/sent",
+            data: {
+              invoiceId: existing.id,
+              clientId: existing.client_id,
+              partnerId: ctx.partnerId,
+              amountEur: (existing.amount_cents ?? 0) / 100,
+              dueDate: existing.due_date ?? null,
+            },
+          });
+        } catch (err) {
+          console.error("[router/invoice.updateStatus] inngest.send failed:", err);
+        }
       }
 
       return { success: true };
@@ -372,7 +394,8 @@ export const invoiceRouter = router({
         .eq("partner_id", ctx.partnerId);
 
       if (error) {
-        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
+        console.error("[router/invoice.delete]", error);
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Errore nell'eliminazione. Riprova." });
       }
 
       return { success: true };
@@ -390,7 +413,8 @@ export const invoiceRouter = router({
       .is("deleted_at", null);
 
     if (error) {
-      throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
+      console.error("[router/invoice.getSummary]", error);
+      throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Errore nel caricamento dei dati." });
     }
 
     const invoices = data ?? [];

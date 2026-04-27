@@ -12,6 +12,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { trpc } from "@/lib/trpc/client";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -164,6 +165,7 @@ function TableSkeleton() {
 // ── Page Component ────────────────────────────────────────────────────────────
 
 export default function InvoicesPage() {
+  const router = useRouter();
   const [activeStatus, setActiveStatus] = useState<InvoiceStatus>("all");
 
   // Fetch invoices — pass status filter (undefined = all)
@@ -390,7 +392,7 @@ export default function InvoicesPage() {
                           cursor: "pointer",
                         }}
                         onClick={() =>
-                          (window.location.href = `/invoices/${row.id}`)
+                          router.push(`/invoices/${row.id}`)
                         }
                       >
                         <td

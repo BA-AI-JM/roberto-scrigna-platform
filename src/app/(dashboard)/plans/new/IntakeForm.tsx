@@ -36,6 +36,7 @@ interface FormData {
   full_name: string;
   date_of_birth: string;
   height_cm: string;
+  weight_kg: string;
   sex: "male" | "female" | "";
   email: string;
   phone: string;
@@ -190,6 +191,19 @@ function Page1({ form, set }: { form: FormData; set: (k: keyof FormData, v: stri
             placeholder="175"
             min={50}
             max={280}
+          />
+        </FieldGroup>
+
+        <FieldGroup label="Peso attuale (kg) *">
+          <input
+            type="number"
+            className={s.input}
+            value={form.weight_kg}
+            onChange={(e) => set("weight_kg", e.target.value)}
+            placeholder="75"
+            min={30}
+            max={300}
+            step={0.1}
           />
         </FieldGroup>
       </div>
@@ -692,6 +706,7 @@ const initialForm: FormData = {
   full_name: "",
   date_of_birth: "",
   height_cm: "",
+  weight_kg: "",
   sex: "",
   email: "",
   phone: "",
@@ -774,6 +789,7 @@ export default function IntakeForm() {
     form.full_name.trim().length >= 2 &&
     form.date_of_birth !== "" &&
     form.height_cm !== "" &&
+    form.weight_kg !== "" &&
     form.sex !== "";
 
   const canProceed = page === 1 ? page1Valid : true;
@@ -788,7 +804,7 @@ export default function IntakeForm() {
 
   const handleSubmit = async () => {
     if (!page1Valid) {
-      setSubmitError("Compila i campi obbligatori (Nome, Data di nascita, Altezza, Sesso).");
+      setSubmitError("Compila i campi obbligatori (Nome, Data di nascita, Altezza, Peso, Sesso).");
       setPage(1);
       return;
     }
@@ -858,6 +874,7 @@ export default function IntakeForm() {
       // Step 6: Create snapshot
       await createSnapshot.mutateAsync({
         clientId: client.id,
+        weightKg: parseNum(form.weight_kg),
         circumferences: hasCircumferences ? circumferences : undefined,
         skinfolds: hasSkinfolds ? skinfolds : undefined,
         medicalHistory: hasMedHistory ? medHistory : undefined,

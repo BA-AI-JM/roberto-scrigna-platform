@@ -156,7 +156,8 @@ export const guidanceRouter = router({
       const { data, error } = await query;
 
       if (error) {
-        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
+        console.error("[router/guidance.listDbBlocks]", error);
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Errore nel caricamento dei dati." });
       }
 
       return data ?? [];
@@ -238,7 +239,8 @@ export const guidanceRouter = router({
         .is("deleted_at", null);
 
       if (error) {
-        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
+        console.error("[router/guidance.updateDbBlock]", error);
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Errore nell'aggiornamento. Riprova." });
       }
 
       return { success: true };
@@ -260,7 +262,8 @@ export const guidanceRouter = router({
         .eq("partner_id", ctx.partnerId);
 
       if (error) {
-        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
+        console.error("[router/guidance.deleteDbBlock]", error);
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Errore nell'eliminazione. Riprova." });
       }
 
       return { success: true };

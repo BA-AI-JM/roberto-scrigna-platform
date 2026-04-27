@@ -2,7 +2,8 @@
  * Portal root layout.
  *
  * Provides the tRPC + React Query context for all portal pages.
- * Auth protection is applied in the (protected) sub-layout.
+ * Auth protection is handled in the (protected) sub-layout so that
+ * /portal/login and /portal/auth/callback are not guarded.
  */
 
 import { TRPCProvider } from "@/lib/trpc/provider";

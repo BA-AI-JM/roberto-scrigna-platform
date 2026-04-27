@@ -68,6 +68,29 @@ const DAY_TYPE_LABELS: Record<DayType, string> = {
   deload: "Giorno di Deload",
 };
 
+const MEAL_LABELS: Record<string, string> = {
+  breakfast: "Colazione",
+  lunch: "Pranzo",
+  dinner: "Cena",
+  snack: "Spuntino",
+  snack_1: "Spuntino 1",
+  snack_2: "Spuntino 2",
+  snack_3: "Spuntino 3",
+  pre_workout: "Pre-Allenamento",
+  post_workout: "Post-Allenamento",
+};
+
+const METRIC_LABELS: Record<string, string> = {
+  weight_kg: "Peso",
+  energy_level: "Energia",
+  sleep_quality: "Qualità del sonno",
+  stress_level: "Stress",
+  hunger_level: "Fame",
+  digestion: "Digestione",
+  adherence_diet: "Aderenza dieta",
+  adherence_training: "Aderenza allenamento",
+};
+
 const ENERGY_THEMES: Record<string, { label: string; colour: string; bg: string }> = {
   deficit: { label: "Deficit Calorico", colour: "#dc2626", bg: "#fef2f2" },
   surplus: { label: "Surplus Calorico", colour: "#16a34a", bg: "#f0fdf4" },
@@ -110,6 +133,12 @@ export default function PlanReviewPage({
   const [approveSuccess, setApproveSuccess] = useState(false);
   const [review, setReview] = useState<ReviewState>(EMPTY_STATE);
 
+  // Share modal state
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [shareEmail, setShareEmail] = useState<string>("");
+  const [shareSuccess, setShareSuccess] = useState(false);
+  const [shareError, setShareError] = useState<string>("");
+
   // Resolve params promise (Next.js 16 app router)
   useEffect(() => {
     params.then(({ id }) => setPlanId(id));
@@ -126,6 +155,21 @@ export default function PlanReviewPage({
     onSuccess: () => {
       setApproveSuccess(true);
       setReview((prev) => ({ ...prev, status: "active" }));
+    },
+  });
+
+  // Share mutation
+  const shareMutation = trpc.plan.shareWithClient.useMutation({
+    onSuccess: () => {
+      setShareSuccess(true);
+      setShareError("");
+      setTimeout(() => {
+        setShowShareModal(false);
+        setShareSuccess(false);
+      }, 2500);
+    },
+    onError: (err) => {
+      setShareError(err.message ?? "Errore nell'invio. Riprova.");
     },
   });
 
@@ -148,6 +192,14 @@ export default function PlanReviewPage({
       assumptions: bundle.assumptions,
     });
   }, [data]);
+
+  // Pre-fill share email from loaded client data (macroPayload carries clientEmail if present)
+  useEffect(() => {
+    if (data && !shareEmail) {
+      const email = (data.macroPayload as Record<string, unknown>)?.clientEmail as string | undefined;
+      if (email) setShareEmail(email);
+    }
+  }, [data]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Supplement edit callbacks
   const updateSupplement = useCallback(
@@ -203,6 +255,15 @@ export default function PlanReviewPage({
     if (!planId) return;
     window.open(`/api/pdf/${planId}`, "_blank");
   }, [planId]);
+
+  const handleShare = useCallback(async () => {
+    if (!planId) return;
+    setShareError("");
+    await shareMutation.mutateAsync({
+      planId,
+      email: shareEmail || undefined,
+    });
+  }, [planId, shareEmail, shareMutation]);
 
   // ── Styles ────────────────────────────────────────────────────────────────
 
@@ -356,6 +417,29 @@ export default function PlanReviewPage({
             Scarica PDF
           </button>
 
+          <button
+            onClick={() => {
+              setShowShareModal(true);
+              setShareSuccess(false);
+              setShareError("");
+            }}
+            style={{
+              padding: "8px 20px",
+              border: "1px solid #d9f99d",
+              borderRadius: "8px",
+              backgroundColor: "#f7fee7",
+              color: "#3d7c0a",
+              cursor: "pointer",
+              fontSize: "13px",
+              fontWeight: 600,
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+            }}
+          >
+            <span>✉</span> Condividi con Cliente
+          </button>
+
           {review.status !== "active" && (
             <button
               onClick={handleApprove}
@@ -392,6 +476,108 @@ export default function PlanReviewPage({
           )}
         </div>
       </div>
+
+      {/* Share modal */}
+      {showShareModal && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            backgroundColor: "rgba(0,0,0,0.4)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 50,
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowShareModal(false);
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: "#ffffff",
+              borderRadius: "14px",
+              padding: "28px 32px",
+              width: "100%",
+              maxWidth: "420px",
+              boxShadow: "0 20px 60px rgba(0,0,0,0.15)",
+            }}
+          >
+            <h2 style={{ fontSize: "18px", fontWeight: 700, marginTop: 0, marginBottom: "6px", color: "#18181b" }}>
+              Condividi con Cliente
+            </h2>
+            <p style={{ fontSize: "13px", color: "#71717a", marginTop: 0, marginBottom: "20px" }}>
+              Invia il piano al cliente via email con un riepilogo macro e il link al portale.
+            </p>
+
+            <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: "#3f3f46", marginBottom: "6px" }}>
+              Indirizzo email
+            </label>
+            <input
+              type="email"
+              value={shareEmail}
+              onChange={(e) => setShareEmail(e.target.value)}
+              placeholder="email@cliente.it"
+              style={{
+                width: "100%",
+                padding: "10px 12px",
+                border: "1px solid #d4d4d8",
+                borderRadius: "8px",
+                fontSize: "14px",
+                outline: "none",
+                boxSizing: "border-box",
+                color: "#18181b",
+              }}
+            />
+
+            {shareError && (
+              <p style={{ fontSize: "13px", color: "#dc2626", marginTop: "10px", marginBottom: 0 }}>
+                {shareError}
+              </p>
+            )}
+
+            {shareSuccess && (
+              <p style={{ fontSize: "13px", color: "#16a34a", fontWeight: 600, marginTop: "10px", marginBottom: 0 }}>
+                Piano condiviso con successo!
+              </p>
+            )}
+
+            <div style={{ display: "flex", gap: "10px", marginTop: "20px", justifyContent: "flex-end" }}>
+              <button
+                onClick={() => setShowShareModal(false)}
+                style={{
+                  padding: "9px 18px",
+                  border: "1px solid #e4e4e7",
+                  borderRadius: "8px",
+                  backgroundColor: "#ffffff",
+                  color: "#3f3f46",
+                  cursor: "pointer",
+                  fontSize: "13px",
+                  fontWeight: 500,
+                }}
+              >
+                Annulla
+              </button>
+              <button
+                onClick={handleShare}
+                disabled={shareMutation.isPending || shareSuccess}
+                style={{
+                  padding: "9px 20px",
+                  border: "none",
+                  borderRadius: "8px",
+                  backgroundColor: shareMutation.isPending || shareSuccess ? "#6b7280" : "#16a34a",
+                  color: "#ffffff",
+                  cursor: shareMutation.isPending || shareSuccess ? "not-allowed" : "pointer",
+                  fontSize: "13px",
+                  fontWeight: 600,
+                }}
+              >
+                {shareMutation.isPending ? "Invio in corso..." : "Invia Email"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Tab navigation */}
       <div
@@ -701,11 +887,10 @@ function MealsTab({
                   style={{
                     fontWeight: 600,
                     fontSize: "14px",
-                    textTransform: "capitalize",
                     color: "#18181b",
                   }}
                 >
-                  {slot.slot.replace(/_/g, " ")}
+                  {MEAL_LABELS[slot.slot] ?? slot.slot.replace(/_/g, " ")}
                 </span>
                 <span style={{ fontSize: "12px", color: "#71717a" }}>
                   {Math.round(slot.primary.actualMacros.kcal)} kcal &middot; P{" "}
@@ -717,12 +902,44 @@ function MealsTab({
               <p
                 style={{
                   fontSize: "14px",
-                  margin: "0 0 4px 0",
+                  fontWeight: 600,
+                  margin: "0 0 6px 0",
                   color: "#3f3f46",
                 }}
               >
                 {slot.primary.template.name}
               </p>
+              {slot.primary.scaledIngredients.length > 0 && (
+                <ul
+                  style={{
+                    margin: "0 0 6px 0",
+                    padding: 0,
+                    listStyle: "none",
+                  }}
+                >
+                  {slot.primary.scaledIngredients.map((ing, idx) => (
+                    <li
+                      key={idx}
+                      style={{
+                        fontSize: "13px",
+                        color: "#52525b",
+                        padding: "2px 0",
+                        display: "flex",
+                        justifyContent: "space-between",
+                        borderBottom:
+                          idx < slot.primary.scaledIngredients.length - 1
+                            ? "1px solid #f4f4f5"
+                            : "none",
+                      }}
+                    >
+                      <span>{ing.name}</span>
+                      <span style={{ fontWeight: 600, color: "#18181b" }}>
+                        {Math.round(ing.grams)}g
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
               {slot.substitutions.length > 0 && (
                 <p style={{ fontSize: "12px", color: "#a1a1aa", margin: 0 }}>
                   Alternative:{" "}
@@ -977,7 +1194,7 @@ function MonitoringTab({
                 color: "#3f3f46",
               }}
             >
-              {m.replace(/_/g, " ")}
+              {METRIC_LABELS[m] ?? m.replace(/_/g, " ")}
             </span>
           ))}
         </div>

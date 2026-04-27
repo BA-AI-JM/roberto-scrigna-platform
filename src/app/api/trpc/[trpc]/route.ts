@@ -8,13 +8,15 @@ import { createTrpcContext } from "../../../../server/trpc";
 
 /**
  * Handle tRPC requests via fetch adapter.
+ * Passes the raw Request into createTrpcContext so procedures can
+ * access headers (e.g. x-forwarded-for for rate limiting).
  */
 function handler(req: Request) {
   return fetchRequestHandler({
     endpoint: "/api/trpc",
     req,
     router: appRouter,
-    createContext: createTrpcContext,
+    createContext: ({ req: fetchReq }) => createTrpcContext({ req: fetchReq }),
   });
 }
 

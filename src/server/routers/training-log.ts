@@ -174,7 +174,8 @@ export const trainingLogRouter = router({
       const { data, count, error } = await query;
 
       if (error) {
-        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
+        console.error("[router/trainingLog.list]", error);
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Errore nel caricamento dei dati." });
       }
 
       return { logs: data ?? [], total: count ?? 0 };
@@ -250,7 +251,8 @@ export const trainingLogRouter = router({
         .is("deleted_at", null);
 
       if (error) {
-        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
+        console.error("[router/trainingLog.update]", error);
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Errore nell'aggiornamento. Riprova." });
       }
 
       return { success: true };
@@ -269,7 +271,8 @@ export const trainingLogRouter = router({
         .eq("partner_id", ctx.partnerId);
 
       if (error) {
-        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
+        console.error("[router/trainingLog.delete]", error);
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Errore nell'eliminazione. Riprova." });
       }
 
       return { success: true };

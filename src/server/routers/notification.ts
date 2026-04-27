@@ -114,7 +114,8 @@ export const notificationRouter = router({
       const { data, count, error } = await query;
 
       if (error) {
-        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
+        console.error("[router/notification.list]", error);
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Errore nel caricamento dei dati." });
       }
 
       return { notifications: data ?? [], total: count ?? 0 };
@@ -131,7 +132,8 @@ export const notificationRouter = router({
       .eq("read", false);
 
     if (error) {
-      throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
+      console.error("[router/notification.getUnreadCount]", error);
+      throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Errore nel caricamento dei dati." });
     }
 
     return { count: count ?? 0 };
@@ -150,7 +152,8 @@ export const notificationRouter = router({
         .eq("partner_id", ctx.partnerId);
 
       if (error) {
-        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
+        console.error("[router/notification.markRead]", error);
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Errore nell'aggiornamento. Riprova." });
       }
 
       return { success: true };
@@ -167,7 +170,8 @@ export const notificationRouter = router({
       .eq("read", false);
 
     if (error) {
-      throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
+      console.error("[router/notification.markAllRead]", error);
+      throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Errore nell'aggiornamento. Riprova." });
     }
 
     return { success: true };
@@ -222,7 +226,8 @@ export const notificationRouter = router({
         });
 
       if (error) {
-        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
+        console.error("[router/notification.updateSettings]", error);
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Errore nell'aggiornamento. Riprova." });
       }
 
       return { success: true };

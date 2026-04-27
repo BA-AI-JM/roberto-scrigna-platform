@@ -19,6 +19,7 @@ import type {
   MealSlot,
   MealTag,
   MealTemplate,
+  MealType,
   MacroDeviation,
   SlotMacroTargets,
   ToleranceBands,
@@ -139,10 +140,11 @@ function tightenPlan(
       carbsG: Math.max(5, lastSlot.targetMacros.carbsG - deviation.carbsG),
     };
 
-    // Get the valid types for this slot from original distribution
-    const validTypes = lastSlot.targetMacros === lastSlot.targetMacros
-      ? slots[lastIdx]!.primary.template.mealType
-      : "dinner";
+    // Get the valid types for this slot from the currently selected primary
+    // template. MealSlot does not carry the original distribution's validTypes,
+    // so constraining re-selection to the same type as the current primary is
+    // the safest fallback that keeps meal-type integrity across tighten passes.
+    const validTypes: MealType[] = [slots[lastIdx]!.primary.template.mealType];
 
     // Re-select and scale for this adjusted target
     const usedIds = result
@@ -154,7 +156,7 @@ function tightenPlan(
       adjustedTarget,
       {
         ...filter,
-        validTypes: [typeof validTypes === "string" ? validTypes : "dinner"],
+        validTypes,
         excludeIds: usedIds,
       },
       1

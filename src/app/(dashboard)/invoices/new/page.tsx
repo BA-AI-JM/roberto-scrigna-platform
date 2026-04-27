@@ -311,7 +311,7 @@ export default function NewInvoicePage() {
               <p style={{ fontSize: "12px", color: "#9ca3af", marginTop: "4px" }}>
                 Nessun cliente attivo trovato.{" "}
                 <Link
-                  href="/clients/new"
+                  href="/plans/new"
                   style={{ color: "#1a1a2e", textDecoration: "underline" }}
                 >
                   Aggiungi un cliente

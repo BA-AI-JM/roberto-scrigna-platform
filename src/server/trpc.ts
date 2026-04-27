@@ -18,13 +18,20 @@ export interface TrpcContext {
   partnerId: string | null;
   /** Client record ID (null if not a client portal user) */
   clientId: string | null;
+  /** Incoming request headers — used for IP extraction in rate limiting */
+  headers: Headers | null;
 }
 
 /**
  * Create the tRPC context for each request.
  * Identifies both partner and client users from the session.
+ *
+ * Accepts an optional fetch `Request` so the raw headers are available
+ * inside procedure bodies (e.g. for rate limiting via x-forwarded-for).
  */
-export async function createTrpcContext(): Promise<TrpcContext> {
+export async function createTrpcContext(opts?: {
+  req?: Request;
+}): Promise<TrpcContext> {
   const supabase = await createSupabaseServer();
   const {
     data: { user },
@@ -59,6 +66,7 @@ export async function createTrpcContext(): Promise<TrpcContext> {
     userId: user?.id ?? null,
     partnerId,
     clientId,
+    headers: opts?.req?.headers ?? null,
   };
 }
 

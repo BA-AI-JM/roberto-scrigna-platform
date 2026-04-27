@@ -48,90 +48,104 @@ export const dashboardRouter = router({
    */
   overview: protectedProcedure.query(async ({ ctx }) => {
     const partnerId = ctx.partnerId;
+    const today = new Date().toISOString().split("T")[0]!;
 
-    // Active clients count
-    const { count: activeClients } = await ctx.supabase
-      .from("client")
-      .select("id", { count: "exact", head: true })
-      .eq("partner_id", partnerId)
-      .eq("status", "active")
-      .is("deleted_at", null);
+    // All 10 queries fire in parallel
+    const [
+      { count: activeClients },
+      { count: totalClients },
+      { count: pendingCheckins },
+      { count: awaitingReview },
+      { count: flaggedCheckins },
+      { data: paidInvoices },
+      { data: outstandingInvoices },
+      { count: overdueTasks },
+      { count: tasksDueToday },
+      { count: unreadNotifications },
+    ] = await Promise.all([
+      // Active clients count
+      ctx.supabase
+        .from("client")
+        .select("id", { count: "exact", head: true })
+        .eq("partner_id", partnerId)
+        .eq("status", "active")
+        .is("deleted_at", null),
 
-    // Total clients count
-    const { count: totalClients } = await ctx.supabase
-      .from("client")
-      .select("id", { count: "exact", head: true })
-      .eq("partner_id", partnerId)
-      .is("deleted_at", null);
+      // Total clients count
+      ctx.supabase
+        .from("client")
+        .select("id", { count: "exact", head: true })
+        .eq("partner_id", partnerId)
+        .is("deleted_at", null),
 
-    // Pending check-ins
-    const { count: pendingCheckins } = await ctx.supabase
-      .from("check_in")
-      .select("id", { count: "exact", head: true })
-      .eq("partner_id", partnerId)
-      .eq("status", "pending");
+      // Pending check-ins
+      ctx.supabase
+        .from("check_in")
+        .select("id", { count: "exact", head: true })
+        .eq("partner_id", partnerId)
+        .eq("status", "pending"),
 
-    // Completed check-ins awaiting review
-    const { count: awaitingReview } = await ctx.supabase
-      .from("check_in")
-      .select("id", { count: "exact", head: true })
-      .eq("partner_id", partnerId)
-      .eq("status", "completed");
+      // Completed check-ins awaiting review
+      ctx.supabase
+        .from("check_in")
+        .select("id", { count: "exact", head: true })
+        .eq("partner_id", partnerId)
+        .eq("status", "completed"),
 
-    // Flagged check-ins (weight deviation)
-    const { count: flaggedCheckins } = await ctx.supabase
-      .from("check_in")
-      .select("id", { count: "exact", head: true })
-      .eq("partner_id", partnerId)
-      .eq("weight_flagged", true)
-      .in("status", ["completed", "pending"]);
+      // Flagged check-ins (weight deviation)
+      ctx.supabase
+        .from("check_in")
+        .select("id", { count: "exact", head: true })
+        .eq("partner_id", partnerId)
+        .eq("weight_flagged", true)
+        .in("status", ["completed", "pending"]),
 
-    // Revenue this month (paid invoices)
-    const { data: paidInvoices } = await ctx.supabase
-      .from("invoice")
-      .select("amount_cents")
-      .eq("partner_id", partnerId)
-      .eq("status", "paid")
-      .gte("paid_date", monthStart());
+      // Revenue this month (paid invoices)
+      ctx.supabase
+        .from("invoice")
+        .select("amount_cents")
+        .eq("partner_id", partnerId)
+        .eq("status", "paid")
+        .gte("paid_date", monthStart()),
+
+      // Outstanding revenue (sent invoices)
+      ctx.supabase
+        .from("invoice")
+        .select("amount_cents")
+        .eq("partner_id", partnerId)
+        .eq("status", "sent"),
+
+      // Overdue tasks
+      ctx.supabase
+        .from("task")
+        .select("id", { count: "exact", head: true })
+        .eq("partner_id", partnerId)
+        .in("status", ["todo", "in_progress"])
+        .lt("due_date", today)
+        .is("deleted_at", null),
+
+      // Tasks due today
+      ctx.supabase
+        .from("task")
+        .select("id", { count: "exact", head: true })
+        .eq("partner_id", partnerId)
+        .in("status", ["todo", "in_progress"])
+        .eq("due_date", today)
+        .is("deleted_at", null),
+
+      // Unread notifications
+      ctx.supabase
+        .from("notification")
+        .select("id", { count: "exact", head: true })
+        .eq("partner_id", partnerId)
+        .eq("read", false),
+    ]);
 
     const revenueThisMonth =
       paidInvoices?.reduce((sum, inv) => sum + (inv.amount_cents ?? 0), 0) ?? 0;
 
-    // Outstanding revenue (sent invoices)
-    const { data: outstandingInvoices } = await ctx.supabase
-      .from("invoice")
-      .select("amount_cents")
-      .eq("partner_id", partnerId)
-      .eq("status", "sent");
-
     const outstandingRevenue =
       outstandingInvoices?.reduce((sum, inv) => sum + (inv.amount_cents ?? 0), 0) ?? 0;
-
-    // Overdue tasks
-    const today = new Date().toISOString().split("T")[0]!;
-    const { count: overdueTasks } = await ctx.supabase
-      .from("task")
-      .select("id", { count: "exact", head: true })
-      .eq("partner_id", partnerId)
-      .in("status", ["todo", "in_progress"])
-      .lt("due_date", today)
-      .is("deleted_at", null);
-
-    // Tasks due today
-    const { count: tasksDueToday } = await ctx.supabase
-      .from("task")
-      .select("id", { count: "exact", head: true })
-      .eq("partner_id", partnerId)
-      .in("status", ["todo", "in_progress"])
-      .eq("due_date", today)
-      .is("deleted_at", null);
-
-    // Unread notifications
-    const { count: unreadNotifications } = await ctx.supabase
-      .from("notification")
-      .select("id", { count: "exact", head: true })
-      .eq("partner_id", partnerId)
-      .eq("read", false);
 
     return {
       clients: {

@@ -14,6 +14,7 @@
 import { z } from "zod/v4";
 import { router, protectedProcedure } from "../trpc";
 import { TRPCError } from "@trpc/server";
+import { inngest } from "../../lib/inngest/client";
 import {
   generatePlan,
   serializePlanResult,
@@ -21,6 +22,59 @@ import {
 import type { PlanGenerationInput } from "../../services/plan-generator";
 import type { ClientSnapshot, DayType } from "../../engine/types";
 import type { PdfClientInfo } from "../../pdf/types";
+import { resend, FROM_EMAIL } from "../../lib/resend/client";
+
+// ── Email helpers (shared with inngest functions) ────────────────────────────
+
+function emailWrapper(title: string, body: string): string {
+  return `<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>${title}</title>
+</head>
+<body style="margin:0;padding:0;background:#f8fafc;font-family:system-ui,-apple-system,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;padding:32px 0;">
+    <tr>
+      <td align="center">
+        <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;">
+          <tr>
+            <td style="background:#1a1a2e;padding:24px 32px;">
+              <p style="margin:0;font-size:13px;color:#9ca3af;">Roberto Scrigna — Nutrizione Sportiva</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:32px;">
+              ${body}
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:20px 32px;border-top:1px solid #f1f5f9;">
+              <p style="margin:0;font-size:11px;color:#d1d5db;text-align:center;">
+                Roberto Scrigna — Nutrizione Sportiva · Portale Clienti
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}
+
+function btnHtml(href: string, label: string): string {
+  return `<a href="${href}" style="display:inline-block;padding:12px 28px;background:#1a1a2e;color:#ffffff;border-radius:8px;text-decoration:none;font-size:14px;font-weight:600;margin-top:20px;">${label}</a>`;
+}
+
+function portalUrl(path = ""): string {
+  const base =
+    process.env.NEXT_PUBLIC_APP_URL ??
+    process.env.NEXT_PUBLIC_SITE_URL ??
+    "https://app.robertoscrigna.it";
+  return `${base}/portal${path}`;
+}
 
 // ── Input schemas ────────────────────────────────────────────────────────────
 
@@ -304,10 +358,10 @@ export const planRouter = router({
   approve: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
-      // Verify ownership first
+      // Verify ownership first — include client_id so we can dispatch the event
       const { data: plan } = await ctx.supabase
         .from("plan")
-        .select("id")
+        .select("id, client_id")
         .eq("id", input.id)
         .eq("partner_id", ctx.partnerId)
         .is("deleted_at", null)
@@ -327,13 +381,179 @@ export const planRouter = router({
         .eq("partner_id", ctx.partnerId);
 
       if (error) {
+        console.error("[router/plan.approve]", error);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: error.message,
+          message: "Errore nell'aggiornamento. Riprova.",
         });
       }
 
+      // Fetch client name for the Inngest event
+      const { data: client } = await ctx.supabase
+        .from("client")
+        .select("full_name")
+        .eq("id", plan.client_id)
+        .single();
+
+      // Dispatch plan/delivered event — wrapped so a dispatch failure never breaks the response
+      try {
+        await inngest.send({
+          name: "plan/delivered",
+          data: {
+            planId: plan.id,
+            clientId: plan.client_id,
+            clientName: client?.full_name ?? "Cliente",
+            partnerId: ctx.partnerId,
+          },
+        });
+      } catch (err) {
+        console.error("[router/plan.approve] inngest.send failed:", err);
+      }
+
       return { success: true, planId: input.id };
+    }),
+
+  /**
+   * Share a plan with the client via email.
+   * Sends a branded HTML email with a summary of kcal/macro targets and a
+   * portal link. The email address can be overridden; defaults to the client's
+   * stored email.
+   */
+  shareWithClient: protectedProcedure
+    .input(
+      z.object({
+        planId: z.string().uuid(),
+        email: z.string().email().optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      // 1. Fetch the plan (verify ownership)
+      const { data: plan, error: planError } = await ctx.supabase
+        .from("plan")
+        .select("id, name, status, client_id, daily_targets")
+        .eq("id", input.planId)
+        .eq("partner_id", ctx.partnerId)
+        .is("deleted_at", null)
+        .single();
+
+      if (planError || !plan) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Piano non trovato.",
+        });
+      }
+
+      if (plan.status === "draft") {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "Il piano deve essere approvato prima di essere condiviso.",
+        });
+      }
+
+      // 2. Fetch client data
+      const { data: client, error: clientError } = await ctx.supabase
+        .from("client")
+        .select("full_name, email")
+        .eq("id", plan.client_id)
+        .single();
+
+      if (clientError || !client) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Cliente non trovato.",
+        });
+      }
+
+      const recipientEmail = input.email ?? client.email;
+      if (!recipientEmail) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Nessun indirizzo email disponibile per questo cliente.",
+        });
+      }
+
+      // 3. Extract macro summary from the stored bundle
+      const dailyTargets = plan.daily_targets as Record<string, unknown> | null;
+      const macroPayload = (dailyTargets?.macro_payload as Record<string, unknown>) ?? {};
+      const planBundle = dailyTargets?.plan_bundle as Record<string, unknown> | null;
+
+      const weeklyAvgKcal = macroPayload.weeklyAverageKcal as number | undefined;
+      const energyBalance = macroPayload.energyBalance as string | undefined;
+
+      // Pull per-day-type macro targets from the bundle if present
+      const reportData = planBundle?.reportData as Record<string, unknown> | null;
+      const dayTypePlans = reportData?.dayTypePlans as Array<Record<string, unknown>> | undefined;
+      const firstDay = dayTypePlans?.[0];
+      const firstMacros = firstDay?.macros as Record<string, unknown> | undefined;
+
+      const proteinG = firstMacros?.proteinG != null ? Math.round(firstMacros.proteinG as number) : null;
+      const carbG = firstMacros?.carbG != null ? Math.round(firstMacros.carbG as number) : null;
+      const fatG = firstMacros?.fatG != null ? Math.round(firstMacros.fatG as number) : null;
+
+      // 4. Build the email
+      const energyLabels: Record<string, string> = {
+        deficit: "Deficit Calorico",
+        surplus: "Surplus Calorico",
+        maintenance: "Mantenimento",
+      };
+      const energyLabel = energyLabels[energyBalance ?? ""] ?? "Piano Nutrizionale";
+
+      const macroRows = [
+        weeklyAvgKcal != null
+          ? `<tr><td style="padding:10px 16px;font-size:13px;color:#6b7280;font-weight:600;">Media kcal/giorno</td><td style="padding:10px 16px;font-size:14px;color:#1a1a2e;font-weight:700;text-align:right;">${weeklyAvgKcal.toLocaleString("it-IT")} kcal</td></tr>`
+          : "",
+        proteinG != null
+          ? `<tr style="background:#f8fafc;"><td style="padding:10px 16px;font-size:13px;color:#6b7280;font-weight:600;">Proteine</td><td style="padding:10px 16px;font-size:14px;color:#3b82f6;font-weight:700;text-align:right;">${proteinG}g</td></tr>`
+          : "",
+        carbG != null
+          ? `<tr><td style="padding:10px 16px;font-size:13px;color:#6b7280;font-weight:600;">Carboidrati</td><td style="padding:10px 16px;font-size:14px;color:#8b5cf6;font-weight:700;text-align:right;">${carbG}g</td></tr>`
+          : "",
+        fatG != null
+          ? `<tr style="background:#f8fafc;"><td style="padding:10px 16px;font-size:13px;color:#6b7280;font-weight:600;">Grassi</td><td style="padding:10px 16px;font-size:14px;color:#10b981;font-weight:700;text-align:right;">${fatG}g</td></tr>`
+          : "",
+      ]
+        .filter(Boolean)
+        .join("\n");
+
+      const macroTable =
+        macroRows.length > 0
+          ? `<table cellpadding="0" cellspacing="0" style="width:100%;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;margin-bottom:4px;">${macroRows}</table>`
+          : "";
+
+      const html = emailWrapper(
+        `Il tuo piano nutrizionale è pronto — ${plan.name}`,
+        `<h2 style="margin:0 0 12px;font-size:20px;color:#1a1a2e;">Il tuo piano nutrizionale è pronto!</h2>
+<p style="margin:0 0 8px;font-size:14px;color:#374151;line-height:1.6;">
+  Ciao ${client.full_name},<br/>
+  il tuo piano nutrizionale personalizzato è stato preparato ed è disponibile nel portale.
+</p>
+<p style="margin:0 0 20px;font-size:13px;color:#6b7280;">
+  Strategia: <strong style="color:#1a1a2e;">${energyLabel}</strong>
+</p>
+${macroTable}
+${btnHtml(portalUrl("/dashboard"), "Visualizza il piano")}
+<p style="margin:20px 0 0;font-size:12px;color:#9ca3af;line-height:1.5;">
+  Hai domande? Rispondi a questa email o contatta direttamente il tuo coach.
+</p>`
+      );
+
+      // 5. Send via Resend
+      try {
+        await resend.emails.send({
+          from: FROM_EMAIL,
+          to: recipientEmail,
+          subject: `Il tuo piano nutrizionale è pronto — ${plan.name}`,
+          html,
+        });
+      } catch (err) {
+        console.error("[router/plan.shareWithClient] Resend error:", err);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Errore nell'invio dell'email. Riprova tra poco.",
+        });
+      }
+
+      return { success: true, sentTo: recipientEmail };
     }),
 
   /**
@@ -377,9 +597,10 @@ export const planRouter = router({
       const { data: plans, count, error } = await query;
 
       if (error) {
+        console.error("[router/plan.list]", error);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: error.message,
+          message: "Errore nel caricamento dei dati.",
         });
       }
 

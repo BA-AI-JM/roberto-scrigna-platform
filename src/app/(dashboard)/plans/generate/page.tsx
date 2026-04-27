@@ -11,7 +11,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { trpc } from "../../../../lib/trpc/client";
 import type { Allergen, MealTag } from "../../../../engine/meal-plan/types";
 
@@ -80,9 +80,11 @@ const TAG_LABELS: Record<MealTag, string> = {
 
 export default function GeneratePlanPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const preselectedClientId = searchParams.get("clientId") ?? "";
 
   const [form, setForm] = useState<GeneratePlanFormState>({
-    clientId: "",
+    clientId: preselectedClientId,
     mealCount: 4,
     excludeAllergens: [],
     preferTags: [],

@@ -12,8 +12,8 @@
 
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
+import { trpc } from "../../../lib/trpc/client";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -33,6 +33,22 @@ interface HeatmapRow {
   weeks: number[];
 }
 
+// ── Loading Skeleton ──────────────────────────────────────────────────────────
+
+function SkeletonBlock({ width, height }: { width?: string; height?: string }) {
+  return (
+    <div
+      style={{
+        width: width ?? "100%",
+        height: height ?? "20px",
+        backgroundColor: "#e5e7eb",
+        borderRadius: "4px",
+        animation: "pulse 1.5s ease-in-out infinite",
+      }}
+    />
+  );
+}
+
 // ── KPI Card ──────────────────────────────────────────────────────────────────
 
 function KpiCard({
@@ -40,11 +56,13 @@ function KpiCard({
   value,
   trend,
   accent,
+  loading,
 }: {
   label: string;
   value: string;
   trend?: string;
   accent?: boolean;
+  loading?: boolean;
 }) {
   return (
     <div
@@ -59,17 +77,25 @@ function KpiCard({
       }}
     >
       <div style={{ fontSize: "13px", opacity: 0.7, marginBottom: "8px" }}>{label}</div>
-      <div style={{ fontSize: "28px", fontWeight: 700 }}>{value}</div>
-      {trend && (
-        <div
-          style={{
-            fontSize: "12px",
-            marginTop: "6px",
-            color: accent ? "rgba(255,255,255,0.7)" : "#6b7280",
-          }}
-        >
-          {trend}
+      {loading ? (
+        <div style={{ marginTop: "4px" }}>
+          <SkeletonBlock width="60%" height="32px" />
         </div>
+      ) : (
+        <>
+          <div style={{ fontSize: "28px", fontWeight: 700 }}>{value}</div>
+          {trend && (
+            <div
+              style={{
+                fontSize: "12px",
+                marginTop: "6px",
+                color: accent ? "rgba(255,255,255,0.7)" : "#6b7280",
+              }}
+            >
+              {trend}
+            </div>
+          )}
+        </>
       )}
     </div>
   );
@@ -361,20 +387,46 @@ function PipelineChart({ data }: { data: Array<{ status: string; count: number }
   );
 }
 
+// ── Error Banner ──────────────────────────────────────────────────────────────
+
+function ErrorBanner({ message }: { message: string }) {
+  return (
+    <div
+      style={{
+        padding: "12px 16px",
+        backgroundColor: "#fef2f2",
+        border: "1px solid #fecaca",
+        borderRadius: "8px",
+        color: "#dc2626",
+        fontSize: "13px",
+        marginBottom: "16px",
+      }}
+    >
+      Errore nel caricamento: {message}
+    </div>
+  );
+}
+
 // ── Page Component ────────────────────────────────────────────────────────────
 
-/** Mock data for the initial shell — replaced with tRPC data when wired */
-const MOCK_ALERTS: SmartAlert[] = [];
-const MOCK_HEATMAP: HeatmapRow[] = [];
-const MOCK_REVENUE: Array<{ month: string; revenueCents: number }> = [];
-const MOCK_PIPELINE: Array<{ status: string; count: number }> = [
-  { status: "active", count: 0 },
-  { status: "paused", count: 0 },
-  { status: "archived", count: 0 },
-];
-
 export default function DashboardPage() {
-  const [_refreshKey] = useState(0);
+  const overviewQuery = trpc.dashboard.overview.useQuery();
+  const alertsQuery = trpc.dashboard.alerts.useQuery();
+  const heatmapQuery = trpc.dashboard.engagementHeatmap.useQuery();
+  const revenueQuery = trpc.dashboard.revenueTimeline.useQuery();
+  const pipelineQuery = trpc.dashboard.pipelineBreakdown.useQuery();
+
+  const overview = overviewQuery.data;
+  const alerts = alertsQuery.data ?? [];
+  const heatmapData = heatmapQuery.data?.data ?? [];
+  const revenueData = revenueQuery.data ?? [];
+  const pipelineData = pipelineQuery.data ?? [
+    { status: "active", count: 0 },
+    { status: "paused", count: 0 },
+    { status: "archived", count: 0 },
+  ];
+
+  const overviewLoading = overviewQuery.isLoading;
 
   return (
     <div
@@ -449,17 +501,77 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* Overview error */}
+      {overviewQuery.error && (
+        <ErrorBanner message={overviewQuery.error.message} />
+      )}
+
+      {/* First-time onboarding card — shown when there are zero clients */}
+      {!overviewLoading && !overviewQuery.error && overview && overview.clients.active === 0 && overview.clients.total === 0 && (
+        <div
+          style={{
+            background: "linear-gradient(135deg, #1a56db, #2563eb)",
+            borderRadius: 16,
+            padding: 40,
+            textAlign: "center",
+            color: "#fff",
+            marginBottom: 32,
+          }}
+        >
+          <h2 style={{ fontSize: 24, fontWeight: 700, marginBottom: 12, marginTop: 0 }}>
+            Benvenuto nella tua piattaforma!
+          </h2>
+          <p style={{ fontSize: 16, opacity: 0.9, marginBottom: 24, marginTop: 0 }}>
+            Inizia aggiungendo il tuo primo cliente per generare un piano nutrizionale personalizzato.
+          </p>
+          <a
+            href="/clients/new"
+            style={{
+              background: "#fff",
+              color: "#1a56db",
+              padding: "12px 32px",
+              borderRadius: 8,
+              fontWeight: 600,
+              textDecoration: "none",
+              fontSize: 14,
+              display: "inline-block",
+            }}
+          >
+            + Aggiungi il primo cliente
+          </a>
+        </div>
+      )}
+
       {/* KPI Cards */}
       <div style={{ display: "flex", gap: "16px", marginBottom: "32px", flexWrap: "wrap" }}>
-        <KpiCard label="Clienti attivi" value="0" trend="su 0 totali" accent />
-        <KpiCard label="Check-in in attesa" value="0" />
-        <KpiCard label="Segnalazioni peso" value="0" />
+        <KpiCard
+          label="Clienti attivi"
+          value={overview ? String(overview.clients.active) : "—"}
+          trend={overview ? `su ${overview.clients.total} totali` : undefined}
+          accent
+          loading={overviewLoading}
+        />
+        <KpiCard
+          label="Check-in in attesa"
+          value={overview ? String(overview.checkins.pending + overview.checkins.awaitingReview) : "—"}
+          loading={overviewLoading}
+        />
+        <KpiCard
+          label="Segnalazioni peso"
+          value={overview ? String(overview.checkins.flagged) : "—"}
+          loading={overviewLoading}
+        />
         <KpiCard
           label="Fatturato mese"
-          value="€ 0"
-          trend="€ 0 in sospeso"
+          value={overview ? `€ ${(overview.revenue.thisMonthCents / 100).toLocaleString("it-IT", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : "—"}
+          trend={overview ? `€ ${(overview.revenue.outstandingCents / 100).toLocaleString("it-IT", { minimumFractionDigits: 0, maximumFractionDigits: 0 })} in sospeso` : undefined}
+          loading={overviewLoading}
         />
-        <KpiCard label="Task scaduti" value="0" />
+        <KpiCard
+          label="Task scaduti"
+          value={overview ? String(overview.tasks.overdue) : "—"}
+          loading={overviewLoading}
+        />
       </div>
 
       {/* Smart Alerts */}
@@ -467,7 +579,33 @@ export default function DashboardPage() {
         <h2 style={{ fontSize: "18px", fontWeight: 700, color: "#1a1a2e", marginBottom: "16px" }}>
           Avvisi
         </h2>
-        {MOCK_ALERTS.length === 0 ? (
+
+        {alertsQuery.isLoading && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            {[1, 2].map((i) => (
+              <div
+                key={i}
+                style={{
+                  padding: "14px 18px",
+                  background: "#f9fafb",
+                  borderLeft: "4px solid #e5e7eb",
+                  borderRadius: "8px",
+                }}
+              >
+                <SkeletonBlock width="70%" height="16px" />
+                <div style={{ marginTop: "6px" }}>
+                  <SkeletonBlock width="45%" height="13px" />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {alertsQuery.error && (
+          <ErrorBanner message={alertsQuery.error.message} />
+        )}
+
+        {!alertsQuery.isLoading && !alertsQuery.error && alerts.length === 0 ? (
           <div
             style={{
               padding: "32px",
@@ -483,11 +621,13 @@ export default function DashboardPage() {
             </p>
           </div>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-            {MOCK_ALERTS.map((alert) => (
-              <AlertCard key={alert.id} alert={alert} />
-            ))}
-          </div>
+          !alertsQuery.isLoading && !alertsQuery.error && (
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+              {alerts.map((alert) => (
+                <AlertCard key={alert.id} alert={alert} />
+              ))}
+            </div>
+          )
         )}
       </div>
 
@@ -504,7 +644,19 @@ export default function DashboardPage() {
           <h3 style={{ fontSize: "16px", fontWeight: 700, color: "#1a1a2e", marginBottom: "20px" }}>
             Fatturato (ultimi 12 mesi)
           </h3>
-          <RevenueChart data={MOCK_REVENUE} />
+          {revenueQuery.isLoading ? (
+            <div style={{ display: "flex", alignItems: "flex-end", gap: "8px", height: "180px" }}>
+              {Array.from({ length: 12 }, (_, i) => (
+                <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end" }}>
+                  <div style={{ width: "100%", maxWidth: "40px", height: `${20 + Math.random() * 100}px`, backgroundColor: "#e5e7eb", borderRadius: "4px 4px 0 0" }} />
+                </div>
+              ))}
+            </div>
+          ) : revenueQuery.error ? (
+            <ErrorBanner message={revenueQuery.error.message} />
+          ) : (
+            <RevenueChart data={revenueData} />
+          )}
         </div>
         <div
           style={{
@@ -517,7 +669,20 @@ export default function DashboardPage() {
           <h3 style={{ fontSize: "16px", fontWeight: 700, color: "#1a1a2e", marginBottom: "20px" }}>
             Pipeline Clienti
           </h3>
-          <PipelineChart data={MOCK_PIPELINE} />
+          {pipelineQuery.isLoading ? (
+            <div style={{ padding: "20px 0" }}>
+              <SkeletonBlock height="32px" />
+              <div style={{ marginTop: "16px", display: "flex", gap: "16px", justifyContent: "center" }}>
+                <SkeletonBlock width="80px" height="16px" />
+                <SkeletonBlock width="80px" height="16px" />
+                <SkeletonBlock width="80px" height="16px" />
+              </div>
+            </div>
+          ) : pipelineQuery.error ? (
+            <ErrorBanner message={pipelineQuery.error.message} />
+          ) : (
+            <PipelineChart data={pipelineData} />
+          )}
         </div>
       </div>
 
@@ -533,7 +698,17 @@ export default function DashboardPage() {
         <h3 style={{ fontSize: "16px", fontWeight: 700, color: "#1a1a2e", marginBottom: "20px" }}>
           Engagement Heatmap (12 settimane)
         </h3>
-        <EngagementHeatmap data={MOCK_HEATMAP} />
+        {heatmapQuery.isLoading ? (
+          <div style={{ padding: "20px 0", display: "flex", flexDirection: "column", gap: "8px" }}>
+            {[1, 2, 3].map((i) => (
+              <SkeletonBlock key={i} height="36px" />
+            ))}
+          </div>
+        ) : heatmapQuery.error ? (
+          <ErrorBanner message={heatmapQuery.error.message} />
+        ) : (
+          <EngagementHeatmap data={heatmapData} />
+        )}
       </div>
     </div>
   );

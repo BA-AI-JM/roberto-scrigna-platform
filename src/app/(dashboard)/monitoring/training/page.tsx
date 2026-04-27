@@ -11,6 +11,8 @@
 "use client";
 
 import { useState } from "react";
+import { trpc } from "@/lib/trpc/client";
+import { useQueryClient } from "@tanstack/react-query";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -26,6 +28,7 @@ type SessionType =
 
 interface TrainingLogItem {
   id: string;
+  clientId: string;
   sessionDate: string;
   sessionType: string;
   durationMinutes: number | null;
@@ -132,11 +135,12 @@ const SESSION_TABS: Array<{ value: SessionType; label: string }> = [
 
 // ── Page Component ────────────────────────────────────────────────────────────
 
-const MOCK_LOGS: TrainingLogItem[] = [];
-
 export default function TrainingLogPage() {
+  const queryClient = useQueryClient();
   const [activeType, setActiveType] = useState<SessionType>("all");
   const [showForm, setShowForm] = useState(false);
+  const [selectedClientId, setSelectedClientId] = useState<string>("");
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [form, setForm] = useState<NewSessionForm>({
     clientId: "",
     sessionDate: new Date().toISOString().split("T")[0]!,
@@ -146,15 +150,81 @@ export default function TrainingLogPage() {
     notes: "",
   });
 
-  const filteredLogs =
-    activeType === "all"
-      ? MOCK_LOGS
-      : MOCK_LOGS.filter((l) => l.sessionType === activeType);
+  // Fetch clients for the selector
+  const { data: clientsData } = trpc.client.list.useQuery({ limit: 100, status: "active" });
+  const clients = clientsData?.clients ?? [];
+
+  // Active client driving the log list (form selection takes priority over filter)
+  const activeClientId = selectedClientId;
+
+  // Fetch real training logs for the selected client
+  const { data: logsData } = trpc.trainingLog.list.useQuery(
+    {
+      clientId: activeClientId,
+      sessionType:
+        activeType !== "all"
+          ? (activeType as "strength" | "hypertrophy" | "cardio" | "hiit" | "flexibility" | "deload" | "other")
+          : undefined,
+      limit: 100,
+    },
+    { enabled: Boolean(activeClientId) }
+  );
+
+  const rawLogs = logsData?.logs ?? [];
+
+  // Map API shape to the local TrainingLogItem type (enrich with clientName from clients list)
+  const displayedLogs: TrainingLogItem[] = rawLogs.map((l) => {
+    const client = clients.find((c) => c.id === activeClientId);
+    return {
+      id: l.id,
+      clientId: activeClientId,
+      sessionDate: l.session_date as string,
+      sessionType: l.session_type,
+      durationMinutes: l.duration_minutes as number | null,
+      perceivedEffort: l.perceived_effort as number | null,
+      ocrExtracted: Boolean(l.ocr_extracted),
+      notes: l.notes as string | null,
+      clientName: client?.full_name ?? "",
+    };
+  });
+
+  // Create mutation
+  const createMutation = trpc.trainingLog.create.useMutation({
+    onSuccess: () => {
+      // Invalidate the training log list so the new entry appears immediately
+      void queryClient.invalidateQueries({ queryKey: ["trainingLog.list"] });
+      setShowForm(false);
+      setSubmitError(null);
+      setForm({
+        clientId: "",
+        sessionDate: new Date().toISOString().split("T")[0]!,
+        sessionType: "strength",
+        durationMinutes: "",
+        perceivedEffort: 7,
+        notes: "",
+      });
+    },
+    onError: (err) => {
+      setSubmitError(err.message ?? "Errore nel salvataggio della sessione. Riprova.");
+    },
+  });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // In production, calls trpc.trainingLog.create.mutate(...)
-    setShowForm(false);
+    setSubmitError(null);
+    const effectiveClientId = form.clientId || selectedClientId;
+    if (!effectiveClientId) {
+      setSubmitError("Seleziona un cliente prima di salvare.");
+      return;
+    }
+    createMutation.mutate({
+      clientId: effectiveClientId,
+      sessionDate: form.sessionDate,
+      sessionType: form.sessionType as "strength" | "hypertrophy" | "cardio" | "hiit" | "flexibility" | "deload" | "other",
+      durationMinutes: form.durationMinutes ? parseInt(form.durationMinutes, 10) : undefined,
+      perceivedEffort: form.perceivedEffort,
+      notes: form.notes || undefined,
+    });
   };
 
   return (
@@ -201,6 +271,41 @@ export default function TrainingLogPage() {
         </button>
       </div>
 
+      {/* Client selector */}
+      <div style={{ marginBottom: "24px" }}>
+        <label
+          style={{
+            fontSize: "13px",
+            fontWeight: 600,
+            color: "#374151",
+            display: "block",
+            marginBottom: "8px",
+          }}
+        >
+          Filtra per cliente
+        </label>
+        <select
+          value={selectedClientId}
+          onChange={(e) => setSelectedClientId(e.target.value)}
+          style={{
+            padding: "10px 14px",
+            border: "1px solid #e2e8f0",
+            borderRadius: "8px",
+            fontSize: "14px",
+            minWidth: "260px",
+            backgroundColor: "#ffffff",
+            cursor: "pointer",
+          }}
+        >
+          <option value="">Tutti i clienti</option>
+          {clients.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.full_name}
+            </option>
+          ))}
+        </select>
+      </div>
+
       {/* Quick-add form */}
       {showForm && (
         <div
@@ -216,6 +321,32 @@ export default function TrainingLogPage() {
             Registra sessione
           </h2>
           <form onSubmit={handleSubmit}>
+            {/* Client selector in form */}
+            <div style={{ marginBottom: "16px" }}>
+              <label style={{ fontSize: "13px", fontWeight: 600, color: "#374151", display: "block", marginBottom: "6px" }}>
+                Cliente *
+              </label>
+              <select
+                required
+                value={form.clientId || selectedClientId}
+                onChange={(e) => setForm((f) => ({ ...f, clientId: e.target.value }))}
+                style={{
+                  width: "100%",
+                  padding: "10px 12px",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: "8px",
+                  fontSize: "14px",
+                  boxSizing: "border-box",
+                  backgroundColor: "#ffffff",
+                  cursor: "pointer",
+                }}
+              >
+                <option value="">Seleziona cliente...</option>
+                {clients.map((c) => (
+                  <option key={c.id} value={c.id}>{c.full_name}</option>
+                ))}
+              </select>
+            </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "16px", marginBottom: "16px" }}>
               <div>
                 <label style={{ fontSize: "13px", fontWeight: 600, color: "#374151", display: "block", marginBottom: "6px" }}>
@@ -319,10 +450,26 @@ export default function TrainingLogPage() {
               />
             </div>
 
+            {submitError && (
+              <div
+                style={{
+                  marginBottom: "12px",
+                  padding: "12px 16px",
+                  background: "#fef2f2",
+                  border: "1px solid #fecaca",
+                  borderRadius: "8px",
+                  color: "#991b1b",
+                  fontSize: "13px",
+                }}
+              >
+                {submitError}
+              </div>
+            )}
+
             <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end" }}>
               <button
                 type="button"
-                onClick={() => setShowForm(false)}
+                onClick={() => { setShowForm(false); setSubmitError(null); }}
                 style={{
                   padding: "10px 20px",
                   backgroundColor: "#ffffff",
@@ -338,18 +485,19 @@ export default function TrainingLogPage() {
               </button>
               <button
                 type="submit"
+                disabled={createMutation.isPending}
                 style={{
                   padding: "10px 20px",
-                  backgroundColor: "#1a1a2e",
+                  backgroundColor: createMutation.isPending ? "#6b7280" : "#1a1a2e",
                   color: "#ffffff",
                   border: "none",
                   borderRadius: "8px",
                   fontSize: "14px",
                   fontWeight: 600,
-                  cursor: "pointer",
+                  cursor: createMutation.isPending ? "not-allowed" : "pointer",
                 }}
               >
-                Salva sessione
+                {createMutation.isPending ? "Salvataggio..." : "Salva sessione"}
               </button>
             </div>
           </form>
@@ -389,14 +537,16 @@ export default function TrainingLogPage() {
       </div>
 
       {/* Training log table */}
-      {filteredLogs.length === 0 ? (
+      {displayedLogs.length === 0 ? (
         <div style={{ textAlign: "center", padding: "80px 24px", color: "#9ca3af" }}>
           <div style={{ fontSize: "48px", marginBottom: "16px" }}>🏋️</div>
           <h3 style={{ fontSize: "16px", fontWeight: 600, color: "#374151" }}>
-            Nessuna sessione registrata
+            {!activeClientId ? "Seleziona un cliente per vedere le sessioni" : "Nessuna sessione registrata"}
           </h3>
           <p style={{ fontSize: "14px", marginTop: "8px" }}>
-            Aggiungi la prima sessione con il pulsante in alto a destra.
+            {!activeClientId
+              ? "Usa il selettore qui sopra per filtrare per cliente."
+              : "Aggiungi la prima sessione con il pulsante in alto a destra."}
           </p>
         </div>
       ) : (
@@ -431,12 +581,12 @@ export default function TrainingLogPage() {
               </tr>
             </thead>
             <tbody>
-              {filteredLogs.map((log, idx) => (
+              {displayedLogs.map((log, idx) => (
                 <tr
                   key={log.id}
                   style={{
                     borderBottom:
-                      idx < filteredLogs.length - 1 ? "1px solid #f1f5f9" : "none",
+                      idx < displayedLogs.length - 1 ? "1px solid #f1f5f9" : "none",
                   }}
                 >
                   <td style={{ padding: "14px 16px", fontSize: "14px", fontWeight: 600, color: "#1a1a2e" }}>
