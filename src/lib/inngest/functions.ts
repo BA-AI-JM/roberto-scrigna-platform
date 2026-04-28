@@ -18,7 +18,7 @@
 
 import { inngest } from "./client";
 import { createClient } from "@supabase/supabase-js";
-import { resend, FROM_EMAIL } from "../resend/client";
+import { getResend, FROM_EMAIL } from "../resend/client";
 
 // ── Supabase service-role client for background jobs ────────────────────────
 
@@ -33,7 +33,7 @@ function getServiceDb() {
 
 async function sendEmail(to: string, subject: string, html: string): Promise<void> {
   try {
-    await resend.emails.send({
+    await getResend().emails.send({
       from: FROM_EMAIL,
       to,
       subject,

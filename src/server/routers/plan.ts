@@ -22,7 +22,7 @@ import {
 import type { PlanGenerationInput } from "../../services/plan-generator";
 import type { ClientSnapshot, DayType } from "../../engine/types";
 import type { PdfClientInfo } from "../../pdf/types";
-import { resend, FROM_EMAIL } from "../../lib/resend/client";
+import { getResend, FROM_EMAIL } from "../../lib/resend/client";
 
 // ── Email helpers (shared with inngest functions) ────────────────────────────
 
@@ -539,7 +539,7 @@ ${btnHtml(portalUrl("/dashboard"), "Visualizza il piano")}
 
       // 5. Send via Resend
       try {
-        await resend.emails.send({
+        await getResend().emails.send({
           from: FROM_EMAIL,
           to: recipientEmail,
           subject: `Il tuo piano nutrizionale è pronto — ${plan.name}`,
