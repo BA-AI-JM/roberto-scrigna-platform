@@ -28,6 +28,7 @@ export function compareDeviceKcal(
   protocolKcal: number
 ): DeviceComparison | undefined {
   if (deviceKcal == null || deviceKcal <= 0) return undefined;
+  if (protocolKcal <= 0) return undefined;
 
   const correctionFactor = protocolKcal / deviceKcal;
   const deviceOverestimationPct =

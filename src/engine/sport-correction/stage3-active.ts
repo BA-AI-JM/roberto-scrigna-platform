@@ -3,21 +3,25 @@
  *
  * Spec v4.4.1: Calculate the active session duration after tail exclusion.
  *
- * activeDuration = totalRecordedMin - tailMinutesExcluded
+ * activeDuration = sum of all zone minutes in the adjusted zone data
+ *
+ * NOTE: Stage 2 already reduces totalRecordedMin in adjustedZoneData when a
+ * tail cutoff is applied. Computing activeDuration as
+ * (adjustedZoneData.totalRecordedMin - tailMinutesExcluded) would double-subtract
+ * the excluded tail. Instead, we sum the adjusted zone minutes directly — they
+ * are the ground truth after Stage 2 has done its redistribution.
  */
 
-import type { CutoffResult } from "./types";
+import type { HRZoneData } from "./types";
 
 /**
- * Calculate active session duration.
+ * Calculate active session duration from adjusted zone data.
  *
- * @param totalRecordedMin - Total recorded duration (from HRZoneData)
- * @param cutoff - Stage 2 cutoff result
- * @returns Active duration in minutes
+ * @param adjustedZoneData - Zone data after Stage 2 tail exclusion
+ * @returns Active duration in minutes (sum of all zone minutes)
  */
 export function calculateActiveDuration(
-  totalRecordedMin: number,
-  cutoff: CutoffResult
+  adjustedZoneData: HRZoneData
 ): number {
-  return Math.max(0, totalRecordedMin - cutoff.tailMinutesExcluded);
+  return adjustedZoneData.minutesPerZone.reduce((sum, m) => sum + m, 0);
 }

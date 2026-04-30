@@ -17,7 +17,7 @@
  *   - BelowZ1 fraction (belowZ1 / active) ≥ 50%
  *
  * Benchmark formula (spec §6b):
- *   MET_gross: 3.5 for conventional (hypertrophy, strength, power, deload)
+ *   MET_gross: 3.5 for conventional (hypertrophy, strength, power)
  *              5.0 for circuit-style
  *   MET_net = MET_gross - 1.0 (Profile G subtraction)
  *   kcal_benchmark = MET_net × (3.5 × weightKg / 200) × activeDurationMin × E
@@ -39,14 +39,13 @@ import type { SessionType, BenchmarkResult } from "./types";
  * Gross MET values for STRENGTH category session types.
  * Source: ACSM Compendium of Physical Activities + spec §6b calibration.
  *
- * Conventional resistance training (hypertrophy, strength, power, deload): 3.5
+ * Conventional resistance training (hypertrophy, strength, power): 3.5
  * Circuit-style weight training: 5.0
  */
 const BENCHMARK_GROSS_MET: Partial<Record<SessionType, number>> = {
   hypertrophy: 3.5,
   strength:    3.5,
   power:       3.5,
-  deload:      3.5,
   circuit:     5.0,
 };
 

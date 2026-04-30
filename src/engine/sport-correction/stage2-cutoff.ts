@@ -46,12 +46,14 @@ export function detectCutoff(zoneData: HRZoneData): CutoffResult {
     };
   }
 
-  // hrStream path: find the last contiguous below-Z1 block
+  // hrStream path: find the last contiguous below-Z1 block.
+  // When hrStream is available, exclude the ENTIRE detected tail — the stream gives
+  // sufficient precision to identify the exact artifact boundary. The MAX_COOLDOWN
+  // allowance is only for the imprecise heuristic path (no stream data).
   if (zoneData.hrStream && zoneData.hrStream.length > 0) {
     const tailMin = detectStreamTail(zoneData.hrStream, zoneData);
-    if (tailMin > MAX_COOLDOWN_MIN) {
-      const excluded = tailMin - MAX_COOLDOWN_MIN;
-      return buildCutoffResult(zoneData, excluded, "hr_stream_tail");
+    if (tailMin > 0) {
+      return buildCutoffResult(zoneData, tailMin, "hr_stream_tail");
     }
   }
 

@@ -73,6 +73,16 @@ export function runSCP(input: SCPInput): SCPResult | null {
     return null;
   }
 
+  // ── Input Validation ─────────────────────────────────────────────────────────
+  if (input.weightKg <= 0) {
+    // Can't compute EEE without a valid weight — ACSM formula divides by 200 * weight
+    return null;
+  }
+  if (input.hrZoneData.minutesPerZone.every(m => m === 0)) {
+    // No zone data to process — all zones are zero
+    return null;
+  }
+
   // ── Stage 1: Extract HR Zones ────────────────────────────────────────────────
   const stage1 = extractHRZones(input.hrZoneData);
 
@@ -81,10 +91,9 @@ export function runSCP(input: SCPInput): SCPResult | null {
   const adjustedZoneData = cutoff.adjustedZoneData;
 
   // ── Stage 3: Active Duration ─────────────────────────────────────────────────
-  const activeDurationMin = calculateActiveDuration(
-    adjustedZoneData.totalRecordedMin,
-    cutoff
-  );
+  // Sum adjusted zone minutes directly — Stage 2 already reduced totalRecordedMin,
+  // so passing it through would double-subtract the excluded tail.
+  const activeDurationMin = calculateActiveDuration(adjustedZoneData);
 
   // ── Stage 6: Sport Profile / MET Assignment ───────────────────────────────────
   // Computed early because Stages 4 and 5 depend on the profile

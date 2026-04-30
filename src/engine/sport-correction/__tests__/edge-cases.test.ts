@@ -70,7 +70,7 @@ describe("Profile CYCLIC", () => {
   it("CYCLIC runSCP returns non-null result with E=1.0", () => {
     const result = runSCP(makeInput({
       categoryId: "CYCLIC",
-      sessionType: "tempo",
+      sessionType: "steady",
       hrZoneData: {
         minutesPerZone: [2, 10, 25, 15, 5, 3],
         avgHeartRate: 160,
@@ -186,7 +186,7 @@ describe("Profile G vs Profile L MET values", () => {
   });
 
   it("Profile L Z4 net = 8.5 (cap 9.0 - 0.5)", () => {
-    const profile = getSportProfile("STRIKING", "bag_work");
+    const profile = getSportProfile("STRIKING", "solo");
     expect(profile.netMETs.z4).toBeCloseTo(8.5, 10);
   });
 
@@ -196,7 +196,7 @@ describe("Profile G vs Profile L MET values", () => {
   });
 
   it("Profile L Z5 net = 9.0 (cap 9.5 - 0.5)", () => {
-    const profile = getSportProfile("HIIT", "general");
+    const profile = getSportProfile("HIIT", "metcon");
     expect(profile.netMETs.z5).toBeCloseTo(9.0, 10);
   });
 
@@ -214,8 +214,8 @@ describe("Profile G vs Profile L MET values", () => {
 // ── STRENGTH Conservative Override ───────────────────────────────────────────
 
 describe("STRENGTH conservative override", () => {
-  const strengthTypes: Array<"hypertrophy" | "strength" | "power" | "deload"> = [
-    "hypertrophy", "strength", "power", "deload",
+  const strengthTypes: Array<"hypertrophy" | "strength" | "power"> = [
+    "hypertrophy", "strength", "power",
   ];
 
   for (const sType of strengthTypes) {
@@ -331,10 +331,10 @@ describe("No device data", () => {
 describe("All 8 categories resolve to a profile", () => {
   const categories = [
     ["GRAPPLING", "mixed"],
-    ["STRIKING", "bag_work"],
+    ["STRIKING", "solo"],
     ["MMA", "mixed"],
     ["STRENGTH", "hypertrophy"],
-    ["HIIT", "general"],
+    ["HIIT", "metcon"],
     ["CYCLIC", "easy"],
     ["TEAM", "training"],
     ["RACKET", "training"],

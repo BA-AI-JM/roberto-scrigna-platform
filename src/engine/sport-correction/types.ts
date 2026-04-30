@@ -56,17 +56,17 @@ export type CategoryId =
 export type MetabolicProfile = "G" | "L" | "CYCLIC";
 
 /**
- * Session types per category.
+ * Session types per category — spec §2 taxonomy.
  * Each category has specific session types with distinct below-Z1 defaults.
  */
-export type GrapplingSessionType = "mixed" | "drilling" | "sparring" | "competition";
-export type StrikingSessionType = "bag_work" | "pad_work" | "sparring" | "technique";
-export type MMASessionType = "mixed" | "sparring" | "competition";
-export type StrengthSessionType = "hypertrophy" | "strength" | "power" | "circuit" | "deload";
-export type HIITSessionType = "tabata" | "amrap" | "emom" | "general";
-export type CyclicSessionType = "easy" | "tempo" | "interval" | "race";
-export type TeamSessionType = "training" | "match" | "conditioning";
-export type RacketSessionType = "training" | "match" | "drilling";
+export type GrapplingSessionType = "tech" | "sparring" | "mixed" | "open" | "comp";
+export type StrikingSessionType = "solo" | "pads" | "sparring" | "mixed" | "comp";
+export type MMASessionType = "striking" | "grappling" | "sparring" | "mixed" | "comp";
+export type StrengthSessionType = "strength" | "hypertrophy" | "power" | "circuit";
+export type HIITSessionType = "metcon" | "intervals" | "mixed";
+export type CyclicSessionType = "easy" | "steady" | "intervals" | "long" | "race";
+export type TeamSessionType = "training" | "match_full" | "match_partial" | "conditioning";
+export type RacketSessionType = "drilling" | "singles" | "doubles" | "casual";
 
 /** Union of all session types */
 export type SessionType =

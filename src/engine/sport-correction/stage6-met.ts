@@ -132,26 +132,78 @@ function buildNetMETs(
 // ── Session-Type Defaults ─────────────────────────────────────────────────────
 
 /**
- * Below-Z1 default classification and Z1 character per session type.
- * Strength sessions: initial below-Z1 = Option C (warm-up), middle = Option D (rest).
- * Cardio sessions: below-Z1 = Option C only (warm-up before, cool-down excluded by Stage 2).
+ * Per-session-type defaults for below-Z1 classification and Z1 character.
+ *
+ * Key format: `${CategoryId}/${sessionType}`
+ *
+ * belowZ1Default:
+ *   "C" = Option C (warm-up / structured low-intensity)
+ *   "D" = Option D (planned rest / inter-set standing)
+ *
+ * z1Character:
+ *   "standing" = standing recovery between sets (strength / grappling sparring)
+ *   "moving"   = active low-intensity movement (cardio)
+ *
+ * Spec §2 per-session defaults (representative rows — unspecified rows inherit
+ * category defaults defined in the fallback functions below):
+ *   GRAPPLING/sparring  → Z1=Standing, <Z1=D(0.4)
+ *   GRAPPLING/mixed     → Z1=Moving,   <Z1=C(1.0)
+ *   GRAPPLING/tech      → Z1=Moving,   <Z1=C(1.0)
+ *   GRAPPLING/open      → Z1=Moving,   <Z1=C(1.0)
+ *   GRAPPLING/comp      → Z1=Moving,   <Z1=C(1.0)
+ *   STRENGTH/circuit    → Z1=Moving,   <Z1=D(0.5)  (higher aerobic demand)
+ *   MMA/sparring        → Z1=Standing, <Z1=D(0.4)
+ *   MMA/striking        → Z1=Moving,   <Z1=C(1.0)  (locomotion-dominant)
+ *   MMA/grappling       → Z1=Standing, <Z1=D(0.4)
  */
-function getBelowZ1Default(
-  categoryId: CategoryId
-): "C" | "D" {
-  // For strength, the majority of below-Z1 is rest (Option D). The split is
-  // handled in Stage 4. The "default" is the primary classification.
-  if (categoryId === "STRENGTH") return "D";
-  return "C";
+interface SessionDefaults {
+  belowZ1Default: "C" | "D";
+  z1Character: "standing" | "moving";
 }
 
-function getZ1Character(categoryId: CategoryId): "standing" | "moving" {
-  // STRENGTH: Z1 = standing recovery between sets
-  // All others (including GRAPPLING/MMA): Z1 = moving (active drill, circling, shadow work)
-  if (categoryId === "STRENGTH") {
-    return "standing";
-  }
-  return "moving";
+const SESSION_DEFAULTS: Partial<Record<string, SessionDefaults>> = {
+  // GRAPPLING — sparring is isometric/standing; all other types are active/moving
+  "GRAPPLING/sparring": { belowZ1Default: "D", z1Character: "standing" },
+  "GRAPPLING/mixed":    { belowZ1Default: "C", z1Character: "moving" },
+  "GRAPPLING/tech":     { belowZ1Default: "C", z1Character: "moving" },
+  "GRAPPLING/open":     { belowZ1Default: "C", z1Character: "moving" },
+  "GRAPPLING/comp":     { belowZ1Default: "C", z1Character: "moving" },
+
+  // STRENGTH — circuit has higher aerobic demand; other types are conventional rest-based
+  "STRENGTH/circuit":      { belowZ1Default: "D", z1Character: "moving" },
+  "STRENGTH/hypertrophy":  { belowZ1Default: "D", z1Character: "standing" },
+  "STRENGTH/strength":     { belowZ1Default: "D", z1Character: "standing" },
+  "STRENGTH/power":        { belowZ1Default: "D", z1Character: "standing" },
+
+  // MMA — sparring and grappling-focused are isometric; striking-focused is locomotion
+  "MMA/sparring":   { belowZ1Default: "D", z1Character: "standing" },
+  "MMA/grappling":  { belowZ1Default: "D", z1Character: "standing" },
+  "MMA/striking":   { belowZ1Default: "C", z1Character: "moving" },
+  "MMA/mixed":      { belowZ1Default: "C", z1Character: "moving" },
+  "MMA/comp":       { belowZ1Default: "C", z1Character: "moving" },
+};
+
+/**
+ * Resolve below-Z1 default and Z1 character for a given category + session type.
+ * Falls back to category-level defaults when no per-session row exists.
+ */
+function resolveSessionDefaults(
+  categoryId: CategoryId,
+  sessionType: SessionType
+): SessionDefaults {
+  const key = `${categoryId}/${sessionType}`;
+  const perSession = SESSION_DEFAULTS[key];
+  if (perSession != null) return perSession;
+
+  // Category-level fallbacks
+  const categoryBelowZ1Default: "C" | "D" = categoryId === "STRENGTH" ? "D" : "C";
+  const categoryZ1Character: "standing" | "moving" =
+    categoryId === "STRENGTH" ? "standing" : "moving";
+
+  return {
+    belowZ1Default: categoryBelowZ1Default,
+    z1Character: categoryZ1Character,
+  };
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────
@@ -168,8 +220,16 @@ export function getSportProfile(
   categoryId: CategoryId,
   sessionType: SessionType
 ): SportProfile {
-  const profile = CATEGORY_PROFILE[categoryId];
+  let profile = CATEGORY_PROFILE[categoryId];
   const isStrengthCategory = categoryId === "STRENGTH";
+
+  // Finding 5 — MMA striking-focus sessions override to Profile L
+  // Spec: MMA with session_type "striking" uses locomotion-dominant METs
+  if (categoryId === "MMA" && sessionType === "striking") {
+    profile = "L";
+  }
+
+  const sessionDefs = resolveSessionDefaults(categoryId, sessionType);
 
   return {
     categoryId,
@@ -177,8 +237,8 @@ export function getSportProfile(
     metabolicProfile: profile,
     isStrengthCategory,
     netMETs: buildNetMETs(profile, isStrengthCategory),
-    belowZ1Default: getBelowZ1Default(categoryId),
-    z1Character: getZ1Character(categoryId),
+    belowZ1Default: sessionDefs.belowZ1Default,
+    z1Character: sessionDefs.z1Character,
   };
 }
 

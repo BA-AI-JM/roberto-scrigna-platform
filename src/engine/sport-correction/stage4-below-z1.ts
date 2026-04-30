@@ -53,6 +53,17 @@ export function classifyBelowZ1(
     };
   }
 
+  // Spec: for CYCLIC sessions, below-Z1 time is excluded from the EEE calculation
+  // entirely (E=1.0 for CYCLIC; below-Z1 coasting is not metabolically significant).
+  if (categoryId === "CYCLIC") {
+    return {
+      warmUpMin: 0,
+      interSetRestMin: 0,
+      coolDownMin: 0,
+      totalBelowZ1Min: 0,
+    };
+  }
+
   const warmUpAllocation =
     categoryId === "STRENGTH" ? STRENGTH_WARMUP_MIN : DEFAULT_WARMUP_MIN;
 
