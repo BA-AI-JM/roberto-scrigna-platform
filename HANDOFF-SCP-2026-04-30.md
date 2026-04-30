@@ -1,11 +1,12 @@
 # Sport Correction Protocol — Build Handoff
 
-**Date:** 2026-04-30
+**Date:** 2026-04-30 (updated after Codex verification)
 **Branch:** `feat/sport-correction-protocol`
-**Head:** `d7ad085`
+**Head:** `3700f2b` (3 commits ahead of main)
 **Base:** `main` @ `6d08a52` (includes all platform healing work)
-**Tests:** 59 SCP-specific (193 assertions) + 320 existing = 379/383 pass
+**Tests:** 73 SCP-specific (242 assertions) + 320 existing = 393/397 pass
 **Build:** ✅ Green (all 24 routes)
+**Verification:** Independent Codex audit scored 6/10 → 7 findings fixed → re-verified
 
 ---
 
@@ -163,6 +164,24 @@ his spec.
 
 ---
 
+## Codex Verification — Findings & Fixes
+
+Independent Codex audit scored the initial build **6/10**. Seven findings, all resolved:
+
+| # | Finding | Severity | Fix |
+|---|---------|----------|-----|
+| 1 | **Stage 2/3 double subtraction** — tail excluded from total twice | CRITICAL | Stage 3 now sums adjusted zone minutes instead of subtracting tail from already-reduced total |
+| 2 | **No public `runSCP()` tests** — only isolated stages tested with post-cutoff data | CRITICAL | Added `pipeline.test.ts` with 14 tests calling `runSCP()` with raw pre-cutoff data for A.5 (342) and A.7 (155) |
+| 3 | **Session type names diverge from spec** — used `drilling` instead of `tech`, etc. | HIGH | All 8 category unions match spec §2 exactly |
+| 4 | **Stage 4/5 ignore session type** — only checked categoryId | HIGH | `SESSION_DEFAULTS` lookup table with per-session belowZ1Default and z1Character |
+| 5 | **MMA/striking should use Profile L** | MEDIUM | Override in `getSportProfile()` |
+| 6 | **CYCLIC below-Z1 included in EEE** — spec says exclude | MEDIUM | Early return in `classifyBelowZ1()` for CYCLIC |
+| 7 | **No edge case guards** — zero weight, zero zones, division by zero | LOW | Guards in `runSCP()` and `compareDeviceKcal()` |
+
+**Post-fix test count: 73 SCP-specific (242 assertions), 393 total pass.**
+
+---
+
 ## What's NOT In This Branch
 
 | Item | Why |
@@ -178,33 +197,34 @@ his spec.
 ## Merge Checklist
 
 - [ ] `git checkout main && git merge feat/sport-correction-protocol`
-- [ ] `bun test` — expect 379/383 (4 pre-existing Playwright failures)
+- [ ] `bun test` — expect 393/397 (4 pre-existing Playwright failures)
 - [ ] `bun run build` — should compile clean
 - [ ] Push to GitHub → Vercel redeploy
 - [ ] No UI changes — SCP is engine-only, activated when `scpData` is present
 
 ---
 
-## Files Changed (19 files, +2,612 / −13 lines)
+## Files Changed (20 files, +3,037 / −69 lines)
 
 ```
 src/engine/exercise.ts                              +51  -13   Integration
 src/engine/types.ts                                 +18   -0   scpData on ExerciseSession
-src/engine/sport-correction/types.ts                +280  -0   NEW
-src/engine/sport-correction/index.ts                +174  -0   NEW
+src/engine/sport-correction/types.ts                +280  -0   NEW (spec §2 taxonomy)
+src/engine/sport-correction/index.ts                +181  -0   NEW (pipeline + input guards)
 src/engine/sport-correction/stage0-tier.ts          +57   -0   NEW
 src/engine/sport-correction/stage1-extract.ts       +37   -0   NEW
-src/engine/sport-correction/stage2-cutoff.ts        +125  -0   NEW
-src/engine/sport-correction/stage3-active.ts        +23   -0   NEW
-src/engine/sport-correction/stage4-below-z1.ts      +81   -0   NEW
+src/engine/sport-correction/stage2-cutoff.ts        +126  -0   NEW (hrStream tail detection)
+src/engine/sport-correction/stage3-active.ts        +14   -0   NEW (sum-of-zones, not subtraction)
+src/engine/sport-correction/stage4-below-z1.ts      +88   -0   NEW (CYCLIC exclusion)
 src/engine/sport-correction/stage5-z1-char.ts       +56   -0   NEW
-src/engine/sport-correction/stage6-met.ts           +186  -0   NEW
-src/engine/sport-correction/stage6b-benchmark.ts    +176  -0   NEW
-src/engine/sport-correction/stage7-efficiency.ts    +102  -0   NEW
+src/engine/sport-correction/stage6-met.ts           +246  -0   NEW (SESSION_DEFAULTS lookup + MMA override)
+src/engine/sport-correction/stage6b-benchmark.ts    +176  -0   NEW (midpoint blend, E applied)
+src/engine/sport-correction/stage7-efficiency.ts    +102  -0   NEW (formula + table hybrid)
 src/engine/sport-correction/stage8-eee.ts           +150  -0   NEW
 src/engine/sport-correction/stage9-range.ts         +149  -0   NEW
-src/engine/sport-correction/stage10-device.ts       +42   -0   NEW
-src/engine/sport-correction/__tests__/bjj-mixed.test.ts      +206  -0   NEW
-src/engine/sport-correction/__tests__/hypertrophy.test.ts     +306  -0   NEW
-src/engine/sport-correction/__tests__/edge-cases.test.ts      +406  -0   NEW
+src/engine/sport-correction/stage10-device.ts       +45   -0   NEW (zero-division guard)
+src/engine/sport-correction/__tests__/bjj-mixed.test.ts      +206  -0   Isolated A.5
+src/engine/sport-correction/__tests__/hypertrophy.test.ts     +306  -0   Isolated A.7
+src/engine/sport-correction/__tests__/edge-cases.test.ts      +406  -0   All categories + edges
+src/engine/sport-correction/__tests__/pipeline.test.ts        +284  -0   E2E raw→runSCP() + regression guard
 ```
