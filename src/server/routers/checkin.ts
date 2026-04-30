@@ -15,7 +15,7 @@ import { z } from "zod/v4";
 import { router, protectedProcedure, publicProcedure } from "../trpc";
 import { TRPCError } from "@trpc/server";
 import { inngest } from "../../lib/inngest/client";
-import { rateLimit } from "../../lib/rate-limit";
+import { rateLimit, getClientIp } from "../../lib/rate-limit";
 
 // ── Schemas ──────────────────────────────────────────────────────────────────
 
@@ -36,7 +36,9 @@ const checkinSubmissionSchema = z.object({
   adherencePct: z.number().int().min(0).max(100),
   trainingAdherence: z.number().int().min(0).max(100).optional(),
   notes: z.string().max(5000).optional(),
-  photos: z.array(z.string().url()).max(5).optional(),
+  // Only allow https:// URLs to prevent javascript: or data: URI injection.
+  // URLs are stored and later rendered as <img> src or download links.
+  photos: z.array(z.string().url().startsWith("https://")).max(5).optional(),
 });
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -95,7 +97,7 @@ export const checkinRouter = router({
     .input(
       z.object({
         clientId: z.string().uuid(),
-        dueDate: z.string().optional(),
+        dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Formato data: YYYY-MM-DD").optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -168,7 +170,7 @@ export const checkinRouter = router({
   validateToken: publicProcedure
     .input(z.object({ token: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
-      const ip = ctx.headers?.get("x-forwarded-for") ?? "unknown";
+      const ip = getClientIp(ctx.headers);
       const { success } = rateLimit(`validateToken:${ip}`, 30, 60_000);
       if (!success) {
         throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "Troppi tentativi. Riprova tra poco." });
@@ -197,7 +199,7 @@ export const checkinRouter = router({
   submitCheckin: publicProcedure
     .input(checkinSubmissionSchema)
     .mutation(async ({ ctx, input }) => {
-      const ip = ctx.headers?.get("x-forwarded-for") ?? "unknown";
+      const ip = getClientIp(ctx.headers);
       const { success } = rateLimit(`submitCheckin:${ip}`, 10, 60_000);
       if (!success) {
         throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "Troppi tentativi. Riprova tra poco." });
@@ -327,10 +329,13 @@ export const checkinRouter = router({
       })
     )
     .query(async ({ ctx, input }) => {
+      // NOTE: `token` is intentionally excluded — it authenticates client
+      // submission and must not be exposed in bulk list responses.
+      // Use checkin.sendCheckin (which returns it once) or portal.getCheckInStatus.
       let query = ctx.supabase
         .from("check_in")
         .select(
-          `id, token, status, weight_kg, weight_deviation_kg, weight_flagged,
+          `id, status, weight_kg, weight_deviation_kg, weight_flagged,
            energy_level, sleep_quality, adherence_pct, ai_summary,
            due_date, completed_at, created_at,
            client:client_id (id, full_name)`,

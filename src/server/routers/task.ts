@@ -25,7 +25,7 @@ const createTaskSchema = z.object({
   description: z.string().max(5000).optional(),
   status: taskStatusSchema.default("todo"),
   priority: taskPrioritySchema.default("medium"),
-  dueDate: z.string().optional(), // ISO date string
+  dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Formato data: YYYY-MM-DD").optional(), // ISO date string
   clientId: z.string().uuid().optional(),
 });
 
@@ -153,9 +153,10 @@ export const taskRouter = router({
         .single();
 
       if (error || !data) {
+        console.error("[router/task.create]", error);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: error?.message ?? "Errore nella creazione del task.",
+          message: "Errore nella creazione del task.",
         });
       }
 
@@ -169,6 +170,23 @@ export const taskRouter = router({
     .input(updateTaskSchema)
     .mutation(async ({ ctx, input }) => {
       const { id, ...fields } = input;
+
+      // If re-assigning to a different client, verify ownership first.
+      // Without this check, a task could be associated with a client that
+      // belongs to a different partner (cross-tenant data association).
+      if (fields.clientId !== undefined && fields.clientId !== null) {
+        const { data: clientCheck } = await ctx.supabase
+          .from("client")
+          .select("id")
+          .eq("id", fields.clientId)
+          .eq("partner_id", ctx.partnerId)
+          .is("deleted_at", null)
+          .single();
+
+        if (!clientCheck) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Cliente non trovato." });
+        }
+      }
 
       const updates: Record<string, unknown> = {
         updated_at: new Date().toISOString(),

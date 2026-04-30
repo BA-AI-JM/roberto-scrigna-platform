@@ -2,6 +2,7 @@
  * Total Daily Energy Expenditure (TDEE) calculation.
  *
  * TDEE = BMR + NEAT + Exercise + TEF
+ * TEF = 10% of BMR (not total expenditure)
  *
  * Calculated per day-type (training, rest, refeed, deload) with
  * support for manual overrides per day-type.
@@ -61,7 +62,7 @@ export function calculateTdee(
     const bmr = calculateBmr(bodyFatResult);
     const neat = calculateNeat(snapshot.dailySteps, snapshot.weightKg, snapshot.occupationalLevel);
     const exercise = restDayExercise();
-    const tef = calculateTef(bmr.bmrKcal + neat.totalNeatKcal, options.dietEmphasis);
+    const tef = calculateTef(bmr.bmrKcal, options.dietEmphasis);
 
     return {
       bmr,
@@ -120,9 +121,9 @@ export function calculateTdee(
       break;
   }
 
-  // 4. TEF (calculated on subtotal of BMR + NEAT + Exercise)
+  // 4. TEF (calculated on BMR only — 10% of resting metabolic rate)
   const subtotal = bmr.bmrKcal + neat.totalNeatKcal + exercise.exerciseKcal;
-  const tef = calculateTef(subtotal, options.dietEmphasis);
+  const tef = calculateTef(bmr.bmrKcal, options.dietEmphasis);
 
   // 5. Total
   const totalTdeeKcal = subtotal + tef.tefKcal;

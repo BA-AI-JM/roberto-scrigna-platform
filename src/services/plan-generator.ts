@@ -227,11 +227,12 @@ export function generatePlan(
   }
 
   // ── Step 4: Energy balance ─────────────────────────────────────────────
+  // Use rest-day TDEE as the maintenance baseline.
+  // If client explicitly provides maintenanceKcalEstimate, use that instead.
+  const restDayTdee = weeklyPlan.days.find((d) => d.dayType === "rest")?.tdee.totalTdeeKcal;
   const maintenanceEstimate =
-    input.maintenanceKcalEstimate ?? weeklyPlan.weeklyAverageKcal;
-  const energyBalance = input.maintenanceKcalEstimate
-    ? determineEnergyBalance(weeklyPlan.weeklyAverageKcal, maintenanceEstimate)
-    : "maintenance";
+    input.maintenanceKcalEstimate ?? restDayTdee ?? weeklyPlan.weeklyAverageKcal;
+  const energyBalance = determineEnergyBalance(weeklyPlan.weeklyAverageKcal, maintenanceEstimate);
 
   // ── Step 5: Supplement protocol ────────────────────────────────────────
   let supplements: SupplementEntry[];

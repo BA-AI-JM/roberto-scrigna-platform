@@ -115,43 +115,43 @@ describe("Marco Bellini — Exercise", () => {
 // ── TEF ─────────────────────────────────────────────────────────────────────
 
 describe("Marco Bellini — TEF", () => {
-  test("training day TEF = 244 kcal (10% of BMR+NEAT+exercise = 1858+328+255 = 2441)", () => {
+  test("training day TEF = 186 kcal (10% of BMR = 10% of 1858)", () => {
     const tdee = calculateTdee(marco, "training");
     expect(tdee.tef.tefPct).toBe(10);
-    expect(tdee.tef.tefKcal).toBe(244);
+    expect(tdee.tef.tefKcal).toBe(186);
   });
 
-  test("rest day TEF = 219 kcal (10% of 1858+328+0 = 2186)", () => {
+  test("rest day TEF = 186 kcal (10% of BMR = 10% of 1858)", () => {
     const tdee = calculateTdee(marco, "rest");
     expect(tdee.tef.tefPct).toBe(10);
-    expect(tdee.tef.tefKcal).toBe(219);
+    expect(tdee.tef.tefKcal).toBe(186);
   });
 });
 
 // ── TDEE ────────────────────────────────────────────────────────────────────
 
 describe("Marco Bellini — TDEE", () => {
-  test("training TDEE = 2685 kcal", () => {
+  test("training TDEE = 2627 kcal (1858 + 328 + 255 + 186)", () => {
     const tdee = calculateTdee(marco, "training");
-    expect(tdee.totalTdeeKcal).toBe(2685);
+    expect(tdee.totalTdeeKcal).toBe(2627);
   });
 
-  test("rest TDEE = 2405 kcal", () => {
+  test("rest TDEE = 2372 kcal (1858 + 328 + 0 + 186)", () => {
     const tdee = calculateTdee(marco, "rest");
-    expect(tdee.totalTdeeKcal).toBe(2405);
+    expect(tdee.totalTdeeKcal).toBe(2372);
   });
 
   test("training TDEE = BMR + NEAT + exercise + TEF", () => {
     const tdee = calculateTdee(marco, "training");
     const sum = tdee.bmr.bmrKcal + tdee.neat.totalNeatKcal + tdee.exercise.exerciseKcal + tdee.tef.tefKcal;
-    expect(sum).toBe(1858 + 328 + 255 + 244);
+    expect(sum).toBe(1858 + 328 + 255 + 186);
     expect(tdee.totalTdeeKcal).toBe(sum);
   });
 
   test("rest TDEE = BMR + NEAT + 0 + TEF", () => {
     const tdee = calculateTdee(marco, "rest");
     const sum = tdee.bmr.bmrKcal + tdee.neat.totalNeatKcal + tdee.exercise.exerciseKcal + tdee.tef.tefKcal;
-    expect(sum).toBe(1858 + 328 + 0 + 219);
+    expect(sum).toBe(1858 + 328 + 0 + 186);
     expect(tdee.totalTdeeKcal).toBe(sum);
   });
 });
@@ -160,60 +160,64 @@ describe("Marco Bellini — TDEE", () => {
 
 describe("Marco Bellini — Macros (Training)", () => {
   const bf = estimateBodyFat(marco);
-  const macros = calculateMacros(2685, bf.bodyComposition, 82, "training");
+  const macros = calculateMacros(2627, bf.bodyComposition, 82, "training");
 
-  test("protein = 152g (2.2 * 68.88 = 151.54 ≈ 152)", () => {
-    expect(macros.proteinG).toBe(152);
+  test("protein = 172g (2.5 * 68.88 = 172.2 ≈ 172)", () => {
+    expect(macros.proteinG).toBe(172);
   });
 
   test("fat = 74g (0.9 * 82 = 73.8 ≈ 74)", () => {
     expect(macros.fatG).toBe(74);
   });
 
-  test("carbs = 353g (remaining kcal / 4)", () => {
-    // (2685 - 152*4 - 74*9) / 4 = (2685 - 608 - 666) / 4 = 1411 / 4 = 352.75 ≈ 353
-    expect(macros.carbG).toBe(353);
+  test("carbs = 318g (remaining kcal / 4)", () => {
+    // (2627 - 172*4 - 74*9) / 4 = (2627 - 688 - 666) / 4 = 1273 / 4 = 318.25 ≈ 318
+    expect(macros.carbG).toBe(318);
   });
 
-  test("total kcal = 2686 (P*4 + F*9 + C*4)", () => {
-    expect(macros.totalKcal).toBe(2686);
+  test("total kcal = 2626 (P*4 + F*9 + C*4)", () => {
+    // 172*4 + 74*9 + 318*4 = 688 + 666 + 1272 = 2626
+    expect(macros.totalKcal).toBe(2626);
   });
 });
 
 describe("Marco Bellini — Macros (Rest)", () => {
   const bf = estimateBodyFat(marco);
-  const macros = calculateMacros(2405, bf.bodyComposition, 82, "rest");
+  const macros = calculateMacros(2372, bf.bodyComposition, 82, "rest");
 
-  test("protein = 138g (2.0 * 68.88 = 137.76 ≈ 138)", () => {
-    expect(macros.proteinG).toBe(138);
+  test("protein = 152g (2.2 * 68.88 = 151.536 ≈ 152)", () => {
+    expect(macros.proteinG).toBe(152);
   });
 
   test("fat = 82g (1.0 * 82 = 82)", () => {
     expect(macros.fatG).toBe(82);
   });
 
-  test("carbs = 279g", () => {
-    // (2405 - 138*4 - 82*9) / 4 = (2405 - 552 - 738) / 4 = 1115 / 4 = 278.75 ≈ 279
-    expect(macros.carbG).toBe(279);
+  test("carbs = 257g", () => {
+    // (2372 - 152*4 - 82*9) / 4 = (2372 - 608 - 738) / 4 = 1026 / 4 = 256.5 ≈ 257
+    expect(macros.carbG).toBe(257);
   });
 
-  test("total kcal = 2406", () => {
-    expect(macros.totalKcal).toBe(2406);
+  test("total kcal = 2374", () => {
+    // 152*4 + 82*9 + 257*4 = 608 + 738 + 1028 = 2374
+    expect(macros.totalKcal).toBe(2374);
   });
 });
 
 // ── Hydration ───────────────────────────────────────────────────────────────
 
 describe("Marco Bellini — Hydration", () => {
-  test("training: 3370ml water, 6.5g salt", () => {
+  test("training: 3575ml water, 6.5g salt", () => {
     const h = calculateHydration(82, "training");
-    expect(h.waterMl).toBe(3370);
+    // base: 37.5 * 82 = 3075, + 500 training bonus = 3575
+    expect(h.waterMl).toBe(3575);
     expect(h.saltG).toBe(6.5);
   });
 
-  test("rest: 2870ml water, 5g salt", () => {
+  test("rest: 3075ml water, 5g salt", () => {
     const h = calculateHydration(82, "rest");
-    expect(h.waterMl).toBe(2870);
+    // 37.5 * 82 = 3075
+    expect(h.waterMl).toBe(3075);
     expect(h.saltG).toBe(5);
   });
 });
@@ -224,21 +228,21 @@ describe("Marco Bellini — Full Plan", () => {
   test("daily plan training matches all intermediates", () => {
     const plan = generateDailyPlan(marco, "training");
     expect(plan.dayType).toBe("training");
-    expect(plan.tdee.totalTdeeKcal).toBe(2685);
-    expect(plan.macros.proteinG).toBe(152);
+    expect(plan.tdee.totalTdeeKcal).toBe(2627);
+    expect(plan.macros.proteinG).toBe(172);
     expect(plan.macros.fatG).toBe(74);
-    expect(plan.macros.carbG).toBe(353);
-    expect(plan.hydration.waterMl).toBe(3370);
+    expect(plan.macros.carbG).toBe(318);
+    expect(plan.hydration.waterMl).toBe(3575);
   });
 
   test("daily plan rest matches all intermediates", () => {
     const plan = generateDailyPlan(marco, "rest");
     expect(plan.dayType).toBe("rest");
-    expect(plan.tdee.totalTdeeKcal).toBe(2405);
-    expect(plan.macros.proteinG).toBe(138);
+    expect(plan.tdee.totalTdeeKcal).toBe(2372);
+    expect(plan.macros.proteinG).toBe(152);
     expect(plan.macros.fatG).toBe(82);
-    expect(plan.macros.carbG).toBe(279);
-    expect(plan.hydration.waterMl).toBe(2870);
+    expect(plan.macros.carbG).toBe(257);
+    expect(plan.hydration.waterMl).toBe(3075);
   });
 
   test("weekly plan respects T/R/T/R/T/R/R schedule", () => {
@@ -255,12 +259,12 @@ describe("Marco Bellini — Full Plan", () => {
 
   test("weekly averages computed correctly", () => {
     const weekly = generateWeeklyPlan(marco);
-    // 3 training days × 2686 + 4 rest days × 2406 = 8058 + 9624 = 17682 / 7 = 2526
-    const expectedAvgKcal = Math.round((3 * 2686 + 4 * 2406) / 7);
+    // 3 training days × 2626 + 4 rest days × 2374 = 7878 + 9496 = 17374 / 7 = 2482
+    const expectedAvgKcal = Math.round((3 * 2626 + 4 * 2374) / 7);
     expect(weekly.weeklyAverageKcal).toBe(expectedAvgKcal);
 
-    // 3 training × 152 + 4 rest × 138 = 456 + 552 = 1008 / 7 = 144
-    const expectedAvgProtein = Math.round((3 * 152 + 4 * 138) / 7);
+    // 3 training × 172 + 4 rest × 152 = 516 + 608 = 1124 / 7 = 160.57... ≈ 161
+    const expectedAvgProtein = Math.round((3 * 172 + 4 * 152) / 7);
     expect(weekly.weeklyAverageProteinG).toBe(expectedAvgProtein);
   });
 });

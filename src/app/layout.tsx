@@ -9,6 +9,9 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Roberto Scrigna — Nutrition Platform",
   description: "Professional nutrition planning and client management platform.",
+  icons: {
+    icon: "/favicon.svg",
+  },
 };
 
 /**

@@ -68,16 +68,20 @@ export function scaleIngredients(
 
 /**
  * Calculate actual macros after scaling a template.
+ * kcal is derived from scaled macros (P*4 + C*4 + F*9) for consistency.
  */
 export function scaledMacros(
   template: MealTemplate,
   factor: number
 ): SlotMacroTargets {
+  const proteinG = Math.round(template.proteinG * factor * 10) / 10;
+  const fatG = Math.round(template.fatG * factor * 10) / 10;
+  const carbsG = Math.round(template.carbsG * factor * 10) / 10;
   return {
-    kcal: Math.round(template.kcalPerServing * factor),
-    proteinG: Math.round(template.proteinG * factor * 10) / 10,
-    fatG: Math.round(template.fatG * factor * 10) / 10,
-    carbsG: Math.round(template.carbsG * factor * 10) / 10,
+    kcal: Math.round(proteinG * 4 + carbsG * 4 + fatG * 9),
+    proteinG,
+    fatG,
+    carbsG,
   };
 }
 

@@ -2,7 +2,7 @@
  * Macro target calculations: Protein, Fat, Carbs.
  *
  * Spec v4.4 guidelines:
- * - Protein: 1.8-2.5 g/kg LBM (training) or 1.6-2.2 g/kg LBM (rest)
+ * - Protein: 2.5 g/kg LBM (training) or 2.2 g/kg LBM (rest)
  * - Fat: 0.8-1.2 g/kg total BW
  * - Carbs: remaining kcal after protein & fat
  *
@@ -31,10 +31,10 @@ interface MacroMultipliers {
 }
 
 const DAY_TYPE_MULTIPLIERS: Record<DayType, MacroMultipliers> = {
-  training: { proteinPerKgLbm: 2.2, fatPerKgBw: 0.9 },
-  rest: { proteinPerKgLbm: 2.0, fatPerKgBw: 1.0 },
-  refeed: { proteinPerKgLbm: 2.0, fatPerKgBw: 0.7 },
-  deload: { proteinPerKgLbm: 2.0, fatPerKgBw: 1.0 },
+  training: { proteinPerKgLbm: 2.5, fatPerKgBw: 0.9 },
+  rest: { proteinPerKgLbm: 2.2, fatPerKgBw: 1.0 },
+  refeed: { proteinPerKgLbm: 2.2, fatPerKgBw: 0.7 },
+  deload: { proteinPerKgLbm: 2.2, fatPerKgBw: 1.0 },
 };
 
 // ── Public API ────────────────────────────────────────────────────────────────

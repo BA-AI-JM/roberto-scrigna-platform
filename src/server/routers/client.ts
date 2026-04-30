@@ -15,7 +15,7 @@ const createClientSchema = z.object({
   fullName: z.string().min(2).max(200),
   email: z.email().optional(),
   phone: z.string().max(30).optional(),
-  dateOfBirth: z.string().optional(), // ISO date string
+  dateOfBirth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Formato data: YYYY-MM-DD").optional(),
   sex: z.enum(["male", "female"]).optional(),
   heightCm: z.number().min(50).max(280).optional(),
   codiceFiscale: z.string().max(20).optional(),
@@ -648,9 +648,10 @@ export const clientRouter = router({
         .single();
 
       if (clientError || !client) {
+        console.error("[router/client.submitIntakeForm] client insert:", clientError);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: clientError?.message ?? "Errore nella creazione del cliente.",
+          message: "Errore nella creazione del cliente.",
         });
       }
 

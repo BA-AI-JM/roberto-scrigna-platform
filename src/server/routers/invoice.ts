@@ -44,8 +44,8 @@ const createInvoiceSchema = z.object({
   /** Overall tax percentage (applied if line item has no individual taxPct) */
   taxPct: z.number().min(0).max(100).optional(),
   currency: z.string().length(3).default("EUR"),
-  issuedDate: z.string().optional(), // ISO date
-  dueDate: z.string().optional(), // ISO date
+  issuedDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Formato data: YYYY-MM-DD").optional(),
+  dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Formato data: YYYY-MM-DD").optional(),
 });
 
 /** Schema for updating an invoice */
@@ -58,7 +58,7 @@ const updateStatusSchema = z.object({
   id: z.string().uuid(),
   status: invoiceStatusSchema,
   /** Required when marking as paid */
-  paidDate: z.string().optional(),
+  paidDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Formato data: YYYY-MM-DD").optional(),
 });
 
 // ── Helpers ──────────────────────────────────────────────────────────────────

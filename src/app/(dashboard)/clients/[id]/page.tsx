@@ -42,6 +42,14 @@ const STATUS_LABELS: Record<string, string> = {
   archived: "Archiviato",
 };
 
+const ACTIVITY_LABELS: Record<string, string> = {
+  sedentary: "Sedentario",
+  light: "Leggermente attivo",
+  moderate: "Moderatamente attivo",
+  heavy: "Molto attivo",
+  very_heavy: "Estremamente attivo",
+};
+
 const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
   active: { bg: "#dcfce7", text: "#166534" },
   paused: { bg: "#fef3c7", text: "#92400e" },
@@ -196,8 +204,13 @@ function PanoramicaTab({
     rows.push({ label: "Età", value: `${snapshot.age_years} anni` });
   if (snapshot.daily_steps != null)
     rows.push({ label: "Passi al giorno", value: `${snapshot.daily_steps}` });
-  if (snapshot.occupational_level != null)
-    rows.push({ label: "Livello occupazionale", value: String(snapshot.occupational_level) });
+  if (snapshot.occupational_level != null) {
+    const rawLevel = String(snapshot.occupational_level);
+    rows.push({
+      label: "Livello occupazionale",
+      value: ACTIVITY_LABELS[rawLevel] ?? rawLevel,
+    });
+  }
 
   const skinfoldData = snapshot.skinfold_data as Record<string, unknown> | null;
   if (skinfoldData?.bodyFatPctOverride != null)
@@ -641,6 +654,12 @@ export default function ClientDetailPage() {
   const params = useParams();
   const router = useRouter();
   const clientId = params.id as string;
+
+  // Guard: /clients/new is a create route, not a client ID
+  if (clientId === "new") {
+    router.replace("/plans/new");
+    return null;
+  }
   const [activeTab, setActiveTab] = useState<ActiveTab>("panoramica");
   const [archiving, setArchiving] = useState(false);
 

@@ -150,10 +150,16 @@ function AlertCard({ alert }: { alert: SmartAlert }) {
 // ── Engagement Heatmap ────────────────────────────────────────────────────────
 
 function EngagementHeatmap({ data }: { data: HeatmapRow[] }) {
-  if (data.length === 0) {
+  const hasActivity = data.length > 0 && data.some((r) => r.weeks.some((w) => w > 0));
+
+  if (data.length === 0 || !hasActivity) {
     return (
       <div style={{ textAlign: "center", padding: "40px", color: "#9ca3af" }}>
-        <p style={{ fontSize: "14px" }}>Nessun dato di engagement disponibile</p>
+        <div style={{ fontSize: "32px", marginBottom: "8px" }}>📅</div>
+        <p style={{ fontSize: "14px", margin: 0 }}>Nessun check-in registrato</p>
+        <p style={{ fontSize: "12px", marginTop: "4px", color: "#d1d5db" }}>
+          L&apos;attività dei clienti apparirà qui dopo il primo check-in
+        </p>
       </div>
     );
   }
@@ -255,10 +261,26 @@ function RevenueChart({
 }: {
   data: Array<{ month: string; revenueCents: number }>;
 }) {
-  if (data.length === 0) {
+  const hasData = data.length > 0 && data.some((d) => d.revenueCents > 0);
+
+  if (!hasData) {
     return (
-      <div style={{ textAlign: "center", padding: "40px", color: "#9ca3af" }}>
-        <p style={{ fontSize: "14px" }}>Nessun dato di fatturato disponibile</p>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          height: "180px",
+          color: "#9ca3af",
+          flexDirection: "column",
+          gap: "8px",
+        }}
+      >
+        <div style={{ fontSize: "32px" }}>📊</div>
+        <p style={{ fontSize: "14px", margin: 0 }}>Nessun dato di fatturazione</p>
+        <p style={{ fontSize: "12px", margin: 0, color: "#d1d5db" }}>
+          I dati appariranno dopo la prima fattura pagata
+        </p>
       </div>
     );
   }

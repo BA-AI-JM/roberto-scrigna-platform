@@ -30,7 +30,7 @@ const exerciseEntrySchema = z.object({
 /** Schema for creating a training log */
 const createTrainingLogSchema = z.object({
   clientId: z.string().uuid(),
-  sessionDate: z.string(), // ISO date
+  sessionDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Formato data: YYYY-MM-DD"), // ISO date
   sessionType: z.enum([
     "strength",
     "hypertrophy",
@@ -42,7 +42,8 @@ const createTrainingLogSchema = z.object({
   ]),
   durationMinutes: z.number().int().min(1).max(480).optional(),
   exercises: z.array(exerciseEntrySchema).max(50).optional(),
-  screenshotUrls: z.array(z.string().url()).max(10).optional(),
+  // Restrict to https:// — these URLs are passed to Claude Vision API.
+  screenshotUrls: z.array(z.string().url().startsWith("https://")).max(10).optional(),
   ocrExtracted: z.boolean().default(false),
   perceivedEffort: z.number().int().min(1).max(10).optional(),
   notes: z.string().max(5000).optional(),
@@ -76,7 +77,7 @@ function extractExercisesFromScreenshot(_imageUrl: string): {
   return {
     exercises: [],
     confidence: 0,
-    rawText: "[OCR processing placeholder — integrate Claude Vision API]",
+    rawText: "",
   };
 }
 
@@ -119,7 +120,7 @@ export const trainingLogRouter = router({
           partner_id: ctx.partnerId,
           session_date: input.sessionDate,
           session_type: input.sessionType,
-          duration_minutes: input.durationMinutes ?? null,
+          duration_min: input.durationMinutes ?? null,
           exercises: JSON.stringify(exercises),
           screenshot_urls: input.screenshotUrls ?? [],
           ocr_extracted: input.ocrExtracted || ocrData !== null,
@@ -159,7 +160,7 @@ export const trainingLogRouter = router({
       let query = ctx.supabase
         .from("training_log")
         .select(
-          `id, session_date, session_type, duration_minutes,
+          `id, session_date, session_type, duration_min,
            perceived_effort, ocr_extracted, notes, created_at`,
           { count: "exact" }
         )
@@ -215,7 +216,8 @@ export const trainingLogRouter = router({
   processScreenshot: protectedProcedure
     .input(
       z.object({
-        imageUrl: z.string().url(),
+        // Restrict to https:// — passed to Claude Vision API.
+        imageUrl: z.string().url().startsWith("https://"),
       })
     )
     .mutation(async ({ input }) => {
@@ -237,7 +239,7 @@ export const trainingLogRouter = router({
 
       if (fields.sessionDate !== undefined) updates.session_date = fields.sessionDate;
       if (fields.sessionType !== undefined) updates.session_type = fields.sessionType;
-      if (fields.durationMinutes !== undefined) updates.duration_minutes = fields.durationMinutes;
+      if (fields.durationMinutes !== undefined) updates.duration_min = fields.durationMinutes;
       if (fields.exercises !== undefined) updates.exercises = JSON.stringify(fields.exercises);
       if (fields.screenshotUrls !== undefined) updates.screenshot_urls = fields.screenshotUrls;
       if (fields.perceivedEffort !== undefined) updates.perceived_effort = fields.perceivedEffort;

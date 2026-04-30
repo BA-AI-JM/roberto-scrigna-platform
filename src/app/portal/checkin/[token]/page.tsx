@@ -15,6 +15,51 @@ import { useState } from "react";
 import { useParams } from "next/navigation";
 import { trpc } from "@/lib/trpc/client";
 
+// ── Token validation gate ─────────────────────────────────────────────────────
+// Rendered before the form — if the token is invalid or already used, show an
+// error state instead of the full form.  Prevents any random UUID from loading
+// the check-in UI.
+function InvalidTokenState() {
+  return (
+    <div
+      style={{
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "#f8fafc",
+        fontFamily: "system-ui, -apple-system, sans-serif",
+      }}
+    >
+      <div
+        style={{
+          textAlign: "center",
+          padding: "60px 40px",
+          background: "#ffffff",
+          borderRadius: "16px",
+          border: "1px solid #fecaca",
+          maxWidth: "480px",
+        }}
+      >
+        <div style={{ fontSize: "48px", marginBottom: "20px" }}>&#9888;</div>
+        <h2
+          style={{
+            fontSize: "22px",
+            fontWeight: 700,
+            color: "#1a1a2e",
+            marginBottom: "12px",
+          }}
+        >
+          Link non valido o scaduto
+        </h2>
+        <p style={{ fontSize: "15px", color: "#6b7280", lineHeight: 1.6 }}>
+          Contatta il tuo coach per ricevere un nuovo link di check-in.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface CheckinFormData {
@@ -120,6 +165,12 @@ export default function PublicCheckinPage() {
   const params = useParams();
   const token = params.token as string;
 
+  // ── Token validation (runs on mount, before showing any form) ──────────────
+  const validateQuery = trpc.checkin.validateToken.useQuery(
+    { token },
+    { retry: false, enabled: Boolean(token) }
+  );
+
   const [submitted, setSubmitted] = useState(false);
   const [formData, setFormData] = useState<CheckinFormData>({
     weightKg: "",
@@ -172,6 +223,31 @@ export default function PublicCheckinPage() {
       notes: formData.notes || undefined,
     });
   };
+
+  // ── Validation gate ───────────────────────────────────────────────────────
+  if (validateQuery.isLoading) {
+    return (
+      <div
+        style={{
+          minHeight: "100vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "#f8fafc",
+          fontFamily: "system-ui, -apple-system, sans-serif",
+          color: "#9ca3af",
+          fontSize: "15px",
+        }}
+      >
+        Verifica link in corso...
+      </div>
+    );
+  }
+
+  if (validateQuery.isError || !validateQuery.data?.valid) {
+    return <InvalidTokenState />;
+  }
+  // ─────────────────────────────────────────────────────────────────────────
 
   if (submitted) {
     return (
