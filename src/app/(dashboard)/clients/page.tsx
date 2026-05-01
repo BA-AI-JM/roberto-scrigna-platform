@@ -380,19 +380,24 @@ export default function ClientsPage() {
                       <td style={{ padding: "14px 16px", fontSize: "14px", color: "#6b7280" }}>
                         {formatDate(client.created_at)}
                       </td>
-                      <td style={{ padding: "14px 16px", textAlign: "right" }}>
-                        <span
+                      <td
+                        style={{ padding: "14px 16px", textAlign: "right" }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <Link
+                          href={`/clients/${client.id}`}
                           style={{
                             fontSize: "13px",
-                            color: "#1a1a2e",
+                            color: "#3b82f6",
                             fontWeight: 500,
                             padding: "6px 12px",
                             border: "1px solid #e2e8f0",
                             borderRadius: "6px",
+                            textDecoration: "none",
                           }}
                         >
                           Dettagli →
-                        </span>
+                        </Link>
                       </td>
                     </tr>
                   ))}

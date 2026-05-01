@@ -98,12 +98,16 @@ describe("Niccolo — TDEE OFF=2400", () => {
     expect(tdee.dayType).toBe("rest");
   });
 
-  test("macros: P=129g F=75g C=302g total=2399", () => {
+  test("macros: P=142g F=75g C=289g total=2399", () => {
+    // P: 2.2 * 64.5 = 141.9 ≈ 142g
+    // F: 1.0 * 75 = 75g
+    // C: (2400 - 142*4 - 75*9) / 4 = (2400 - 568 - 675) / 4 = 1157 / 4 = 289.25 ≈ 289g
+    // total: 142*4 + 75*9 + 289*4 = 568 + 675 + 1156 = 2399
     const bf = estimateBodyFat(niccolo);
     const macros = calculateMacros(2400, bf.bodyComposition, 75, "rest");
-    expect(macros.proteinG).toBe(129);
+    expect(macros.proteinG).toBe(142);
     expect(macros.fatG).toBe(75);
-    expect(macros.carbG).toBe(302);
+    expect(macros.carbG).toBe(289);
     expect(macros.totalKcal).toBe(2399);
   });
 });
@@ -117,34 +121,42 @@ describe("Niccolo — TDEE RT=2600", () => {
     expect(tdee.dayType).toBe("training");
   });
 
-  test("macros: P=142g F=68g C=355g total=2600", () => {
+  test("macros: P=161g F=68g C=336g total=2600", () => {
+    // P: 2.5 * 64.5 = 161.25 ≈ 161g
+    // F: 0.9 * 75 = 67.5 ≈ 68g
+    // C: (2600 - 161*4 - 68*9) / 4 = (2600 - 644 - 612) / 4 = 1344 / 4 = 336g
+    // total: 161*4 + 68*9 + 336*4 = 644 + 612 + 1344 = 2600
     const bf = estimateBodyFat(niccolo);
     const macros = calculateMacros(2600, bf.bodyComposition, 75, "training");
-    expect(macros.proteinG).toBe(142);
+    expect(macros.proteinG).toBe(161);
     expect(macros.fatG).toBe(68);
-    expect(macros.carbG).toBe(355);
+    expect(macros.carbG).toBe(336);
     expect(macros.totalKcal).toBe(2600);
   });
 });
 
 describe("Niccolo — TDEE BIKE=2750", () => {
   test("BIKE day: macros at 2750 kcal training profile", () => {
+    // P=161g, F=68g, C=(2750-644-612)/4=1494/4=373.5→374g
+    // total: 644+612+374*4=644+612+1496=2752
     const bf = estimateBodyFat(niccolo);
     const macros = calculateMacros(2750, bf.bodyComposition, 75, "training");
-    expect(macros.proteinG).toBe(142);
+    expect(macros.proteinG).toBe(161);
     expect(macros.fatG).toBe(68);
-    expect(macros.carbG).toBe(393);
+    expect(macros.carbG).toBe(374);
     expect(macros.totalKcal).toBe(2752);
   });
 });
 
 describe("Niccolo — TDEE LONG_RUN=3700", () => {
   test("LONG_RUN day: macros at 3700 kcal training profile", () => {
+    // P=161g, F=68g, C=(3700-644-612)/4=2444/4=611g
+    // total: 644+612+611*4=644+612+2444=3700
     const bf = estimateBodyFat(niccolo);
     const macros = calculateMacros(3700, bf.bodyComposition, 75, "training");
-    expect(macros.proteinG).toBe(142);
+    expect(macros.proteinG).toBe(161);
     expect(macros.fatG).toBe(68);
-    expect(macros.carbG).toBe(630);
+    expect(macros.carbG).toBe(611);
     expect(macros.totalKcal).toBe(3700);
   });
 });
@@ -152,15 +164,17 @@ describe("Niccolo — TDEE LONG_RUN=3700", () => {
 // ── Hydration ───────────────────────────────────────────────────────────────
 
 describe("Niccolo — Hydration", () => {
-  test("training: 3125ml water, 6.5g salt", () => {
+  test("training: 3313ml water, 6.5g salt", () => {
+    // base: 37.5 * 75 = 2812.5 → Math.round = 2813, + 500 = 3313
     const h = calculateHydration(75, "training");
-    expect(h.waterMl).toBe(3125);
+    expect(h.waterMl).toBe(3313);
     expect(h.saltG).toBe(6.5);
   });
 
-  test("rest: 2625ml water, 5g salt", () => {
+  test("rest: 2813ml water, 5g salt", () => {
+    // 37.5 * 75 = 2812.5 → Math.round = 2813
     const h = calculateHydration(75, "rest");
-    expect(h.waterMl).toBe(2625);
+    expect(h.waterMl).toBe(2813);
     expect(h.saltG).toBe(5);
   });
 });
@@ -170,13 +184,13 @@ describe("Niccolo — Hydration", () => {
 describe("Niccolo — Cross-Day Validation", () => {
   const bf = estimateBodyFat(niccolo);
 
-  test("protein constant across training days (142g)", () => {
+  test("protein constant across training days (161g)", () => {
     const rt = calculateMacros(2600, bf.bodyComposition, 75, "training");
     const bike = calculateMacros(2750, bf.bodyComposition, 75, "training");
     const lr = calculateMacros(3700, bf.bodyComposition, 75, "training");
-    expect(rt.proteinG).toBe(142);
-    expect(bike.proteinG).toBe(142);
-    expect(lr.proteinG).toBe(142);
+    expect(rt.proteinG).toBe(161);
+    expect(bike.proteinG).toBe(161);
+    expect(lr.proteinG).toBe(161);
   });
 
   test("fat constant across training days (68g)", () => {

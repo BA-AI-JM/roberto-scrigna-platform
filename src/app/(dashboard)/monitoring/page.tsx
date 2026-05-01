@@ -304,10 +304,10 @@ export default function MonitoringPage() {
         <div style={{ textAlign: "center", padding: "80px 24px", color: "#9ca3af" }}>
           <div style={{ fontSize: "48px", marginBottom: "16px" }}>📋</div>
           <h3 style={{ fontSize: "16px", fontWeight: 600, color: "#374151" }}>
-            Nessun check-in
+            Nessun check-in in attesa
           </h3>
           <p style={{ fontSize: "14px", marginTop: "8px" }}>
-            Invia un check-in al tuo primo cliente per iniziare.
+            I check-in verranno visualizzati qui dopo l&apos;invio da parte dei clienti.
           </p>
         </div>
       ) : (

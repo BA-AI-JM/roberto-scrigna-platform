@@ -26,7 +26,7 @@ import { z } from "zod/v4";
 import { router, clientProcedure } from "../trpc";
 import { TRPCError } from "@trpc/server";
 import { createSupabaseServiceRole } from "../../lib/supabase/service";
-import { rateLimit } from "../../lib/rate-limit";
+import { rateLimit, getClientIp } from "../../lib/rate-limit";
 
 // ── Shared Helpers ────────────────────────────────────────────────────────────
 
@@ -47,7 +47,7 @@ const mealTypeSchema = z.enum([
 ]);
 
 const diaryEntrySchema = z.object({
-  entryDate: z.string(), // ISO date YYYY-MM-DD
+  entryDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Formato data: YYYY-MM-DD"), // ISO date YYYY-MM-DD
   mealSlot: z.string().max(50).optional(),
   foodItems: z
     .array(
@@ -261,7 +261,7 @@ export const portalRouter = router({
    * Get food diary entries for a specific date.
    */
   getDiaryEntries: clientProcedure
-    .input(z.object({ date: z.string() })) // ISO date YYYY-MM-DD
+    .input(z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Formato data: YYYY-MM-DD") })) // ISO date YYYY-MM-DD
     .query(async ({ ctx, input }) => {
       const db = svc();
       const { data, error } = await db
@@ -325,9 +325,10 @@ export const portalRouter = router({
         .single();
 
       if (error || !data) {
+        console.error("[router/portal.addDiaryEntry]", error);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: error?.message ?? "Errore nel salvataggio del diario.",
+          message: "Errore nel salvataggio del diario.",
         });
       }
 
@@ -395,9 +396,10 @@ export const portalRouter = router({
         .single();
 
       if (error || !data) {
+        console.error("[router/portal.addTrainingLog]", error);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: error?.message ?? "Errore nel salvataggio dell'allenamento.",
+          message: "Errore nel salvataggio dell'allenamento.",
         });
       }
 
@@ -452,9 +454,10 @@ export const portalRouter = router({
         .single();
 
       if (error || !data) {
+        console.error("[router/portal.addSnapshot]", error);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: error?.message ?? "Errore nel salvataggio della misurazione.",
+          message: "Errore nel salvataggio della misurazione.",
         });
       }
 
@@ -468,7 +471,7 @@ export const portalRouter = router({
     .input(
       z.object({
         limit: z.number().int().min(1).max(100).default(50),
-        before: z.string().optional(), // cursor: message created_at ISO string
+        before: z.string().datetime().optional(), // cursor: message created_at ISO datetime
       })
     )
     .query(async ({ ctx, input }) => {
@@ -500,7 +503,7 @@ export const portalRouter = router({
   sendMessage: clientProcedure
     .input(z.object({ body: z.string().min(1).max(5000) }))
     .mutation(async ({ ctx, input }) => {
-      const ip = ctx.headers?.get("x-forwarded-for") ?? ctx.clientId ?? "unknown";
+      const ip = getClientIp(ctx.headers) !== "unknown" ? getClientIp(ctx.headers) : (ctx.clientId ?? "unknown");
       const { success } = rateLimit(`portal:sendMessage:${ip}`, 30, 60_000);
       if (!success) {
         throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "Troppi tentativi. Riprova tra poco." });
@@ -588,7 +591,8 @@ export const portalRouter = router({
   savePushSubscription: clientProcedure
     .input(
       z.object({
-        endpoint: z.string().url(),
+        // Push subscription endpoints from browsers are always https://
+        endpoint: z.string().url().startsWith("https://"),
         keys: z.object({
           p256dh: z.string(),
           auth: z.string(),

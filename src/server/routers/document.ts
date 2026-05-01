@@ -29,7 +29,9 @@ const docTypeSchema = z.enum([
 const createDocumentSchema = z.object({
   title: z.string().min(1).max(300),
   docType: docTypeSchema,
-  fileUrl: z.string().url(),
+  // Restrict to https:// to prevent javascript: / data: URI injection.
+  // Documents are rendered as download links in the partner UI.
+  fileUrl: z.string().url().startsWith("https://"),
   fileSizeBytes: z.number().int().min(0).optional(),
   mimeType: z.string().max(100).default("application/pdf"),
   clientId: z.string().uuid().optional(),
@@ -127,6 +129,23 @@ export const documentRouter = router({
         }
       }
 
+      // If planId is provided, verify it belongs to this partner.
+      // Without this check, a malicious partner could link documents to
+      // another partner's plan (cross-tenant data association).
+      if (input.planId) {
+        const { data: plan } = await ctx.supabase
+          .from("plan")
+          .select("id")
+          .eq("id", input.planId)
+          .eq("partner_id", ctx.partnerId)
+          .is("deleted_at", null)
+          .single();
+
+        if (!plan) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Piano non trovato." });
+        }
+      }
+
       const { data, error } = await ctx.supabase
         .from("document")
         .insert({
@@ -143,9 +162,10 @@ export const documentRouter = router({
         .single();
 
       if (error || !data) {
+        console.error("[router/document.create]", error);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: error?.message ?? "Errore nella creazione del documento.",
+          message: "Errore nella creazione del documento.",
         });
       }
 

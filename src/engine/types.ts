@@ -75,21 +75,29 @@ export interface ClientSnapshot {
 // ── Exercise Session ──────────────────────────────────────────────────────────
 
 export type ExerciseMethod =
-  | "heart_rate"        // Method 1: HR-based (most accurate)
-  | "met_value"         // Method 2: MET × weight × duration
-  | "session_estimate"  // Method 3: Per-session kcal estimate
-  | "default_estimate"; // Method 4: Default 300kcal fallback
+  | "sport_correction_protocol" // Method 0: SCP — HR zones + sport profile (highest accuracy)
+  | "heart_rate"                // Method 1: Keytel HR-based (average HR only)
+  | "met_value"                 // Method 2: MET × weight × duration
+  | "session_estimate"          // Method 3: Per-session kcal estimate
+  | "default_estimate";         // Method 4: Default 300kcal fallback
 
 export interface ExerciseSession {
   method: ExerciseMethod;
   /** Duration in minutes */
   durationMin: number;
-  /** Average heart rate (for HR method) */
+  /** Average heart rate (for HR method or Tier 2 SCP fallback) */
   avgHeartRate?: number;
   /** MET value (for MET method) */
   metValue?: number;
   /** Direct kcal estimate (for session_estimate method) */
   kcalEstimate?: number;
+  /** SCP inputs — when present, SCP is attempted before Keytel fallback */
+  scpData?: {
+    hrZoneData: import("./sport-correction/types").HRZoneData;
+    categoryId: import("./sport-correction/types").CategoryId;
+    sessionType: import("./sport-correction/types").SessionType;
+    deviceKcal?: number;
+  };
 }
 
 // ── TDEE Override ─────────────────────────────────────────────────────────────

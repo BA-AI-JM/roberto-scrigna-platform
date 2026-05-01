@@ -21,7 +21,5 @@ export { GUIDANCE_BLOCKS } from "./blocks";
 // Selection logic
 export {
   selectGuidanceBlocks,
-  getGuidanceBlocksByCategory,
-  getGuidanceBlockById,
   listAllGuidanceBlocks,
 } from "./selector";

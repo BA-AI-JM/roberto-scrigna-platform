@@ -1,7 +1,7 @@
 /**
  * Hydration and salt intake targets.
  *
- * Water: ~35-40 ml per kg body weight, adjusted for training days.
+ * Water: ~37.5 ml per kg body weight, adjusted for training days.
  * Salt: 5-7g per day base, increased on training days for electrolyte replacement.
  */
 
@@ -9,8 +9,8 @@ import type { DayType, HydrationTargets } from "./types";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-/** Base water intake: 35ml per kg body weight */
-const BASE_WATER_ML_PER_KG = 35;
+/** Base water intake: ~37.5 ml per kg body weight */
+const BASE_WATER_ML_PER_KG = 37.5;
 
 /** Additional water on training days (ml) */
 const TRAINING_WATER_BONUS_ML = 500;

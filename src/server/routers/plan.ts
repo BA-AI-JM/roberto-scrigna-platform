@@ -246,12 +246,11 @@ export const planRouter = router({
       try {
         result = generatePlan(genInput);
       } catch (err) {
+        // Log the full engine error server-side; surface a safe message to the client.
+        console.error("[router/plan.generate] engine error:", err);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message:
-            err instanceof Error
-              ? `Errore nella generazione del piano: ${err.message}`
-              : "Errore sconosciuto durante la generazione del piano.",
+          message: "Errore nella generazione del piano. Verifica che tutti i dati del cliente siano completi.",
         });
       }
 
@@ -291,9 +290,10 @@ export const planRouter = router({
         .single();
 
       if (planError || !plan) {
+        console.error("[router/plan.generate] plan insert:", planError);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: planError?.message ?? "Errore nel salvataggio del piano.",
+          message: "Errore nel salvataggio del piano.",
         });
       }
 

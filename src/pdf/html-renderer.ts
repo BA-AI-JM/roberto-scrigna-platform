@@ -76,7 +76,7 @@ function renderCover(data: PdfReportData): string {
         <span class="cover-logo-text">RS</span>
       </div>
       <h1 class="cover-title">Roberto Scrigna</h1>
-      <p class="cover-subtitle">Nutrition & Performance</p>
+      <p class="cover-subtitle">Nutrizione Sportiva</p>
       <div class="cover-divider"></div>
       <p class="cover-client">${esc(data.client.fullName)}</p>
       <p class="cover-date">Piano Nutrizionale — ${esc(data.client.planDate)}</p>
@@ -443,7 +443,7 @@ function renderGuidance(data: PdfReportData): string {
 function renderFooter(data: PdfReportData, pageNum: number, footerText?: string): string {
   return `
     <div class="page-footer">
-      <span>${footerText ?? "Roberto Scrigna — Nutrition & Performance"}</span>
+      <span>${footerText ?? "Roberto Scrigna — Nutrizione Sportiva"}</span>
       <span>${esc(data.client.fullName)} — ${esc(data.client.planDate)}</span>
       <span>Pag. ${pageNum}</span>
     </div>

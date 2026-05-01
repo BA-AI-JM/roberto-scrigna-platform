@@ -6,7 +6,7 @@
  */
 
 // Plan Generation Pipeline
-export { generatePlan, serializePlanResult, deserializePlanResult } from "./plan-generator";
+export { generatePlan, serializePlanResult } from "./plan-generator";
 export type {
   PlanGenerationInput,
   PlanGenerationResult,
@@ -17,7 +17,6 @@ export type {
 export {
   generateSupplementProtocol,
   buildSupplementContext,
-  getMasterSupplements,
   MASTER_SUPPLEMENTS,
 } from "./supplements";
 export type {

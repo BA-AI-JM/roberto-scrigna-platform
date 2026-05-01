@@ -180,7 +180,7 @@ export default function TrainingLogPage() {
       clientId: activeClientId,
       sessionDate: l.session_date as string,
       sessionType: l.session_type,
-      durationMinutes: l.duration_minutes as number | null,
+      durationMinutes: l.duration_min as number | null,
       perceivedEffort: l.perceived_effort as number | null,
       ocrExtracted: Boolean(l.ocr_extracted),
       notes: l.notes as string | null,
@@ -541,12 +541,12 @@ export default function TrainingLogPage() {
         <div style={{ textAlign: "center", padding: "80px 24px", color: "#9ca3af" }}>
           <div style={{ fontSize: "48px", marginBottom: "16px" }}>🏋️</div>
           <h3 style={{ fontSize: "16px", fontWeight: 600, color: "#374151" }}>
-            {!activeClientId ? "Seleziona un cliente per vedere le sessioni" : "Nessuna sessione registrata"}
+            {!activeClientId ? "Seleziona un cliente per vedere le sessioni" : "Nessuna sessione di allenamento registrata"}
           </h3>
           <p style={{ fontSize: "14px", marginTop: "8px" }}>
             {!activeClientId
               ? "Usa il selettore qui sopra per filtrare per cliente."
-              : "Aggiungi la prima sessione con il pulsante in alto a destra."}
+              : "Le sessioni verranno visualizzate qui dopo la registrazione."}
           </p>
         </div>
       ) : (

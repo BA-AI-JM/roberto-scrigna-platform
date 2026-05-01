@@ -311,8 +311,8 @@ describe("Macros", () => {
       85,
       "training"
     );
-    // Protein: 2.2 * 72.25 = 158.95 ≈ 159g
-    expect(macros.proteinG).toBeCloseTo(159, 0);
+    // Protein: 2.5 * 72.25 = 180.625 ≈ 181g
+    expect(macros.proteinG).toBeCloseTo(181, 0);
     // Fat: 0.9 * 85 = 76.5 ≈ 77g
     expect(macros.fatG).toBeCloseTo(77, 0);
     // Carbs: (2500 - 159*4 - 77*9) / 4
@@ -360,19 +360,19 @@ describe("Macros", () => {
 describe("Hydration", () => {
   test("rest day hydration", () => {
     const h = calculateHydration(85, "rest");
-    expect(h.waterMl).toBe(2975); // 35 * 85
+    expect(h.waterMl).toBe(3188); // 37.5 * 85 = 3187.5 → 3188
     expect(h.saltG).toBe(5);
   });
 
   test("training day adds bonus water and salt", () => {
     const h = calculateHydration(85, "training");
-    expect(h.waterMl).toBe(3475); // 2975 + 500
+    expect(h.waterMl).toBe(3688); // 3188 + 500
     expect(h.saltG).toBe(6.5); // 5 + 1.5
   });
 
   test("deload day also gets bonus hydration", () => {
     const h = calculateHydration(85, "deload");
-    expect(h.waterMl).toBe(3475);
+    expect(h.waterMl).toBe(3688);
     expect(h.saltG).toBe(6.5);
   });
 });

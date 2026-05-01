@@ -164,27 +164,35 @@ function Page1({ form, set }: { form: FormData; set: (k: keyof FormData, v: stri
 
       <FieldGroup label="Nome e Cognome *">
         <input
+          id="full_name"
+          name="full_name"
           type="text"
           className={s.input}
           value={form.full_name}
           onChange={(e) => set("full_name", e.target.value)}
           placeholder="Mario Rossi"
           autoFocus
+          autoComplete="name"
         />
       </FieldGroup>
 
       <div className={s.grid2}>
         <FieldGroup label="Data di Nascita *">
           <input
+            id="date_of_birth"
+            name="date_of_birth"
             type="date"
             className={s.input}
             value={form.date_of_birth}
             onChange={(e) => set("date_of_birth", e.target.value)}
+            autoComplete="bday"
           />
         </FieldGroup>
 
         <FieldGroup label="Altezza (cm) *">
           <input
+            id="height_cm"
+            name="height_cm"
             type="number"
             className={s.input}
             value={form.height_cm}
@@ -197,6 +205,8 @@ function Page1({ form, set }: { form: FormData; set: (k: keyof FormData, v: stri
 
         <FieldGroup label="Peso attuale (kg) *">
           <input
+            id="weight_kg"
+            name="weight_kg"
             type="number"
             className={s.input}
             value={form.weight_kg}
@@ -215,6 +225,8 @@ function Page1({ form, set }: { form: FormData; set: (k: keyof FormData, v: stri
             <button
               key={v}
               type="button"
+              aria-label={v === "male" ? "Maschio" : "Femmina"}
+              aria-pressed={form.sex === v}
               onClick={() => set("sex", v)}
               className={`flex-1 rounded-lg border py-2.5 text-sm font-medium transition-colors ${
                 form.sex === v
@@ -231,21 +243,27 @@ function Page1({ form, set }: { form: FormData; set: (k: keyof FormData, v: stri
       <div className={s.grid2}>
         <FieldGroup label="Email">
           <input
+            id="email"
+            name="email"
             type="email"
             className={s.input}
             value={form.email}
             onChange={(e) => set("email", e.target.value)}
             placeholder="mario@example.com"
+            autoComplete="email"
           />
         </FieldGroup>
 
         <FieldGroup label="Telefono">
           <input
+            id="phone"
+            name="phone"
             type="tel"
             className={s.input}
             value={form.phone}
             onChange={(e) => set("phone", e.target.value)}
             placeholder="+39 333 1234567"
+            autoComplete="tel"
           />
         </FieldGroup>
       </div>

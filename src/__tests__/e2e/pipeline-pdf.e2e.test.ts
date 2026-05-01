@@ -151,20 +151,20 @@ describe("E2E Pipeline: Marco Bellini", () => {
   const report = buildReportData(marco, "Marco Bellini");
 
   test("engine produces correct TDEE for training and rest", () => {
-    expect(report.dayTypePlans[0]!.tdee.totalTdeeKcal).toBe(2685);
-    expect(report.dayTypePlans[1]!.tdee.totalTdeeKcal).toBe(2405);
+    expect(report.dayTypePlans[0]!.tdee.totalTdeeKcal).toBe(2627);
+    expect(report.dayTypePlans[1]!.tdee.totalTdeeKcal).toBe(2372);
   });
 
   test("macros match fidelity expectations", () => {
     const t = report.dayTypePlans[0]!.macros;
-    expect(t.proteinG).toBe(152);
+    expect(t.proteinG).toBe(172);
     expect(t.fatG).toBe(74);
-    expect(t.carbG).toBe(353);
+    expect(t.carbG).toBe(318);
 
     const r = report.dayTypePlans[1]!.macros;
-    expect(r.proteinG).toBe(138);
+    expect(r.proteinG).toBe(152);
     expect(r.fatG).toBe(82);
-    expect(r.carbG).toBe(279);
+    expect(r.carbG).toBe(257);
   });
 
   test("meal plan generated for both day types", () => {
@@ -196,9 +196,9 @@ describe("E2E Pipeline: Marco Bellini", () => {
 
   test("PDF HTML contains macro values", () => {
     const html = renderReportHtml(report, { includeMealPlans: true });
-    expect(html).toContain("152"); // protein training
+    expect(html).toContain("172"); // protein training
     // TDEE appears formatted with thousands separator
-    expect(html).toContain("2,685");
+    expect(html).toContain("2,627");
   });
 });
 

@@ -1,24 +1,27 @@
 /**
  * Exercise energy expenditure calculation.
  *
- * 4-method priority system (spec v4.4):
- * 1. Heart rate-based (most accurate when data available)
+ * Method priority system (spec v4.4 / v4.4.1):
+ * 0. Sport Correction Protocol (SCP) — HR zones + sport profile (highest accuracy)
+ * 1. Heart rate-based (Keytel formula — average HR, no zone breakdown)
  * 2. MET value × weight × duration
  * 3. Per-session kcal estimate (from trainer)
  * 4. Default 300kcal fallback
  *
- * v4.4.1 recalibration: Apply a 0.85 correction factor to all methods
- * to account for systematic overestimation in wearable devices and MET tables.
+ * When scpData is present on the session, SCP is attempted as Method 0.
+ * If SCP returns null (Tier 2/3 data), the pipeline falls through to Keytel.
+ * SCP results bypass the 0.85 recalibration factor (SCP does its own correction).
  */
 
 import type { Sex, ExerciseSession, ExerciseResult, ExerciseMethod } from "./types";
+import { runSCP } from "./sport-correction/index";
 
 // ── v4.4.1 Recalibration ─────────────────────────────────────────────────────
 
-/** Correction factor to reduce overestimation (v4.4.1 update) */
+/** Correction factor applied to legacy methods (Keytel, MET, estimate) */
 const RECALIBRATION_FACTOR = 0.85;
 
-// ── Method 1: Heart Rate-Based ────────────────────────────────────────────────
+// ── Method 1: Heart Rate-Based (Keytel) ───────────────────────────────────────
 
 /**
  * Keytel et al. (2005) HR-based energy expenditure.
@@ -71,7 +74,12 @@ export interface ExerciseContext {
 
 /**
  * Calculate exercise energy expenditure using the highest-priority available method.
- * Applies v4.4.1 recalibration factor to the result.
+ *
+ * Method 0 (SCP): When session.scpData is present, the Sport Correction Protocol
+ * is attempted first. SCP handles its own correction; no 0.85 factor applied.
+ * If SCP returns null (Tier 2/3), falls through to Method 1.
+ *
+ * Methods 1–4: Apply v4.4.1 recalibration factor (×0.85) to the raw kcal.
  *
  * @param session - Exercise session data with method and parameters
  * @param ctx - Client context (weight, age, sex)
@@ -81,10 +89,37 @@ export function calculateExercise(
   session: ExerciseSession,
   ctx: ExerciseContext
 ): ExerciseResult {
+  // ── Method 0: Sport Correction Protocol ──────────────────────────────────────
+  if (session.scpData != null) {
+    const scpResult = runSCP({
+      hrZoneData: session.scpData.hrZoneData,
+      categoryId: session.scpData.categoryId,
+      sessionType: session.scpData.sessionType,
+      durationMin: session.durationMin,
+      weightKg: ctx.weightKg,
+      ageYears: ctx.ageYears,
+      sex: ctx.sex,
+      deviceKcal: session.scpData.deviceKcal,
+      avgHeartRate: session.avgHeartRate,
+      metValue: session.metValue,
+      kcalEstimate: session.kcalEstimate,
+    });
+
+    if (scpResult != null) {
+      // SCP succeeded (Tier 1) — return directly, no recalibration factor
+      return {
+        exerciseKcal: scpResult.exerciseKcal,
+        methodUsed: "sport_correction_protocol",
+        recalibrationFactor: scpResult.recalibrationFactor,
+      };
+    }
+    // SCP returned null (Tier 2/3) — fall through to legacy methods below
+  }
+
+  // ── Methods 1–4: Legacy path (applies 0.85 recalibration) ────────────────────
   let rawKcal: number;
   let methodUsed: ExerciseMethod;
 
-  // Use the specified method, falling through priority if data is missing
   if (session.method === "heart_rate" && session.avgHeartRate != null) {
     rawKcal = heartRateKcal(
       session.avgHeartRate,

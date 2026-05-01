@@ -6,6 +6,7 @@
 import { z } from "zod/v4";
 import { router, publicProcedure, protectedProcedure } from "../trpc";
 import { TRPCError } from "@trpc/server";
+import { rateLimit, getClientIp } from "../../lib/rate-limit";
 
 export const authRouter = router({
   /**
@@ -34,6 +35,16 @@ export const authRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      // Rate limit: 10 attempts per IP per minute to prevent brute-force
+      const ip = getClientIp(ctx.headers);
+      const { success } = rateLimit(`login:${ip}`, 10, 60_000);
+      if (!success) {
+        throw new TRPCError({
+          code: "TOO_MANY_REQUESTS",
+          message: "Troppi tentativi di accesso. Riprova tra un minuto.",
+        });
+      }
+
       const { data, error } = await ctx.supabase.auth.signInWithPassword({
         email: input.email,
         password: input.password,

@@ -33,6 +33,7 @@ interface ReviewState {
   clientName: string;
   energyBalance: string;
   weeklyAvgKcal: number;
+  weekSchedule: string[];
   dayTypePlans: DayTypePlanSummary[];
   supplements: SupplementEntry[];
   guidance: GuidanceSection;
@@ -104,6 +105,7 @@ const EMPTY_STATE: ReviewState = {
   clientName: "",
   energyBalance: "maintenance",
   weeklyAvgKcal: 0,
+  weekSchedule: [],
   dayTypePlans: [],
   supplements: [],
   guidance: {
@@ -185,6 +187,7 @@ export default function PlanReviewPage({
       clientName: data.clientName,
       energyBalance: bundle.energyBalance,
       weeklyAvgKcal: bundle.weeklyPlan.weeklyAverageKcal,
+      weekSchedule: bundle.weeklyPlan.days.map((d: { dayType: string }) => d.dayType),
       dayTypePlans: rd.dayTypePlans,
       supplements: bundle.supplements,
       guidance: bundle.guidance ?? EMPTY_STATE.guidance,
@@ -284,9 +287,12 @@ export default function PlanReviewPage({
     fontFamily: "inherit",
     resize: "vertical" as const,
     outline: "none",
-    minHeight: "100px",
+    minHeight: "120px",
     lineHeight: "1.5",
     color: "#18181b",
+    backgroundColor: "#ffffff",
+    boxSizing: "border-box" as const,
+    display: "block",
   } as const;
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -686,7 +692,13 @@ function OverviewTab({
           />
           <StatCard
             label="Tipologie Giornata"
-            value={String(review.dayTypePlans.length)}
+            value={(() => {
+              const trainingCount = review.weekSchedule.filter((d) => d === "training" || d === "deload").length;
+              const restCount = review.weekSchedule.filter((d) => d === "rest" || d === "refeed").length;
+              return review.weekSchedule.length > 0
+                ? `${review.dayTypePlans.length} (${trainingCount} allenamento / ${restCount} riposo)`
+                : String(review.dayTypePlans.length);
+            })()}
           />
           <StatCard
             label="Integratori"
@@ -801,7 +813,7 @@ function MacrosTab({
               borderRadius: "6px",
             }}
           >
-            TDEE: {Math.round(plan.tdee.totalTdeeKcal)} kcal &nbsp;|&nbsp;
+            Target Calorico: {Math.round(plan.tdee.totalTdeeKcal)} kcal &nbsp;|&nbsp;
             Acqua: {plan.hydration.waterMl} ml &nbsp;|&nbsp;
             Sale: {plan.hydration.saltG.toFixed(1)} g
           </div>
@@ -858,9 +870,15 @@ function MealsTab({
                   color: plan.mealPlan.withinTolerance ? "#15803d" : "#854d0e",
                 }}
               >
-                {plan.mealPlan.withinTolerance
-                  ? "Entro tolleranza"
-                  : "Fuori tolleranza"}
+                {plan.mealPlan.withinTolerance ? (
+                  "Entro tolleranza"
+                ) : (
+                  <span
+                    title={`Deviazione: ${plan.mealPlan.deviation.kcal > 0 ? '+' : ''}${plan.mealPlan.deviation.kcal} kcal, P ${plan.mealPlan.deviation.proteinG > 0 ? '+' : ''}${plan.mealPlan.deviation.proteinG}g, C ${plan.mealPlan.deviation.carbsG > 0 ? '+' : ''}${plan.mealPlan.deviation.carbsG}g, F ${plan.mealPlan.deviation.fatG > 0 ? '+' : ''}${plan.mealPlan.deviation.fatG}g`}
+                  >
+                    Fuori tolleranza
+                  </span>
+                )}
               </span>
             )}
           </div>
@@ -1123,6 +1141,7 @@ function GuidanceTab({
             onChange={(e) => onUpdate(f.key, e.target.value)}
             style={textareaStyle}
             rows={6}
+            placeholder={`${f.label}...`}
           />
         </div>
       ))}

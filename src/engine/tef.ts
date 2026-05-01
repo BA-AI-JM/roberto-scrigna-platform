@@ -4,7 +4,7 @@
  * TEF represents the energy cost of digesting, absorbing, and metabolising food.
  * Typically 8-15% of total caloric intake, with higher protein diets at the upper end.
  *
- * Default: 10% of BMR + NEAT + Exercise as a reasonable approximation
+ * Default: 10% of BMR as a reasonable approximation
  * when exact dietary composition is unknown at planning stage.
  */
 
@@ -28,18 +28,18 @@ export const TEF_RANGES = {
 export type DietEmphasis = keyof typeof TEF_RANGES;
 
 /**
- * Calculate TEF based on subtotal of BMR + NEAT + Exercise.
+ * Calculate TEF based on BMR only.
  *
- * @param subtotalKcal - Sum of BMR + NEAT + Exercise kcal
+ * @param bmrKcal - Basal metabolic rate in kcal
  * @param dietEmphasis - Optional diet emphasis to adjust TEF %
  * @returns TEF kcal and the percentage used
  */
 export function calculateTef(
-  subtotalKcal: number,
+  bmrKcal: number,
   dietEmphasis?: DietEmphasis
 ): TefResult {
   const tefPct = dietEmphasis ? TEF_RANGES[dietEmphasis] : DEFAULT_TEF_PCT;
-  const tefKcal = Math.round(subtotalKcal * (tefPct / 100));
+  const tefKcal = Math.round(bmrKcal * (tefPct / 100));
 
   return {
     tefKcal,

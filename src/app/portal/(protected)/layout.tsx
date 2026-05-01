@@ -34,8 +34,8 @@ export default async function PortalProtectedLayout({
     .eq("auth_user_id", user.id)
     .maybeSingle();
 
-  if (!client) {
-    // User exists in Supabase Auth but is not a registered client
+  if (!client || client.status !== "active") {
+    // User exists in Supabase Auth but is not a registered or active client
     redirect("/portal/login");
   }
 

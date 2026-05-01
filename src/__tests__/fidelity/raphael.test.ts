@@ -99,12 +99,16 @@ describe("Raphael — TDEE OFF=2300", () => {
     expect(tdee.dayType).toBe("rest");
   });
 
-  test("macros: P=148g F=90g C=225g total=2302", () => {
+  test("macros: P=162g F=90g C=211g total=2302", () => {
+    // P: 2.2 * 73.8 = 162.36 ≈ 162g
+    // F: 1.0 * 90 = 90g
+    // C: (2300 - 162*4 - 90*9) / 4 = (2300 - 648 - 810) / 4 = 842 / 4 = 210.5 ≈ 211g
+    // total: 162*4 + 90*9 + 211*4 = 648 + 810 + 844 = 2302
     const bf = estimateBodyFat(raphael);
     const macros = calculateMacros(2300, bf.bodyComposition, 90, "rest");
-    expect(macros.proteinG).toBe(148);
+    expect(macros.proteinG).toBe(162);
     expect(macros.fatG).toBe(90);
-    expect(macros.carbG).toBe(225);
+    expect(macros.carbG).toBe(211);
     expect(macros.totalKcal).toBe(2302);
   });
 });
@@ -118,12 +122,16 @@ describe("Raphael — TDEE ON1=2650", () => {
     expect(tdee.dayType).toBe("training");
   });
 
-  test("macros: P=162g F=81g C=318g total=2649", () => {
+  test("macros: P=185g F=81g C=295g total=2649", () => {
+    // P: 2.5 * 73.8 = 184.5 ≈ 185g
+    // F: 0.9 * 90 = 81g
+    // C: (2650 - 185*4 - 81*9) / 4 = (2650 - 740 - 729) / 4 = 1181 / 4 = 295.25 ≈ 295g
+    // total: 185*4 + 81*9 + 295*4 = 740 + 729 + 1180 = 2649
     const bf = estimateBodyFat(raphael);
     const macros = calculateMacros(2650, bf.bodyComposition, 90, "training");
-    expect(macros.proteinG).toBe(162);
+    expect(macros.proteinG).toBe(185);
     expect(macros.fatG).toBe(81);
-    expect(macros.carbG).toBe(318);
+    expect(macros.carbG).toBe(295);
     expect(macros.totalKcal).toBe(2649);
   });
 });
@@ -137,12 +145,15 @@ describe("Raphael — TDEE ON2=3200", () => {
     expect(tdee.dayType).toBe("training");
   });
 
-  test("macros: P=162g F=81g C=456g total=3201", () => {
+  test("macros: P=185g F=81g C=433g total=3201", () => {
+    // P=185g, F=81g
+    // C: (3200 - 740 - 729) / 4 = 1731 / 4 = 432.75 ≈ 433g
+    // total: 740 + 729 + 433*4 = 740 + 729 + 1732 = 3201
     const bf = estimateBodyFat(raphael);
     const macros = calculateMacros(3200, bf.bodyComposition, 90, "training");
-    expect(macros.proteinG).toBe(162);
+    expect(macros.proteinG).toBe(185);
     expect(macros.fatG).toBe(81);
-    expect(macros.carbG).toBe(456);
+    expect(macros.carbG).toBe(433);
     expect(macros.totalKcal).toBe(3201);
   });
 });
@@ -150,15 +161,17 @@ describe("Raphael — TDEE ON2=3200", () => {
 // ── Hydration ───────────────────────────────────────────────────────────────
 
 describe("Raphael — Hydration", () => {
-  test("training: 3650ml water, 6.5g salt", () => {
+  test("training: 3875ml water, 6.5g salt", () => {
+    // base: 37.5 * 90 = 3375, + 500 = 3875
     const h = calculateHydration(90, "training");
-    expect(h.waterMl).toBe(3650);
+    expect(h.waterMl).toBe(3875);
     expect(h.saltG).toBe(6.5);
   });
 
-  test("rest: 3150ml water, 5g salt", () => {
+  test("rest: 3375ml water, 5g salt", () => {
+    // 37.5 * 90 = 3375
     const h = calculateHydration(90, "rest");
-    expect(h.waterMl).toBe(3150);
+    expect(h.waterMl).toBe(3375);
     expect(h.saltG).toBe(5);
   });
 });
@@ -168,11 +181,11 @@ describe("Raphael — Hydration", () => {
 describe("Raphael — Cross-Day Validation", () => {
   const bf = estimateBodyFat(raphael);
 
-  test("protein constant across training days (162g)", () => {
+  test("protein constant across training days (185g)", () => {
     const on1 = calculateMacros(2650, bf.bodyComposition, 90, "training");
     const on2 = calculateMacros(3200, bf.bodyComposition, 90, "training");
-    expect(on1.proteinG).toBe(162);
-    expect(on2.proteinG).toBe(162);
+    expect(on1.proteinG).toBe(185);
+    expect(on2.proteinG).toBe(185);
   });
 
   test("fat constant across training days (81g)", () => {

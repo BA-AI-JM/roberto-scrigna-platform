@@ -241,9 +241,8 @@ function generateTrainingNotes(ctx: NarrativeContext): string | undefined {
 
 // ── Assumption Disclosures ──────────────────────────────────────────────────
 
-/** Standard assumptions that apply to all plans */
+/** Standard assumptions that apply to all plans (excludes the dynamic BF% method line) */
 const STANDARD_ASSUMPTIONS: readonly string[] = [
-  "Le stime del fabbisogno energetico sono basate su formule validate (Katch-McArdle per BMR, Jackson & Pollock per BF%) e potrebbero richiedere aggiustamenti in base alla risposta individuale.",
   "I valori dei pasti sono calcolati sui dati nutrizionali medi degli alimenti — possono variare in base alla marca e al metodo di preparazione.",
   "Il piano presuppone un'aderenza costante. Variazioni significative nell'attività fisica o nelle abitudini alimentari richiedono una rivalutazione.",
   "Gli integratori suggeriti non sostituiscono una dieta equilibrata e variata. Consultare il medico in caso di patologie o assunzione di farmaci.",
@@ -255,9 +254,18 @@ const STANDARD_ASSUMPTIONS: readonly string[] = [
 function generateCoachNotes(ctx: NarrativeContext): string {
   const lines: string[] = [];
 
+  // Determine BF% method label from the assumptions already collected
+  const bfMethodLabel = ctx.assumptions.some(a => a.includes("Jackson & Pollock 7"))
+    ? "Jackson & Pollock 7 pliche per BF%"
+    : ctx.assumptions.some(a => a.includes("Jackson & Pollock 3"))
+    ? "Jackson & Pollock 3 pliche per BF%"
+    : "formula euristica basata su BMI per BF%";
+
+  const dynamicFormulaNote = `Le stime del fabbisogno energetico sono basate su formule validate (Katch-McArdle per BMR, ${bfMethodLabel}) e potrebbero richiedere aggiustamenti in base alla risposta individuale.`;
+
   // Assumption disclosures
   lines.push("**Premesse e Assunzioni del Piano**:\n");
-  const allAssumptions = [...STANDARD_ASSUMPTIONS, ...ctx.assumptions];
+  const allAssumptions = [dynamicFormulaNote, ...STANDARD_ASSUMPTIONS, ...ctx.assumptions];
   for (const assumption of allAssumptions) {
     lines.push(`- ${assumption}`);
   }

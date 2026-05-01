@@ -50,7 +50,7 @@ export function Sidebar({ partnerName, onNavigate }: SidebarProps) {
         <div className="text-lg font-bold tracking-tight text-zinc-900">
           Roberto Scrigna
         </div>
-        <div className="text-xs text-zinc-400">Nutrition & Performance</div>
+        <div className="text-xs text-zinc-400">Nutrizione Sportiva</div>
       </div>
 
       {/* Navigation */}
