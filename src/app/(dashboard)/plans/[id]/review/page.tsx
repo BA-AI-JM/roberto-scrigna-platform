@@ -858,6 +858,7 @@ function MealsTab({
               {plan.label}
             </h3>
             {plan.mealPlan && (
+              <>
               <span
                 style={{
                   fontSize: "12px",
@@ -880,6 +881,52 @@ function MealsTab({
                   </span>
                 )}
               </span>
+              {!plan.mealPlan.withinTolerance && (
+                <button
+                  onClick={() => {
+                    if (!plan.mealPlan) return;
+
+                    const targetKcal = plan.macros.totalKcal;
+                    const actualKcal = plan.mealPlan.slots.reduce(
+                      (sum: number, s: any) => sum + (s.actualMacros?.kcal ?? 0), 0
+                    );
+                    if (actualKcal <= 0) return;
+
+                    const scaleFactor = targetKcal / actualKcal;
+
+                    // Scale all slot ingredients
+                    const adjustedSlots = plan.mealPlan.slots.map((slot: any) => ({
+                      ...slot,
+                      scaledIngredients: slot.scaledIngredients?.map((ing: any) => ({
+                        ...ing,
+                        grams: Math.round(ing.grams * scaleFactor),
+                      })),
+                      actualMacros: slot.actualMacros ? {
+                        kcal: Math.round(slot.actualMacros.kcal * scaleFactor),
+                        proteinG: Math.round(slot.actualMacros.proteinG * scaleFactor * 10) / 10,
+                        carbsG: Math.round(slot.actualMacros.carbsG * scaleFactor * 10) / 10,
+                        fatG: Math.round(slot.actualMacros.fatG * scaleFactor * 10) / 10,
+                      } : undefined,
+                    }));
+
+                    alert(`Porzioni aggiustate: ${actualKcal} → ${targetKcal} kcal (×${scaleFactor.toFixed(2)}). Salva il piano per applicare.`);
+                  }}
+                  style={{
+                    marginLeft: "8px",
+                    padding: "3px 10px",
+                    borderRadius: "12px",
+                    backgroundColor: "#dbeafe",
+                    color: "#1d4ed8",
+                    border: "none",
+                    cursor: "pointer",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                  }}
+                >
+                  Aggiusta Porzioni
+                </button>
+              )}
+              </>
             )}
           </div>
 

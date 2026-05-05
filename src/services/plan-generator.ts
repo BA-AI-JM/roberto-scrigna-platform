@@ -132,10 +132,10 @@ function determineEnergyBalance(
   weeklyAverageKcal: number,
   maintenanceEstimate: number
 ): "deficit" | "surplus" | "maintenance" {
-  const ratio = weeklyAverageKcal / maintenanceEstimate;
-  if (ratio < 0.95) return "deficit";
-  if (ratio > 1.05) return "surplus";
-  return "maintenance";
+  const diff = weeklyAverageKcal - maintenanceEstimate;
+  if (Math.abs(diff) <= 50) return "maintenance";
+  if (diff < 0) return "deficit";
+  return "surplus";
 }
 
 /**
@@ -227,11 +227,9 @@ export function generatePlan(
   }
 
   // ── Step 4: Energy balance ─────────────────────────────────────────────
-  // Use rest-day TDEE as the maintenance baseline.
-  // If client explicitly provides maintenanceKcalEstimate, use that instead.
-  const restDayTdee = weeklyPlan.days.find((d) => d.dayType === "rest")?.tdee.totalTdeeKcal;
-  const maintenanceEstimate =
-    input.maintenanceKcalEstimate ?? restDayTdee ?? weeklyPlan.weeklyAverageKcal;
+  // Use weighted weekly average TDEE as maintenance baseline (not just rest-day TDEE)
+  const avgTdee = weeklyPlan.days.reduce((sum, d) => sum + d.tdee.totalTdeeKcal, 0) / weeklyPlan.days.length;
+  const maintenanceEstimate = input.maintenanceKcalEstimate ?? avgTdee;
   const energyBalance = determineEnergyBalance(weeklyPlan.weeklyAverageKcal, maintenanceEstimate);
 
   // ── Step 5: Supplement protocol ────────────────────────────────────────

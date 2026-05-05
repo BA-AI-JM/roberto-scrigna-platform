@@ -374,6 +374,29 @@ export const planRouter = router({
         });
       }
 
+      // Validate goal type matches actual calorie balance before approval
+      const { data: dailyTargets } = await ctx.supabase
+        .from("daily_targets")
+        .select("energy_balance, weekly_avg_kcal, maintenance_estimate")
+        .eq("plan_id", input.id)
+        .single();
+
+      if (dailyTargets) {
+        const { energy_balance, weekly_avg_kcal, maintenance_estimate } = dailyTargets;
+        if (
+          energy_balance === "deficit" &&
+          maintenance_estimate != null &&
+          weekly_avg_kcal != null &&
+          Math.abs(weekly_avg_kcal - maintenance_estimate) <= 50
+        ) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message:
+              "Impossibile approvare: il piano è etichettato come 'Deficit Calorico' ma le calorie corrispondono al TDEE di mantenimento. Correggi il tipo di obiettivo.",
+          });
+        }
+      }
+
       const { error } = await ctx.supabase
         .from("plan")
         .update({ status: "active" })
