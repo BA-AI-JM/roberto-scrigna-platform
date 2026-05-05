@@ -626,7 +626,7 @@ export default function PlanReviewPage({
         <MacrosTab dayTypePlans={review.dayTypePlans} cardStyle={cardStyle} />
       )}
       {activeTab === "meals" && (
-        <MealsTab dayTypePlans={review.dayTypePlans} cardStyle={cardStyle} />
+        <MealsTab dayTypePlans={review.dayTypePlans} cardStyle={cardStyle} planId={planId} />
       )}
       {activeTab === "supplements" && (
         <SupplementsTab
@@ -826,10 +826,21 @@ function MacrosTab({
 function MealsTab({
   dayTypePlans,
   cardStyle,
+  planId,
 }: {
   dayTypePlans: DayTypePlanSummary[];
   cardStyle: React.CSSProperties;
+  planId: string;
 }) {
+  const adjustMutation = trpc.plan.adjustPortions.useMutation({
+    onSuccess: (result) => {
+      alert(`Porzioni aggiustate: ${result.previousKcal} \u2192 ${result.newKcal} kcal (\xd7${result.scaleFactor.toFixed(2)})`);
+      window.location.reload();
+    },
+    onError: (err) => {
+      alert(`Errore: ${err.message}`);
+    },
+  });
   const plansWithMeals = dayTypePlans.filter((p) => p.mealPlan);
 
   if (plansWithMeals.length === 0) {

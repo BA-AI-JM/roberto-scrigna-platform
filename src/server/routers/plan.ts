@@ -451,6 +451,136 @@ export const planRouter = router({
     }),
 
   /**
+   * Adjust meal portions for a specific day type so totals hit the macro target.
+   * Scales all ingredient grams and recalculates slot macros proportionally.
+   */
+  adjustPortions: protectedProcedure
+    .input(z.object({
+      planId: z.string().uuid(),
+      dayType: z.string(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const { data: plan } = await ctx.supabase
+        .from("plan")
+        .select("id, daily_targets")
+        .eq("id", input.planId)
+        .eq("partner_id", ctx.partnerId)
+        .is("deleted_at", null)
+        .single();
+
+      if (!plan) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Piano non trovato." });
+      }
+
+      const dt = plan.daily_targets as Record<string, unknown> | null;
+      const bundle = dt?.plan_bundle as Record<string, unknown> | undefined;
+      const report = bundle?.reportData as Record<string, unknown> | undefined;
+      const dayPlans = report?.dayTypePlans as Array<Record<string, unknown>> | undefined;
+
+      if (!dayPlans || !dt || !bundle || !report) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Dati del piano mancanti." });
+      }
+
+      const dayIdx = dayPlans.findIndex((d) => d.dayType === input.dayType);
+      if (dayIdx === -1) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Tipo giorno non trovato." });
+      }
+
+      const day = dayPlans[dayIdx] as Record<string, unknown>;
+      const macros = day.macros as Record<string, unknown> | undefined;
+      const targetKcal = (macros?.totalKcal as number) ?? 0;
+      const mealPlan = day.mealPlan as Record<string, unknown> | undefined;
+      const slots = mealPlan?.slots as Array<Record<string, unknown>> | undefined;
+
+      if (!slots || targetKcal <= 0) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Nessun pasto da aggiustare." });
+      }
+
+      const actualKcal = slots.reduce((sum, s) => {
+        const am = s.actualMacros as Record<string, number> | undefined;
+        return sum + (am?.kcal ?? 0);
+      }, 0);
+
+      if (actualKcal <= 0) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Calorie attuali non calcolabili." });
+      }
+
+      const scale = targetKcal / actualKcal;
+
+      // Scale each slot
+      const adjusted = slots.map((slot) => {
+        const ings = slot.scaledIngredients as Array<Record<string, unknown>> | undefined;
+        const am = slot.actualMacros as Record<string, number> | undefined;
+        return {
+          ...slot,
+          scaledIngredients: ings?.map((ing) => ({
+            ...ing,
+            grams: Math.round((ing.grams as number) * scale),
+          })),
+          actualMacros: am ? {
+            kcal: Math.round((am.kcal ?? 0) * scale),
+            proteinG: Math.round((am.proteinG ?? 0) * scale * 10) / 10,
+            carbsG: Math.round((am.carbsG ?? 0) * scale * 10) / 10,
+            fatG: Math.round((am.fatG ?? 0) * scale * 10) / 10,
+          } : undefined,
+        };
+      });
+
+      // Recalculate tolerance
+      const newTotal = adjusted.reduce((sum, s) => {
+        const am = s.actualMacros as Record<string, number> | undefined;
+        return sum + (am?.kcal ?? 0);
+      }, 0);
+      const tolerance = targetKcal * 0.03;
+
+      // Write back
+      const updatedDayPlans = [...dayPlans];
+      updatedDayPlans[dayIdx] = {
+        ...day,
+        mealPlan: {
+          ...mealPlan,
+          slots: adjusted,
+          withinTolerance: Math.abs(newTotal - targetKcal) <= tolerance,
+          deviation: {
+            kcal: Math.round(newTotal - targetKcal),
+            proteinG: 0,
+            carbsG: 0,
+            fatG: 0,
+          },
+        },
+      };
+
+      const updatedDt = {
+        ...dt,
+        plan_bundle: {
+          ...bundle,
+          reportData: {
+            ...report,
+            dayTypePlans: updatedDayPlans,
+          },
+        },
+      };
+
+      const { error } = await ctx.supabase
+        .from("plan")
+        .update({ daily_targets: updatedDt })
+        .eq("id", input.planId)
+        .eq("partner_id", ctx.partnerId);
+
+      if (error) {
+        console.error("[router/plan.adjustPortions]", error);
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Errore nel salvataggio." });
+      }
+
+      return {
+        success: true,
+        previousKcal: actualKcal,
+        newKcal: newTotal,
+        scaleFactor: scale,
+      };
+    }),
+
+  /**
    * Share a plan with the client via email.
    * Sends a branded HTML email with a summary of kcal/macro targets and a
    * portal link. The email address can be overridden; defaults to the client's
