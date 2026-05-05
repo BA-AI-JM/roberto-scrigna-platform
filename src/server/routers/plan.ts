@@ -361,7 +361,7 @@ export const planRouter = router({
       // Verify ownership first — include client_id so we can dispatch the event
       const { data: plan } = await ctx.supabase
         .from("plan")
-        .select("id, client_id")
+        .select("id, client_id, daily_targets")
         .eq("id", input.id)
         .eq("partner_id", ctx.partnerId)
         .is("deleted_at", null)
@@ -375,19 +375,33 @@ export const planRouter = router({
       }
 
       // Validate goal type matches actual calorie balance before approval
-      const { data: dailyTargets } = await ctx.supabase
-        .from("daily_targets")
-        .select("energy_balance, weekly_avg_kcal, maintenance_estimate")
-        .eq("plan_id", input.id)
-        .single();
+      const dailyTargets = plan.daily_targets as Record<string, unknown> | null;
+      const macroPayload = dailyTargets?.macro_payload as Record<string, unknown> | undefined;
+      const planBundle = dailyTargets?.plan_bundle as Record<string, unknown> | undefined;
+      if (macroPayload) {
+        const energyBalance = macroPayload.energyBalance as string | undefined;
+        const weeklyAvgKcal = macroPayload.weeklyAverageKcal as number | undefined;
 
-      if (dailyTargets) {
-        const { energy_balance, weekly_avg_kcal, maintenance_estimate } = dailyTargets;
+        // maintenanceEstimate may be in macro_payload (new plans) or computed
+        // from plan_bundle.weeklyPlan.days TDEE averages (existing plans)
+        let maintenanceEst = macroPayload.maintenanceEstimate as number | undefined;
+        if (maintenanceEst == null && planBundle) {
+          const wp = (planBundle as Record<string, unknown>).weeklyPlan as Record<string, unknown> | undefined;
+          const days = wp?.days as Array<Record<string, unknown>> | undefined;
+          if (days && days.length > 0) {
+            const tdeeSum = days.reduce((sum, d) => {
+              const tdee = d.tdee as Record<string, unknown> | undefined;
+              return sum + ((tdee?.totalTdeeKcal as number) ?? 0);
+            }, 0);
+            maintenanceEst = tdeeSum / days.length;
+          }
+        }
+
         if (
-          energy_balance === "deficit" &&
-          maintenance_estimate != null &&
-          weekly_avg_kcal != null &&
-          Math.abs(weekly_avg_kcal - maintenance_estimate) <= 50
+          energyBalance === "deficit" &&
+          maintenanceEst != null &&
+          weeklyAvgKcal != null &&
+          Math.abs(weeklyAvgKcal - maintenanceEst) <= 50
         ) {
           throw new TRPCError({
             code: "BAD_REQUEST",
