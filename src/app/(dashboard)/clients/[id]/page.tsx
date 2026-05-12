@@ -399,7 +399,7 @@ function PianiTab({ clientId }: { clientId: string }) {
                 </td>
                 <td style={{ padding: "14px 16px", textAlign: "right" }}>
                   <Link
-                    href={`/plans/${plan.id}`}
+                    href={`/plans/${plan.id}/review`}
                     style={{
                       fontSize: "13px",
                       color: "#1a1a2e",
@@ -662,6 +662,7 @@ export default function ClientDetailPage() {
   }
   const [activeTab, setActiveTab] = useState<ActiveTab>("panoramica");
   const [archiving, setArchiving] = useState(false);
+  const [inviteMsg, setInviteMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   const { data, isLoading, isError } = trpc.client.getById.useQuery({ id: clientId });
   const archiveMutation = trpc.client.archive.useMutation({
@@ -673,10 +674,24 @@ export default function ClientDetailPage() {
     },
   });
 
+  const inviteMutation = trpc.client.sendPortalInvite.useMutation({
+    onSuccess: (res) => {
+      setInviteMsg({ ok: true, text: `Invito inviato a ${res.sentTo}.` });
+    },
+    onError: (err) => {
+      setInviteMsg({ ok: false, text: err.message ?? "Errore nell'invio dell'invito." });
+    },
+  });
+
   const handleArchive = async () => {
     if (!confirm("Sei sicuro di voler archiviare questo cliente?")) return;
     setArchiving(true);
     archiveMutation.mutate({ id: clientId });
+  };
+
+  const handleInvite = () => {
+    setInviteMsg(null);
+    inviteMutation.mutate({ clientId });
   };
 
   if (isLoading) {
@@ -825,6 +840,30 @@ export default function ClientDetailPage() {
           </Link>
           {client.status !== "archived" && (
             <button
+              onClick={handleInvite}
+              disabled={inviteMutation.isPending || !client.email}
+              title={
+                client.email
+                  ? "Invia al cliente un'email con l'accesso al portale"
+                  : "Aggiungi un'email al cliente per poterlo invitare"
+              }
+              style={{
+                padding: "9px 18px",
+                backgroundColor: "#ffffff",
+                color: client.email ? "#1a1a2e" : "#9ca3af",
+                border: "1px solid #e2e8f0",
+                borderRadius: "8px",
+                fontSize: "14px",
+                fontWeight: 600,
+                cursor:
+                  inviteMutation.isPending || !client.email ? "not-allowed" : "pointer",
+              }}
+            >
+              {inviteMutation.isPending ? "Invio…" : "Invita al portale"}
+            </button>
+          )}
+          {client.status !== "archived" && (
+            <button
               onClick={handleArchive}
               disabled={archiving}
               style={{
@@ -844,6 +883,23 @@ export default function ClientDetailPage() {
           )}
         </div>
       </div>
+
+      {/* Portal invite result */}
+      {inviteMsg && (
+        <div
+          style={{
+            marginBottom: "20px",
+            padding: "12px 16px",
+            background: inviteMsg.ok ? "#f0fdf4" : "#fef2f2",
+            border: `1px solid ${inviteMsg.ok ? "#bbf7d0" : "#fecaca"}`,
+            borderRadius: "8px",
+            fontSize: "13px",
+            color: inviteMsg.ok ? "#166534" : "#991b1b",
+          }}
+        >
+          {inviteMsg.text}
+        </div>
+      )}
 
       {/* Notes strip if present */}
       {client.notes && (

@@ -14,6 +14,7 @@ import { classifyBelowZ1 } from "../stage4-below-z1";
 import { classifyZ1Character } from "../stage5-z1-char";
 import { classifyDataTier } from "../stage0-tier";
 import { runBenchmark } from "../stage6b-benchmark";
+import { detectCutoff } from "../stage2-cutoff";
 import type { HRZoneData, SCPInput } from "../types";
 
 // ── Helper ────────────────────────────────────────────────────────────────────
@@ -354,7 +355,6 @@ describe("All 8 categories resolve to a profile", () => {
 
 describe("Stage 2 — Cutoff heuristic", () => {
   it("No cutoff when below-Z1 is small", () => {
-    const { detectCutoff } = require("../stage2-cutoff");
     const zoneData: HRZoneData = {
       minutesPerZone: [3, 20, 25, 8, 3, 1],
       avgHeartRate: 145,
@@ -366,7 +366,6 @@ describe("Stage 2 — Cutoff heuristic", () => {
   });
 
   it("Cutoff applied when below-Z1 > 10 min and fraction > 15%", () => {
-    const { detectCutoff } = require("../stage2-cutoff");
     // belowZ1=15, total=60 → fraction=25%, excess=10
     const zoneData: HRZoneData = {
       minutesPerZone: [15, 15, 15, 10, 3, 2],

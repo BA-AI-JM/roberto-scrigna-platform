@@ -6,9 +6,20 @@
 import { z } from "zod/v4";
 import { router, protectedProcedure } from "../trpc";
 import { TRPCError } from "@trpc/server";
+import { createSupabaseServiceRole } from "../../lib/supabase/service";
+import { getResend, FROM_EMAIL } from "../../lib/resend/client";
 
 /** Client status filter values */
 const clientStatusSchema = z.enum(["active", "paused", "archived"]);
+
+/** Resolve the public app URL for portal links. */
+function appBaseUrl(): string {
+  return (
+    process.env.NEXT_PUBLIC_APP_URL ??
+    process.env.NEXT_PUBLIC_SITE_URL ??
+    "https://app.robertoscrigna.it"
+  );
+}
 
 /** Schema for creating a new client */
 const createClientSchema = z.object({
@@ -585,6 +596,148 @@ export const clientRouter = router({
       }
 
       return data ?? [];
+    }),
+
+  /**
+   * Invite a client to the client portal.
+   *
+   * Ensures a Supabase auth user exists for the client's email, links it to the
+   * client row (client.auth_user_id), then emails the client a link to the
+   * portal login page. The login page uses passwordless magic-link sign-in
+   * (`shouldCreateUser: false`), so the account must already exist — which this
+   * procedure guarantees.
+   *
+   * Requires SUPABASE_SERVICE_ROLE_KEY, RESEND_API_KEY and NEXT_PUBLIC_APP_URL
+   * to be configured in the environment.
+   */
+  sendPortalInvite: protectedProcedure
+    .input(z.object({ clientId: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      // 1. Verify ownership and gather what we need
+      const { data: client } = await ctx.supabase
+        .from("client")
+        .select("id, full_name, email, status, auth_user_id")
+        .eq("id", input.clientId)
+        .eq("partner_id", ctx.partnerId)
+        .is("deleted_at", null)
+        .single();
+
+      if (!client) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Cliente non trovato." });
+      }
+      if (!client.email) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Aggiungi un indirizzo email al cliente prima di invitarlo al portale.",
+        });
+      }
+      if (client.status === "archived") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Il cliente è archiviato. Riattivalo prima di invitarlo.",
+        });
+      }
+
+      const email = client.email.trim().toLowerCase();
+      const admin = createSupabaseServiceRole();
+
+      // 2. Ensure an auth user exists for this email.
+      let authUserId = client.auth_user_id as string | null;
+      const created = await admin.auth.admin.createUser({
+        email,
+        email_confirm: true,
+      });
+      if (created.data?.user?.id) {
+        authUserId = created.data.user.id;
+      } else if (created.error) {
+        const msg = created.error.message ?? "";
+        const alreadyExists =
+          /already|registered|exists/i.test(msg) || created.error.status === 422;
+        if (!alreadyExists) {
+          console.error("[router/client.sendPortalInvite] createUser:", created.error);
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Errore nella creazione dell'accesso cliente. Riprova.",
+          });
+        }
+        // User already exists — resolve its id via a (non-emailed) magic link.
+        if (!authUserId) {
+          const linkRes = await admin.auth.admin.generateLink({
+            type: "magiclink",
+            email,
+          });
+          authUserId = linkRes.data?.user?.id ?? null;
+          if (!authUserId) {
+            console.error(
+              "[router/client.sendPortalInvite] could not resolve existing user id:",
+              linkRes.error
+            );
+            throw new TRPCError({
+              code: "INTERNAL_SERVER_ERROR",
+              message: "Errore nel collegamento dell'account cliente. Riprova.",
+            });
+          }
+        }
+      }
+
+      // 3. Link the client row to the auth user (using the service role to bypass RLS).
+      if (authUserId && client.auth_user_id !== authUserId) {
+        const { error: linkErr } = await admin
+          .from("client")
+          .update({ auth_user_id: authUserId })
+          .eq("id", input.clientId);
+        if (linkErr) {
+          console.error("[router/client.sendPortalInvite] link auth_user_id:", linkErr);
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Errore nel collegamento dell'account cliente. Riprova.",
+          });
+        }
+      }
+
+      // 4. Email the portal login link.
+      const loginUrl = `${appBaseUrl()}/portal/login`;
+      const firstName = client.full_name?.split(" ")[0] ?? "";
+      const html = `<!DOCTYPE html>
+<html lang="it"><head><meta charset="UTF-8" /></head>
+<body style="margin:0;padding:0;background:#f8fafc;font-family:system-ui,-apple-system,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;padding:32px 0;">
+    <tr><td align="center">
+      <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;">
+        <tr><td style="background:#1a1a2e;padding:24px 32px;"><p style="margin:0;font-size:13px;color:#9ca3af;">Roberto Scrigna — Nutrizione Sportiva</p></td></tr>
+        <tr><td style="padding:32px;">
+          <h2 style="margin:0 0 12px;font-size:20px;color:#1a1a2e;">Accesso al tuo portale${firstName ? `, ${firstName}` : ""}</h2>
+          <p style="margin:0 0 16px;font-size:14px;color:#374151;line-height:1.6;">
+            Il tuo coach ti ha attivato l'accesso all'area cliente, dove potrai consultare il tuo piano nutrizionale, gli integratori e inviare i check-in.
+          </p>
+          <p style="margin:0 0 8px;font-size:14px;color:#374151;line-height:1.6;">
+            Accedi qui sotto: ti basterà inserire questo indirizzo email (<strong>${email}</strong>) e riceverai un link per entrare senza password.
+          </p>
+          <a href="${loginUrl}" style="display:inline-block;padding:12px 28px;background:#1a1a2e;color:#ffffff;border-radius:8px;text-decoration:none;font-size:14px;font-weight:600;margin-top:20px;">Accedi al portale</a>
+          <p style="margin:20px 0 0;font-size:12px;color:#9ca3af;line-height:1.5;">Se non ti aspettavi questa email, puoi ignorarla.</p>
+        </td></tr>
+        <tr><td style="padding:20px 32px;border-top:1px solid #f1f5f9;"><p style="margin:0;font-size:11px;color:#d1d5db;text-align:center;">Roberto Scrigna — Nutrizione Sportiva · Portale Clienti</p></td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`;
+
+      try {
+        await getResend().emails.send({
+          from: FROM_EMAIL,
+          to: email,
+          subject: "Accesso al tuo portale nutrizionale — Roberto Scrigna",
+          html,
+        });
+      } catch (err) {
+        console.error("[router/client.sendPortalInvite] Resend error:", err);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Account collegato, ma invio dell'email non riuscito. Riprova tra poco.",
+        });
+      }
+
+      return { success: true, sentTo: email, loginUrl };
     }),
 
   /**

@@ -78,10 +78,11 @@ export const MASTER_SUPPLEMENTS: readonly MasterSupplement[] = [
   {
     id: "whey_protein",
     name: "Proteine Whey Isolate",
-    dosage: "25-30g per porzione",
-    timing: "Post-allenamento o tra i pasti per raggiungere il target proteico",
+    dosage: "20-30g per porzione, secondo necessità",
+    timing:
+      "Liberamente nell'arco della giornata — come spuntino, nel pre/post allenamento o per colmare il fabbisogno proteico giornaliero",
     rationale:
-      "Fonte proteica ad alto valore biologico per supportare la sintesi proteica muscolare e raggiungere il fabbisogno giornaliero.",
+      "Comoda fonte proteica di supporto quando è difficile raggiungere il target proteico con i soli alimenti. Opzionale — adattare il timing o rimuovere in base alle preferenze del cliente.",
     category: "foundation",
     priority: 1,
     condition: () => true,

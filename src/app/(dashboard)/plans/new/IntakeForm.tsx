@@ -555,37 +555,19 @@ function Page6({ form, set }: { form: FormData; set: (k: keyof FormData, v: stri
     <div className="space-y-5">
       <h2 className={s.sectionTitle}>Stile di Vita</h2>
 
-      <div className={s.grid2}>
-        <FieldGroup label="Passi giornalieri medi" note="Stima approssimativa">
-          <input
-            type="number"
-            className={s.input}
-            value={form.daily_steps}
-            onChange={(e) => set("daily_steps", e.target.value)}
-            placeholder="8000"
-            min={0}
-          />
-        </FieldGroup>
+      <FieldGroup label="Passi giornalieri medi" note="Stima approssimativa">
+        <input
+          type="number"
+          className={s.input}
+          value={form.daily_steps}
+          onChange={(e) => set("daily_steps", e.target.value)}
+          placeholder="8000"
+          min={0}
+          style={{ maxWidth: "200px" }}
+        />
+      </FieldGroup>
 
-        <FieldGroup label="Numero di pasti al giorno">
-          <div className="flex gap-2 mt-0.5">
-            {[3, 4, 5, 6].map((n) => (
-              <button
-                key={n}
-                type="button"
-                onClick={() => set("meal_count", String(n))}
-                className={`flex-1 rounded-lg border py-2.5 text-sm font-medium transition-colors ${
-                  form.meal_count === String(n)
-                    ? "border-zinc-900 bg-zinc-900 text-white"
-                    : "border-zinc-300 bg-white text-zinc-700 hover:border-zinc-500"
-                }`}
-              >
-                {n}
-              </button>
-            ))}
-          </div>
-        </FieldGroup>
-      </div>
+      {/* Il numero di pasti/giorno si sceglie al momento della generazione del piano. */}
 
       <FieldGroup label="Occupazione / Lavoro">
         <input
@@ -924,7 +906,6 @@ export default function IntakeForm() {
           daily_steps: parseNum(form.daily_steps),
           occupation: form.occupation || undefined,
           hunger_timing: form.hunger_timing || undefined,
-          meal_count: parseNum(form.meal_count),
           preferred_training_time: form.preferred_training_time || undefined,
         },
         goal: form.goal

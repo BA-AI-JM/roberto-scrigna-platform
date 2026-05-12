@@ -160,6 +160,18 @@ export default function PlanReviewPage({
     },
   });
 
+  // Save edits mutation (persists supplement + guidance changes)
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [saveError, setSaveError] = useState("");
+  const saveEditsMutation = trpc.plan.saveEdits.useMutation({
+    onSuccess: () => {
+      setSaveSuccess(true);
+      setSaveError("");
+      setTimeout(() => setSaveSuccess(false), 2500);
+    },
+    onError: (err) => setSaveError(err.message ?? "Errore nel salvataggio."),
+  });
+
   // Share mutation
   const shareMutation = trpc.plan.shareWithClient.useMutation({
     onSuccess: () => {
@@ -253,6 +265,21 @@ export default function PlanReviewPage({
       setIsApproving(false);
     }
   }, [planId, approveMutation]);
+
+  const handleSaveEdits = useCallback(async () => {
+    if (!planId) return;
+    setSaveError("");
+    await saveEditsMutation.mutateAsync({
+      planId,
+      supplements: review.supplements.map((s) => ({
+        name: s.name,
+        dosage: s.dosage,
+        timing: s.timing,
+        rationale: s.rationale ?? "",
+      })),
+      guidance: review.guidance,
+    });
+  }, [planId, review.supplements, review.guidance, saveEditsMutation]);
 
   const handleDownloadPdf = useCallback(() => {
     if (!planId) return;
@@ -407,6 +434,38 @@ export default function PlanReviewPage({
             </span>
           )}
 
+          {(saveSuccess || saveError) && (
+            <span
+              style={{
+                padding: "8px 16px",
+                fontSize: "13px",
+                color: saveError ? "#dc2626" : "#16a34a",
+                fontWeight: 600,
+                alignSelf: "center",
+              }}
+            >
+              {saveError ? saveError : "Modifiche salvate"}
+            </span>
+          )}
+
+          <button
+            onClick={handleSaveEdits}
+            disabled={saveEditsMutation.isPending}
+            title="Salva le modifiche a integratori e testi guida"
+            style={{
+              padding: "8px 20px",
+              border: "1px solid #e4e4e7",
+              borderRadius: "8px",
+              backgroundColor: saveEditsMutation.isPending ? "#f4f4f5" : "#ffffff",
+              color: saveEditsMutation.isPending ? "#a1a1aa" : "#3f3f46",
+              cursor: saveEditsMutation.isPending ? "not-allowed" : "pointer",
+              fontSize: "13px",
+              fontWeight: 600,
+            }}
+          >
+            {saveEditsMutation.isPending ? "Salvataggio…" : "Salva modifiche"}
+          </button>
+
           <button
             onClick={handleDownloadPdf}
             style={{
@@ -482,6 +541,34 @@ export default function PlanReviewPage({
           )}
         </div>
       </div>
+
+      {/* Post-approval: how the client receives the plan */}
+      {(review.status === "active" || approveSuccess) && (
+        <div
+          style={{
+            marginBottom: "20px",
+            padding: "14px 18px",
+            background: "#f0fdf4",
+            border: "1px solid #bbf7d0",
+            borderRadius: "10px",
+            fontSize: "13px",
+            color: "#166534",
+            lineHeight: "1.6",
+          }}
+        >
+          <strong>Piano attivo.</strong> Il cliente lo vede nel suo portale all'indirizzo{" "}
+          <a
+            href={`${typeof window !== "undefined" ? window.location.origin : ""}/portal/login`}
+            target="_blank"
+            rel="noreferrer"
+            style={{ color: "#15803d", fontWeight: 600 }}
+          >
+            {(typeof window !== "undefined" ? window.location.origin : "")}/portal/login
+          </a>
+          . Usa <em>“Condividi con Cliente”</em> per inviargli un'email con il riepilogo e il link.
+          Se il cliente non ha ancora accesso, invitalo dalla sua scheda (pulsante <em>“Invita al portale”</em>).
+        </div>
+      )}
 
       {/* Share modal */}
       {showShareModal && (
@@ -894,47 +981,22 @@ function MealsTab({
               </span>
               {!plan.mealPlan.withinTolerance && (
                 <button
-                  onClick={() => {
-                    if (!plan.mealPlan) return;
-
-                    const targetKcal = plan.macros.totalKcal;
-                    const actualKcal = plan.mealPlan.slots.reduce(
-                      (sum: number, s: any) => sum + (s.actualMacros?.kcal ?? 0), 0
-                    );
-                    if (actualKcal <= 0) return;
-
-                    const scaleFactor = targetKcal / actualKcal;
-
-                    // Scale all slot ingredients
-                    const adjustedSlots = plan.mealPlan.slots.map((slot: any) => ({
-                      ...slot,
-                      scaledIngredients: slot.scaledIngredients?.map((ing: any) => ({
-                        ...ing,
-                        grams: Math.round(ing.grams * scaleFactor),
-                      })),
-                      actualMacros: slot.actualMacros ? {
-                        kcal: Math.round(slot.actualMacros.kcal * scaleFactor),
-                        proteinG: Math.round(slot.actualMacros.proteinG * scaleFactor * 10) / 10,
-                        carbsG: Math.round(slot.actualMacros.carbsG * scaleFactor * 10) / 10,
-                        fatG: Math.round(slot.actualMacros.fatG * scaleFactor * 10) / 10,
-                      } : undefined,
-                    }));
-
-                    alert(`Porzioni aggiustate: ${actualKcal} → ${targetKcal} kcal (×${scaleFactor.toFixed(2)}). Salva il piano per applicare.`);
-                  }}
+                  onClick={() => adjustMutation.mutate({ planId, dayType: plan.dayType })}
+                  disabled={adjustMutation.isPending}
+                  title="Riscala automaticamente le porzioni di questo giorno per centrare il target calorico"
                   style={{
                     marginLeft: "8px",
                     padding: "3px 10px",
                     borderRadius: "12px",
-                    backgroundColor: "#dbeafe",
-                    color: "#1d4ed8",
+                    backgroundColor: adjustMutation.isPending ? "#e5e7eb" : "#dbeafe",
+                    color: adjustMutation.isPending ? "#9ca3af" : "#1d4ed8",
                     border: "none",
-                    cursor: "pointer",
+                    cursor: adjustMutation.isPending ? "not-allowed" : "pointer",
                     fontSize: "12px",
                     fontWeight: 600,
                   }}
                 >
-                  Aggiusta Porzioni
+                  {adjustMutation.isPending ? "Aggiustando…" : "Aggiusta Porzioni"}
                 </button>
               )}
               </>

@@ -23,6 +23,7 @@ import type { PlanGenerationInput } from "../../services/plan-generator";
 import type { ClientSnapshot, DayType } from "../../engine/types";
 import type { PdfClientInfo } from "../../pdf/types";
 import { getResend, FROM_EMAIL } from "../../lib/resend/client";
+import { DEFAULT_TOLERANCES } from "../../engine/meal-plan/types";
 
 // ── Email helpers (shared with inngest functions) ────────────────────────────
 
@@ -451,8 +452,18 @@ export const planRouter = router({
     }),
 
   /**
-   * Adjust meal portions for a specific day type so totals hit the macro target.
-   * Scales all ingredient grams and recalculates slot macros proportionally.
+   * Adjust meal portions for a specific day type so the day's totals hit the
+   * macro target. Scales every meal slot (primary + substitutions) by a single
+   * factor so macro ratios are preserved, rounds ingredient grams, recomputes
+   * slot/day macros, deviation and tolerance, and persists the result back into
+   * the plan bundle (both reportData.dayTypePlans and the mealPlans record).
+   *
+   * The meal plan is stored as a serialized DayMealPlan:
+   *   { dayType, targetMacros: MacroTargets, slots: MealSlot[],
+   *     actualMacros: SlotMacroTargets, deviation: MacroDeviation, withinTolerance }
+   * and each MealSlot is { slot, targetMacros, primary: SelectedMeal,
+   *   substitutions: SelectedMeal[] } where SelectedMeal carries
+   *   scaledIngredients + actualMacros.
    */
   adjustPortions: protectedProcedure
     .input(z.object({
@@ -486,74 +497,126 @@ export const planRouter = router({
         throw new TRPCError({ code: "BAD_REQUEST", message: "Tipo giorno non trovato." });
       }
 
-      const day = dayPlans[dayIdx] as Record<string, unknown>;
-      const macros = day.macros as Record<string, unknown> | undefined;
-      const targetKcal = (macros?.totalKcal as number) ?? 0;
-      const mealPlan = day.mealPlan as Record<string, unknown> | undefined;
-      const slots = mealPlan?.slots as Array<Record<string, unknown>> | undefined;
+      type Macros = { kcal: number; proteinG: number; fatG: number; carbsG: number };
+      type Ingredient = { foodId?: string; name: string; grams: number };
+      type SelectedMeal = {
+        template?: unknown;
+        scaleFactor?: number;
+        scaledIngredients?: Ingredient[];
+        actualMacros?: Macros;
+      };
+      type Slot = { slot: string; targetMacros?: Macros; primary?: SelectedMeal; substitutions?: SelectedMeal[] };
 
-      if (!slots || targetKcal <= 0) {
+      const day = dayPlans[dayIdx] as Record<string, unknown>;
+      const mealPlan = day.mealPlan as Record<string, unknown> | undefined;
+      const slots = mealPlan?.slots as Slot[] | undefined;
+
+      // Target kcal: prefer the meal plan's own target, fall back to the day's macros.
+      const planTarget = mealPlan?.targetMacros as Record<string, number> | undefined;
+      const dayMacros = day.macros as Record<string, number> | undefined;
+      const targetKcal = (planTarget?.totalKcal as number) ?? (dayMacros?.totalKcal as number) ?? 0;
+
+      if (!slots || slots.length === 0 || targetKcal <= 0) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Nessun pasto da aggiustare." });
       }
 
-      const actualKcal = slots.reduce((sum, s) => {
-        const am = s.actualMacros as Record<string, number> | undefined;
-        return sum + (am?.kcal ?? 0);
-      }, 0);
-
+      const actualKcal = slots.reduce(
+        (sum, s) => sum + (s.primary?.actualMacros?.kcal ?? 0),
+        0
+      );
       if (actualKcal <= 0) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Calorie attuali non calcolabili." });
       }
 
       const scale = targetKcal / actualKcal;
+      const r1 = (n: number) => Math.round(n * 10) / 10;
 
-      // Scale each slot
-      const adjusted = slots.map((slot) => {
-        const ings = slot.scaledIngredients as Array<Record<string, unknown>> | undefined;
-        const am = slot.actualMacros as Record<string, number> | undefined;
+      const scaleMeal = (m: SelectedMeal | undefined): SelectedMeal | undefined => {
+        if (!m) return m;
+        const am = m.actualMacros;
         return {
-          ...slot,
-          scaledIngredients: ings?.map((ing) => ({
+          ...m,
+          scaleFactor:
+            m.scaleFactor != null ? Math.round(m.scaleFactor * scale * 1000) / 1000 : m.scaleFactor,
+          scaledIngredients: m.scaledIngredients?.map((ing) => ({
             ...ing,
-            grams: Math.round((ing.grams as number) * scale),
+            grams: Math.max(1, Math.round(ing.grams * scale)),
           })),
-          actualMacros: am ? {
-            kcal: Math.round((am.kcal ?? 0) * scale),
-            proteinG: Math.round((am.proteinG ?? 0) * scale * 10) / 10,
-            carbsG: Math.round((am.carbsG ?? 0) * scale * 10) / 10,
-            fatG: Math.round((am.fatG ?? 0) * scale * 10) / 10,
-          } : undefined,
+          actualMacros: am
+            ? {
+                kcal: Math.round((am.kcal ?? 0) * scale),
+                proteinG: r1((am.proteinG ?? 0) * scale),
+                fatG: r1((am.fatG ?? 0) * scale),
+                carbsG: r1((am.carbsG ?? 0) * scale),
+              }
+            : am,
         };
-      });
-
-      // Recalculate tolerance
-      const newTotal = adjusted.reduce((sum, s) => {
-        const am = s.actualMacros as Record<string, number> | undefined;
-        return sum + (am?.kcal ?? 0);
-      }, 0);
-      const tolerance = targetKcal * 0.03;
-
-      // Write back
-      const updatedDayPlans = [...dayPlans];
-      updatedDayPlans[dayIdx] = {
-        ...day,
-        mealPlan: {
-          ...mealPlan,
-          slots: adjusted,
-          withinTolerance: Math.abs(newTotal - targetKcal) <= tolerance,
-          deviation: {
-            kcal: Math.round(newTotal - targetKcal),
-            proteinG: 0,
-            carbsG: 0,
-            fatG: 0,
-          },
-        },
       };
+
+      const adjustedSlots: Slot[] = slots.map((slot) => ({
+        ...slot,
+        primary: scaleMeal(slot.primary),
+        substitutions: slot.substitutions?.map((sub) => scaleMeal(sub)) as SelectedMeal[] | undefined,
+      }));
+
+      // Recompute day totals from the scaled primaries.
+      const newActual: Macros = adjustedSlots.reduce(
+        (acc, s) => {
+          const am = s.primary?.actualMacros;
+          return {
+            kcal: acc.kcal + (am?.kcal ?? 0),
+            proteinG: r1(acc.proteinG + (am?.proteinG ?? 0)),
+            fatG: r1(acc.fatG + (am?.fatG ?? 0)),
+            carbsG: r1(acc.carbsG + (am?.carbsG ?? 0)),
+          };
+        },
+        { kcal: 0, proteinG: 0, fatG: 0, carbsG: 0 }
+      );
+
+      // Target macros for deviation: MacroTargets uses `carbG` (not `carbsG`) and `totalKcal`.
+      const tgtProtein = (planTarget?.proteinG as number) ?? (dayMacros?.proteinG as number) ?? 0;
+      const tgtFat = (planTarget?.fatG as number) ?? (dayMacros?.fatG as number) ?? 0;
+      const tgtCarb =
+        (planTarget?.carbG as number) ??
+        (planTarget?.carbsG as number) ??
+        (dayMacros?.carbG as number) ??
+        0;
+
+      const deviation = {
+        kcal: newActual.kcal - targetKcal,
+        proteinG: r1(newActual.proteinG - tgtProtein),
+        fatG: r1(newActual.fatG - tgtFat),
+        carbsG: r1(newActual.carbsG - tgtCarb),
+      };
+      const withinTolerance =
+        Math.abs(deviation.kcal) <= DEFAULT_TOLERANCES.kcal &&
+        Math.abs(deviation.proteinG) <= DEFAULT_TOLERANCES.proteinG &&
+        Math.abs(deviation.fatG) <= DEFAULT_TOLERANCES.fatG &&
+        Math.abs(deviation.carbsG) <= DEFAULT_TOLERANCES.carbsG;
+
+      const updatedMealPlan = {
+        ...mealPlan,
+        slots: adjustedSlots,
+        actualMacros: newActual,
+        deviation,
+        withinTolerance,
+      };
+
+      const updatedDayPlans = [...dayPlans];
+      updatedDayPlans[dayIdx] = { ...day, mealPlan: updatedMealPlan };
+
+      // Keep the parallel `mealPlans` record (keyed by day type) in sync if present.
+      const mealPlansRecord = bundle.mealPlans as Record<string, unknown> | undefined;
+      const updatedMealPlansRecord =
+        mealPlansRecord && Object.prototype.hasOwnProperty.call(mealPlansRecord, input.dayType)
+          ? { ...mealPlansRecord, [input.dayType]: updatedMealPlan }
+          : mealPlansRecord;
 
       const updatedDt = {
         ...dt,
         plan_bundle: {
           ...bundle,
+          ...(updatedMealPlansRecord ? { mealPlans: updatedMealPlansRecord } : {}),
           reportData: {
             ...report,
             dayTypePlans: updatedDayPlans,
@@ -574,10 +637,98 @@ export const planRouter = router({
 
       return {
         success: true,
-        previousKcal: actualKcal,
-        newKcal: newTotal,
+        previousKcal: Math.round(actualKcal),
+        newKcal: newActual.kcal,
         scaleFactor: scale,
+        withinTolerance,
       };
+    }),
+
+  /**
+   * Persist coach edits to a plan's supplements and/or guidance text.
+   * The review UI mutates these locally; this writes them back into the plan
+   * bundle (both the top-level fields and reportData) so they survive a reload
+   * and flow through to the PDF.
+   */
+  saveEdits: protectedProcedure
+    .input(
+      z.object({
+        planId: z.string().uuid(),
+        supplements: z
+          .array(
+            z.object({
+              name: z.string().max(200),
+              dosage: z.string().max(200),
+              timing: z.string().max(500),
+              rationale: z.string().max(2000).optional(),
+            })
+          )
+          .max(60)
+          .optional(),
+        guidance: z
+          .object({
+            bodyCompAnalysis: z.string().max(20000),
+            nutritionStrategy: z.string().max(20000),
+            trainingNotes: z.string().max(20000),
+            coachNotes: z.string().max(20000),
+          })
+          .partial()
+          .optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { data: plan } = await ctx.supabase
+        .from("plan")
+        .select("id, daily_targets")
+        .eq("id", input.planId)
+        .eq("partner_id", ctx.partnerId)
+        .is("deleted_at", null)
+        .single();
+
+      if (!plan) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Piano non trovato." });
+      }
+
+      const dt = plan.daily_targets as Record<string, unknown> | null;
+      const bundle = dt?.plan_bundle as Record<string, unknown> | undefined;
+      if (!dt || !bundle) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Dati del piano mancanti." });
+      }
+      const report = (bundle.reportData as Record<string, unknown> | undefined) ?? {};
+
+      const newSupplements =
+        input.supplements ?? (bundle.supplements as unknown[]) ?? [];
+      const existingGuidance = (bundle.guidance as Record<string, unknown> | undefined) ?? {};
+      const newGuidance = input.guidance
+        ? { ...existingGuidance, ...input.guidance }
+        : existingGuidance;
+
+      const updatedDt = {
+        ...dt,
+        plan_bundle: {
+          ...bundle,
+          supplements: newSupplements,
+          guidance: newGuidance,
+          reportData: {
+            ...report,
+            supplements: newSupplements,
+            guidance: newGuidance,
+          },
+        },
+      };
+
+      const { error } = await ctx.supabase
+        .from("plan")
+        .update({ daily_targets: updatedDt })
+        .eq("id", input.planId)
+        .eq("partner_id", ctx.partnerId);
+
+      if (error) {
+        console.error("[router/plan.saveEdits]", error);
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Errore nel salvataggio." });
+      }
+
+      return { success: true };
     }),
 
   /**
