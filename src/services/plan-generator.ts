@@ -171,13 +171,19 @@ function collectAssumptions(input: PlanGenerationInput): string[] {
     );
   }
 
-  // Exercise method (if no HR data available)
-  if (
-    !input.engineOptions?.trainingSession?.avgHeartRate &&
-    input.engineOptions?.trainingSession?.method !== "heart_rate"
-  ) {
+  // Exercise method
+  const ts = input.engineOptions?.trainingSession;
+  if (ts?.method === "met_value" && ts.metValue != null) {
     assumptions.push(
-      "Il dispendio calorico dell'esercizio è stimato senza dati di frequenza cardiaca — l'uso di un cardiofrequenzimetro migliorerebbe la precisione."
+      `Il dispendio dell'esercizio dei giorni di allenamento è stimato con i valori MET delle sessioni inserite (durata media ~${Math.round(
+        ts.durationMin
+      )} min, MET medio ~${ts.metValue}). I dati di frequenza cardiaca o a zone (Sport Correction Protocol) ne migliorerebbero la precisione.`
+    );
+  } else if (ts?.method === "heart_rate" || ts?.avgHeartRate != null || ts?.scpData != null) {
+    // HR / SCP path — no extra caveat needed here.
+  } else {
+    assumptions.push(
+      "Il dispendio dell'esercizio dei giorni di allenamento usa una stima predefinita (nessuna sessione di allenamento inserita per il cliente). Inserire le sessioni nel profilo migliorerebbe la precisione."
     );
   }
 

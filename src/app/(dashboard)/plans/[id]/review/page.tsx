@@ -81,6 +81,14 @@ const MEAL_LABELS: Record<string, string> = {
   post_workout: "Post-Allenamento",
 };
 
+const EXERCISE_METHOD_LABELS: Record<string, string> = {
+  sport_correction_protocol: "Sport Correction Protocol (zone FC)",
+  heart_rate: "Frequenza cardiaca (Keytel)",
+  met_value: "METs (da sessioni inserite)",
+  session_estimate: "Stima per sessione",
+  default_estimate: "Stima predefinita (300 kcal)",
+};
+
 const METRIC_LABELS: Record<string, string> = {
   weight_kg: "Peso",
   energy_level: "Energia",
@@ -891,6 +899,57 @@ function MacrosTab({
               accentColour="#10b981"
             />
           </div>
+          {/* Per-day energy-expenditure breakdown (BMR + NEAT + Exercise + TEF) */}
+          <div
+            style={{
+              fontSize: "12px",
+              color: "#52525b",
+              padding: "10px 12px",
+              backgroundColor: "#fafafa",
+              borderRadius: "6px",
+              marginBottom: "8px",
+            }}
+          >
+            <div style={{ fontWeight: 600, color: "#3f3f46", marginBottom: "6px" }}>
+              Composizione del fabbisogno (TDEE)
+            </div>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(5, 1fr)",
+                gap: "8px",
+                textAlign: "center",
+              }}
+            >
+              {[
+                { k: "Metabolismo basale", v: plan.tdee.bmr.bmrKcal },
+                { k: "NEAT (passi + lavoro)", v: plan.tdee.neat.totalNeatKcal },
+                { k: "Esercizio", v: plan.tdee.exercise.exerciseKcal },
+                { k: "Termogenesi (TEF)", v: plan.tdee.tef.tefKcal },
+                { k: "TDEE totale", v: plan.tdee.totalTdeeKcal, strong: true },
+              ].map((c) => (
+                <div key={c.k}>
+                  <div style={{ fontSize: "10px", color: "#a1a1aa", marginBottom: "2px" }}>
+                    {c.k}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: c.strong ? "15px" : "13px",
+                      fontWeight: c.strong ? 700 : 600,
+                      color: c.strong ? "#18181b" : "#3f3f46",
+                    }}
+                  >
+                    {Math.round(c.v)}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div style={{ marginTop: "6px", fontSize: "11px", color: "#a1a1aa" }}>
+              Esercizio stimato con:{" "}
+              {EXERCISE_METHOD_LABELS[plan.tdee.exercise.methodUsed] ??
+                plan.tdee.exercise.methodUsed}
+            </div>
+          </div>
           <div
             style={{
               fontSize: "12px",
@@ -900,7 +959,7 @@ function MacrosTab({
               borderRadius: "6px",
             }}
           >
-            Target Calorico: {Math.round(plan.tdee.totalTdeeKcal)} kcal &nbsp;|&nbsp;
+            Apporto pianificato: {Math.round(plan.macros.totalKcal)} kcal &nbsp;|&nbsp;
             Acqua: {plan.hydration.waterMl} ml &nbsp;|&nbsp;
             Sale: {plan.hydration.saltG.toFixed(1)} g
           </div>

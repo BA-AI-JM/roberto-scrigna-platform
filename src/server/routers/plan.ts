@@ -24,6 +24,10 @@ import type { ClientSnapshot, DayType } from "../../engine/types";
 import type { PdfClientInfo } from "../../pdf/types";
 import { getResend, FROM_EMAIL } from "../../lib/resend/client";
 import { DEFAULT_TOLERANCES } from "../../engine/meal-plan/types";
+import {
+  buildTrainingSessionFromIntake,
+  type IntakeTrainingSession,
+} from "../../services/training-modality";
 
 // ── Email helpers (shared with inngest functions) ────────────────────────────
 
@@ -89,6 +93,18 @@ const generatePlanSchema = z.object({
 });
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
+
+/**
+ * Pull the per-day training sessions captured at intake (stored under
+ * skinfold_data._intake.training_sessions) out of a client_snapshot row.
+ */
+function intakeTrainingSessions(
+  snapshotRow: Record<string, unknown>
+): Record<string, IntakeTrainingSession[]> | undefined {
+  const skinfoldRaw = snapshotRow.skinfold_data as Record<string, unknown> | null;
+  const intake = skinfoldRaw?._intake as Record<string, unknown> | undefined;
+  return intake?.training_sessions as Record<string, IntakeTrainingSession[]> | undefined;
+}
 
 /**
  * Map a raw client_snapshot DB row into a ClientSnapshot for the engine.
@@ -217,9 +233,14 @@ export const planRouter = router({
       // 3. Build engine snapshot
       const clientSex: "male" | "female" =
         (client.sex as "male" | "female") ?? "male";
-      const snapshot = buildEngineSnapshot(
-        snapshotRow as unknown as Record<string, unknown>,
-        clientSex
+      const snapshotRecord = snapshotRow as unknown as Record<string, unknown>;
+      const snapshot = buildEngineSnapshot(snapshotRecord, clientSex);
+
+      // 3b. Derive a per-training-day exercise session from the intake schedule
+      // (falls back to the engine default when no training data is present).
+      const trainingSession = buildTrainingSessionFromIntake(
+        intakeTrainingSessions(snapshotRecord),
+        snapshot.weekSchedule
       );
 
       // 4. Build client info for PDF cover
@@ -240,6 +261,7 @@ export const planRouter = router({
         excludeAllergens: input.excludeAllergens as PlanGenerationInput["excludeAllergens"],
         preferTags: input.preferTags as PlanGenerationInput["preferTags"],
         maintenanceKcalEstimate: input.maintenanceKcalEstimate,
+        ...(trainingSession ? { engineOptions: { trainingSession } } : {}),
       };
 
       // 6. Run the pipeline (pure, synchronous)
