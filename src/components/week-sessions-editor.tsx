@@ -13,6 +13,10 @@
  */
 
 import { useCallback } from "react";
+import {
+  groupedSportOptions,
+  SPORT_TAXONOMY,
+} from "../engine/sport-taxonomy";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -29,23 +33,17 @@ export type WeekSessions = Record<number, TrainingSession[]>;
 
 const DAYS_IT = ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"];
 
-export const TRAINING_MODALITY_OPTIONS = [
-  "Forza",
-  "Ipertrofia",
-  "Cardio LISS",
-  "Cardio HIIT",
-  "Crossfit",
-  "Yoga / Mobilità",
-  "Sport di squadra",
-  "Arti marziali",
-  "Ciclismo",
-  "Corsa",
-  "Nuoto",
-  "Altro",
-] as const;
+/**
+ * Flat list of canonical modality display names (in Appendix D order).
+ * Exported for callers that need a flat list; prefer `groupedSportOptions()`
+ * for `<optgroup>` rendering.
+ */
+export const TRAINING_MODALITY_OPTIONS: readonly string[] = SPORT_TAXONOMY.map(
+  (e) => e.displayIt
+);
 
 const DEFAULT_NEW_SESSION: TrainingSession = {
-  modality: "Forza",
+  modality: "Pesi — Ipertrofia",
   duration_min: 60,
   rpe: 7,
 };
@@ -166,10 +164,14 @@ export function WeekSessionsEditor({
                           updateSession(dayIndex, si, "modality", e.target.value)
                         }
                       >
-                        {TRAINING_MODALITY_OPTIONS.map((m) => (
-                          <option key={m} value={m}>
-                            {m}
-                          </option>
+                        {groupedSportOptions().map((g) => (
+                          <optgroup key={g.group} label={g.group}>
+                            {g.entries.map((entry) => (
+                              <option key={entry.displayIt} value={entry.displayIt}>
+                                {entry.displayIt}
+                              </option>
+                            ))}
+                          </optgroup>
                         ))}
                       </select>
                     </div>

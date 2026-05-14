@@ -3,31 +3,40 @@
  * RPE) into a representative ExerciseSession the engine can use for training-day
  * energy expenditure — replacing the flat 300 kcal `default_estimate`.
  *
+ * MET values come from `src/engine/sport-taxonomy.ts`, which is built from
+ * v4.4 spec Appendix D. **Strength training MET is capped at 3 regardless of
+ * RPE** (spec rule); other modalities use the entry's base MET with a modest
+ * RPE adjustment.
+ *
  * Pure, side-effect-free; tested in __tests__/training-modality.test.ts.
  */
 
 import type { ExerciseSession } from "../engine/types";
+import {
+  findSportEntry,
+  FALLBACK_MODALITY,
+  type SportEntry,
+} from "../engine/sport-taxonomy";
 
 /**
- * Approximate gross MET values for the intake training modalities
- * (Compendium-of-Physical-Activities-ish; intentionally conservative).
+ * Legacy display-name mapping. Earlier versions of the intake form used a
+ * shorter Italian list (Forza, Ipertrofia, Cardio LISS, …). Existing snapshots
+ * still carry those strings, so we translate them to the canonical Appendix D
+ * taxonomy at lookup time so old plans keep regenerating correctly.
  */
-export const MODALITY_MET: Record<string, number> = {
-  Forza: 5.0,
-  Ipertrofia: 5.0,
-  "Cardio LISS": 5.0,
-  "Cardio HIIT": 8.0,
-  Crossfit: 8.0,
-  "Yoga / Mobilità": 2.5,
-  "Sport di squadra": 7.0,
-  "Arti marziali": 10.0,
-  Ciclismo: 7.5,
-  Corsa: 9.8,
-  Nuoto: 7.0,
-  Altro: 5.0,
+const LEGACY_DISPLAY_TO_CANONICAL: Record<string, string> = {
+  Forza: "Pesi — Forza",
+  Ipertrofia: "Pesi — Ipertrofia",
+  "Cardio LISS": "Corsa — Costante",
+  "Cardio HIIT": "HIIT / Intervalli",
+  Crossfit: "CrossFit / WOD",
+  "Sport di squadra": "Calcio — Allenamento",
+  "Arti marziali": "MMA — Classe (mista)",
+  Ciclismo: "Ciclismo",
+  Corsa: "Corsa — Costante",
+  Nuoto: "Nuoto",
+  // "Altro" and "Yoga / Mobilità" intentionally fall through to FALLBACK_MODALITY.
 };
-
-export const DEFAULT_MODALITY_MET = 5.0;
 
 export interface IntakeTrainingSession {
   modality?: string;
@@ -35,24 +44,50 @@ export interface IntakeTrainingSession {
   rpe?: number;
 }
 
-/** RPE → MET multiplier. RPE 1 → 0.84×, RPE 5 → 1.0×, RPE 10 → 1.2×. */
+/**
+ * Resolve a (possibly legacy) display name to a canonical taxonomy entry,
+ * falling back to the neutral entry when the name is unrecognised.
+ */
+export function resolveSportEntry(displayIt: string | undefined | null): SportEntry {
+  if (!displayIt) return FALLBACK_MODALITY;
+  const direct = findSportEntry(displayIt);
+  if (direct) return direct;
+  const legacy = LEGACY_DISPLAY_TO_CANONICAL[displayIt];
+  if (legacy) {
+    const remapped = findSportEntry(legacy);
+    if (remapped) return remapped;
+  }
+  return FALLBACK_MODALITY;
+}
+
+/**
+ * RPE → MET multiplier. RPE 1 → 0.84×, RPE 5 → 1.0×, RPE 10 → 1.2×.
+ *
+ * NOT applied to strength entries (the spec caps strength MET at 3 regardless
+ * of RPE — that's encoded by SportEntry.rpeAdjusts = false).
+ */
 export function rpeFactor(rpe: number | undefined): number {
   const r = rpe == null || Number.isNaN(rpe) ? 7 : Math.min(10, Math.max(1, rpe));
   return 0.8 + 0.04 * r;
 }
 
-/** MET for a single modality, with the conservative default fallback. */
-export function modalityMet(modality: string | undefined): number {
-  return MODALITY_MET[modality ?? ""] ?? DEFAULT_MODALITY_MET;
+/** Effective MET for a session: entry MET, with RPE adjustment only when allowed. */
+export function effectiveMet(
+  entry: SportEntry,
+  rpe: number | undefined
+): number {
+  if (!entry.rpeAdjusts) return entry.metGross;
+  return entry.metGross * rpeFactor(rpe);
 }
 
 /**
  * Build a representative training-day ExerciseSession from per-day intake sessions.
  *
  * For each scheduled "training" day we sum the session minutes and take a
- * duration-weighted, RPE-adjusted average MET; then we average those across all
- * training days. The engine currently models a single "training" day-type, so a
- * single representative session is the best fit until per-day day-types land.
+ * duration-weighted MET (each session's MET resolved per the taxonomy rules
+ * above); then we average those across all training days. The engine currently
+ * models a single "training" day-type, so a single representative session is
+ * the best fit until per-day day-types land.
  *
  * @param sessionsByDay  Record keyed by weekday index "0".."6" → array of sessions.
  * @param weekSchedule   The 7-element day-type schedule (Mon..Sun).
@@ -75,8 +110,9 @@ export function buildTrainingSessionFromIntake(
     let metMinSum = 0;
     for (const s of sessions) {
       const minutes = Math.min(480, Math.max(1, Number(s.duration_min) || 60));
+      const entry = resolveSportEntry(s.modality);
       totalMin += minutes;
-      metMinSum += modalityMet(s.modality) * rpeFactor(s.rpe) * minutes;
+      metMinSum += effectiveMet(entry, s.rpe) * minutes;
     }
     if (totalMin > 0) perDay.push({ minutes: totalMin, weightedMet: metMinSum / totalMin });
   }

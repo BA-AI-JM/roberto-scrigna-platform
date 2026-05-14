@@ -19,6 +19,7 @@
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { trpc } from "@/lib/trpc/client";
+import { groupedSportOptions } from "@/engine/sport-taxonomy";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -95,20 +96,12 @@ interface FormData {
 
 const DAYS_IT = ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"];
 
-const MODALITY_OPTIONS = [
-  "Forza",
-  "Ipertrofia",
-  "Cardio LISS",
-  "Cardio HIIT",
-  "Crossfit",
-  "Yoga / Mobilità",
-  "Sport di squadra",
-  "Arti marziali",
-  "Ciclismo",
-  "Corsa",
-  "Nuoto",
-  "Altro",
-];
+// Modality picker is sourced from the canonical sport taxonomy (v4.4 spec
+// Appendix D) — see src/engine/sport-taxonomy.ts. Old display names like
+// "Forza" / "Cardio HIIT" / "Arti marziali" are still accepted by the engine
+// via the LEGACY_DISPLAY_TO_CANONICAL map for backward-compat with existing
+// snapshots.
+const MODALITY_GROUPS = groupedSportOptions();
 
 const GOAL_OPTIONS: { value: FormData["goal"]; label: string }[] = [
   { value: "fat_loss", label: "Dimagrimento (Fat Loss)" },
@@ -400,7 +393,7 @@ function Page5({
     const existing = form.weekSessions[dayIndex] ?? [];
     setSessions(dayIndex, [
       ...existing,
-      { modality: "Forza", duration_min: 60, rpe: 7 },
+      { modality: "Pesi — Ipertrofia", duration_min: 60, rpe: 7 },
     ]);
   };
 
@@ -481,10 +474,14 @@ function Page5({
                             updateSession(dayIndex, si, "modality", e.target.value)
                           }
                         >
-                          {MODALITY_OPTIONS.map((m) => (
-                            <option key={m} value={m}>
-                              {m}
-                            </option>
+                          {MODALITY_GROUPS.map((g) => (
+                            <optgroup key={g.group} label={g.group}>
+                              {g.entries.map((entry) => (
+                                <option key={entry.displayIt} value={entry.displayIt}>
+                                  {entry.displayIt}
+                                </option>
+                              ))}
+                            </optgroup>
                           ))}
                         </select>
                       </FieldGroup>
