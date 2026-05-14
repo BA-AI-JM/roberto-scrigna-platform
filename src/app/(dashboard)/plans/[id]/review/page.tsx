@@ -950,6 +950,58 @@ function MacrosTab({
                 plan.tdee.exercise.methodUsed}
             </div>
           </div>
+
+          {/* Energy Availability — per v4.4 spec §Step 9 */}
+          {(() => {
+            const ffm = plan.tdee.bmr.bodyComposition.leanMassKg;
+            const exercise = plan.tdee.exercise.exerciseKcal;
+            const intake = plan.macros.totalKcal;
+            if (!ffm || ffm <= 0) return null;
+            const ea = Math.round(((intake - exercise) / ffm) * 10) / 10;
+            const band =
+              ea >= 45
+                ? { label: "Ottimale", colour: "#15803d", bg: "#f0fdf4" }
+                : ea >= 30
+                ? { label: "Adeguata", colour: "#2563eb", bg: "#eff6ff" }
+                : ea >= 20
+                ? { label: "Bassa", colour: "#b45309", bg: "#fffbeb" }
+                : { label: "Critica", colour: "#b91c1c", bg: "#fef2f2" };
+            return (
+              <div
+                style={{
+                  marginBottom: "8px",
+                  padding: "8px 12px",
+                  backgroundColor: band.bg,
+                  borderRadius: "6px",
+                  fontSize: "12px",
+                  color: band.colour,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "10px",
+                  flexWrap: "wrap",
+                }}
+              >
+                <span style={{ fontWeight: 700 }}>
+                  Energy Availability: {ea} kcal/kg massa magra
+                </span>
+                <span
+                  style={{
+                    padding: "1px 8px",
+                    borderRadius: "10px",
+                    background: "#ffffff",
+                    fontWeight: 600,
+                    fontSize: "11px",
+                  }}
+                >
+                  {band.label}
+                </span>
+                <span style={{ fontSize: "11px", opacity: 0.8 }}>
+                  (intake {Math.round(intake)} − esercizio {exercise} ÷ FFM {ffm.toFixed(1)} kg)
+                </span>
+              </div>
+            );
+          })()}
+
           <div
             style={{
               fontSize: "12px",
