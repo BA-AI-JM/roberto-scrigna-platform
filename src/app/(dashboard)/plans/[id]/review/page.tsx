@@ -987,6 +987,17 @@ function MealsTab({
       alert(`Errore: ${err.message}`);
     },
   });
+
+  // Which slot currently has its "Alternative" panel expanded (one at a time per page).
+  const [expandedSlot, setExpandedSlot] = useState<string | null>(null);
+  const [swappingId, setSwappingId] = useState<string | null>(null);
+
+  const swapMutation = trpc.plan.swapMealSelection.useMutation({
+    onSettled: () => setSwappingId(null),
+    onSuccess: () => window.location.reload(),
+    onError: (err) => alert(`Errore: ${err.message}`),
+  });
+
   const plansWithMeals = dayTypePlans.filter((p) => p.mealPlan);
 
   if (plansWithMeals.length === 0) {
@@ -1137,12 +1148,151 @@ function MealsTab({
                   ))}
                 </ul>
               )}
-              {slot.substitutions.length > 0 && (
-                <p style={{ fontSize: "12px", color: "#a1a1aa", margin: 0 }}>
-                  Alternative:{" "}
-                  {slot.substitutions.map((s) => s.template.name).join(", ")}
-                </p>
-              )}
+              {slot.substitutions.length > 0 && (() => {
+                const expandedKey = `${plan.dayType}::${slot.slot}`;
+                const isExpanded = expandedSlot === expandedKey;
+                return (
+                  <div style={{ marginTop: "6px" }}>
+                    <button
+                      type="button"
+                      onClick={() => setExpandedSlot(isExpanded ? null : expandedKey)}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        padding: 0,
+                        margin: 0,
+                        fontSize: "12px",
+                        fontWeight: 600,
+                        color: "#3b82f6",
+                        cursor: "pointer",
+                      }}
+                    >
+                      {isExpanded ? "▾" : "▸"} {slot.substitutions.length} alternativ
+                      {slot.substitutions.length === 1 ? "a" : "e"}{" "}
+                      {!isExpanded && (
+                        <span style={{ color: "#a1a1aa", fontWeight: 400 }}>
+                          ({slot.substitutions
+                            .map((s) => s.template.name)
+                            .slice(0, 3)
+                            .join(", ")}
+                          {slot.substitutions.length > 3 ? ", …" : ""})
+                        </span>
+                      )}
+                    </button>
+                    {isExpanded && (
+                      <div style={{ marginTop: "8px", display: "grid", gap: "8px" }}>
+                        {slot.substitutions.map((sub) => (
+                          <div
+                            key={sub.template.id}
+                            style={{
+                              padding: "10px 12px",
+                              borderRadius: "8px",
+                              backgroundColor: "#ffffff",
+                              border: "1px solid #e4e4e7",
+                            }}
+                          >
+                            <div
+                              style={{
+                                display: "flex",
+                                justifyContent: "space-between",
+                                gap: "8px",
+                                alignItems: "flex-start",
+                                marginBottom: "4px",
+                              }}
+                            >
+                              <div>
+                                <div
+                                  style={{
+                                    fontSize: "13px",
+                                    fontWeight: 600,
+                                    color: "#18181b",
+                                  }}
+                                >
+                                  {sub.template.name}
+                                </div>
+                                <div style={{ fontSize: "11px", color: "#71717a" }}>
+                                  {Math.round(sub.actualMacros.kcal)} kcal · P{" "}
+                                  {Math.round(sub.actualMacros.proteinG)}g · C{" "}
+                                  {Math.round(sub.actualMacros.carbsG)}g · F{" "}
+                                  {Math.round(sub.actualMacros.fatG)}g
+                                </div>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSwappingId(sub.template.id);
+                                  swapMutation.mutate({
+                                    planId,
+                                    dayType: plan.dayType,
+                                    slot: slot.slot,
+                                    substitutionTemplateId: sub.template.id,
+                                  });
+                                }}
+                                disabled={
+                                  swapMutation.isPending && swappingId === sub.template.id
+                                }
+                                style={{
+                                  padding: "5px 12px",
+                                  borderRadius: "6px",
+                                  backgroundColor:
+                                    swapMutation.isPending && swappingId === sub.template.id
+                                      ? "#e5e7eb"
+                                      : "#1a1a2e",
+                                  color:
+                                    swapMutation.isPending && swappingId === sub.template.id
+                                      ? "#9ca3af"
+                                      : "#ffffff",
+                                  border: "none",
+                                  fontSize: "11px",
+                                  fontWeight: 600,
+                                  cursor:
+                                    swapMutation.isPending && swappingId === sub.template.id
+                                      ? "not-allowed"
+                                      : "pointer",
+                                  flexShrink: 0,
+                                }}
+                              >
+                                {swapMutation.isPending && swappingId === sub.template.id
+                                  ? "Cambio…"
+                                  : "Usa come principale"}
+                              </button>
+                            </div>
+                            {sub.scaledIngredients.length > 0 && (
+                              <ul
+                                style={{
+                                  margin: "6px 0 0 0",
+                                  padding: 0,
+                                  listStyle: "none",
+                                }}
+                              >
+                                {sub.scaledIngredients.map((ing, idx) => (
+                                  <li
+                                    key={idx}
+                                    style={{
+                                      fontSize: "12px",
+                                      color: "#52525b",
+                                      padding: "1px 0",
+                                      display: "flex",
+                                      justifyContent: "space-between",
+                                    }}
+                                  >
+                                    <span>{ing.name}</span>
+                                    <span
+                                      style={{ fontWeight: 600, color: "#3f3f46" }}
+                                    >
+                                      {Math.round(ing.grams)}g
+                                    </span>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           ))}
         </div>

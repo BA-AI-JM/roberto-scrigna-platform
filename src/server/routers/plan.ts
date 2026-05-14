@@ -667,6 +667,167 @@ export const planRouter = router({
     }),
 
   /**
+   * Swap the primary meal selection in a slot with one of its substitutions.
+   * The new primary takes the chosen substitution's place in `substitutions[]`,
+   * keeping the substitution count stable. Day totals + deviation + tolerance
+   * are recomputed and the bundle is persisted (reportData + mealPlans record).
+   */
+  swapMealSelection: protectedProcedure
+    .input(
+      z.object({
+        planId: z.string().uuid(),
+        dayType: z.string(),
+        slot: z.string(),
+        substitutionTemplateId: z.string(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { data: plan } = await ctx.supabase
+        .from("plan")
+        .select("id, daily_targets")
+        .eq("id", input.planId)
+        .eq("partner_id", ctx.partnerId)
+        .is("deleted_at", null)
+        .single();
+      if (!plan) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Piano non trovato." });
+      }
+
+      const dt = plan.daily_targets as Record<string, unknown> | null;
+      const bundle = dt?.plan_bundle as Record<string, unknown> | undefined;
+      const report = bundle?.reportData as Record<string, unknown> | undefined;
+      const dayPlans = report?.dayTypePlans as Array<Record<string, unknown>> | undefined;
+      if (!dt || !bundle || !report || !dayPlans) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Dati del piano mancanti." });
+      }
+
+      type Macros = { kcal: number; proteinG: number; fatG: number; carbsG: number };
+      type SelectedMeal = {
+        template?: { id?: string; name?: string };
+        scaleFactor?: number;
+        scaledIngredients?: Array<{ name: string; grams: number; foodId?: string }>;
+        actualMacros?: Macros;
+      };
+      type Slot = { slot: string; targetMacros?: Macros; primary?: SelectedMeal; substitutions?: SelectedMeal[] };
+
+      const dayIdx = dayPlans.findIndex((d) => d.dayType === input.dayType);
+      if (dayIdx === -1) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Tipo giorno non trovato." });
+      }
+      const day = dayPlans[dayIdx] as Record<string, unknown>;
+      const mealPlan = day.mealPlan as Record<string, unknown> | undefined;
+      const slots = mealPlan?.slots as Slot[] | undefined;
+      if (!slots) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Pasti non disponibili." });
+      }
+      const slotIdx = slots.findIndex((s) => s.slot === input.slot);
+      if (slotIdx === -1) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Slot pasto non trovato." });
+      }
+
+      const slot = slots[slotIdx]!;
+      const subs = slot.substitutions ?? [];
+      const subIdx = subs.findIndex(
+        (s) => s.template?.id === input.substitutionTemplateId
+      );
+      if (subIdx === -1 || !slot.primary) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Alternativa non trovata." });
+      }
+
+      // Swap in place: chosen sub → primary; old primary takes that sub's seat.
+      const oldPrimary = slot.primary;
+      const newPrimary = subs[subIdx]!;
+      const newSubs = [...subs];
+      newSubs[subIdx] = oldPrimary;
+      const newSlots = [...slots];
+      newSlots[slotIdx] = { ...slot, primary: newPrimary, substitutions: newSubs };
+
+      // Recompute day-level macros + deviation + tolerance against targetMacros.
+      const r1 = (n: number) => Math.round(n * 10) / 10;
+      const newActual: Macros = newSlots.reduce(
+        (acc, s) => {
+          const am = s.primary?.actualMacros;
+          return {
+            kcal: acc.kcal + (am?.kcal ?? 0),
+            proteinG: r1(acc.proteinG + (am?.proteinG ?? 0)),
+            fatG: r1(acc.fatG + (am?.fatG ?? 0)),
+            carbsG: r1(acc.carbsG + (am?.carbsG ?? 0)),
+          };
+        },
+        { kcal: 0, proteinG: 0, fatG: 0, carbsG: 0 }
+      );
+
+      const planTarget = mealPlan?.targetMacros as Record<string, number> | undefined;
+      const dayMacros = day.macros as Record<string, number> | undefined;
+      const tgtKcal = (planTarget?.totalKcal as number) ?? (dayMacros?.totalKcal as number) ?? 0;
+      const tgtProtein = (planTarget?.proteinG as number) ?? (dayMacros?.proteinG as number) ?? 0;
+      const tgtFat = (planTarget?.fatG as number) ?? (dayMacros?.fatG as number) ?? 0;
+      const tgtCarb =
+        (planTarget?.carbG as number) ??
+        (planTarget?.carbsG as number) ??
+        (dayMacros?.carbG as number) ??
+        0;
+
+      const deviation = {
+        kcal: newActual.kcal - tgtKcal,
+        proteinG: r1(newActual.proteinG - tgtProtein),
+        fatG: r1(newActual.fatG - tgtFat),
+        carbsG: r1(newActual.carbsG - tgtCarb),
+      };
+      const withinTolerance =
+        Math.abs(deviation.kcal) <= DEFAULT_TOLERANCES.kcal &&
+        Math.abs(deviation.proteinG) <= DEFAULT_TOLERANCES.proteinG &&
+        Math.abs(deviation.fatG) <= DEFAULT_TOLERANCES.fatG &&
+        Math.abs(deviation.carbsG) <= DEFAULT_TOLERANCES.carbsG;
+
+      const updatedMealPlan = {
+        ...mealPlan,
+        slots: newSlots,
+        actualMacros: newActual,
+        deviation,
+        withinTolerance,
+      };
+
+      const updatedDayPlans = [...dayPlans];
+      updatedDayPlans[dayIdx] = { ...day, mealPlan: updatedMealPlan };
+
+      const mealPlansRecord = bundle.mealPlans as Record<string, unknown> | undefined;
+      const updatedMealPlansRecord =
+        mealPlansRecord && Object.prototype.hasOwnProperty.call(mealPlansRecord, input.dayType)
+          ? { ...mealPlansRecord, [input.dayType]: updatedMealPlan }
+          : mealPlansRecord;
+
+      const updatedDt = {
+        ...dt,
+        plan_bundle: {
+          ...bundle,
+          ...(updatedMealPlansRecord ? { mealPlans: updatedMealPlansRecord } : {}),
+          reportData: { ...report, dayTypePlans: updatedDayPlans },
+        },
+      };
+
+      const { error } = await ctx.supabase
+        .from("plan")
+        .update({ daily_targets: updatedDt })
+        .eq("id", input.planId)
+        .eq("partner_id", ctx.partnerId);
+      if (error) {
+        console.error("[router/plan.swapMealSelection]", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Errore nel salvataggio.",
+        });
+      }
+
+      return {
+        success: true,
+        promotedName: newPrimary.template?.name ?? null,
+        demotedName: oldPrimary.template?.name ?? null,
+        withinTolerance,
+      };
+    }),
+
+  /**
    * Persist coach edits to a plan's supplements and/or guidance text.
    * The review UI mutates these locally; this writes them back into the plan
    * bundle (both the top-level fields and reportData) so they survive a reload
