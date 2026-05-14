@@ -13,6 +13,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter, useParams } from "next/navigation";
 import { trpc } from "@/lib/trpc/client";
+import { ClientPhotoGallery } from "@/components/client-photo-gallery";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -265,6 +266,34 @@ function PanoramicaTab({
       </div>
 
       <WeightTrend snapshots={snapshots as SnapshotRow[]} />
+
+      <PhotoSection clientId={clientId} />
+    </div>
+  );
+}
+
+function PhotoSection({ clientId }: { clientId: string }) {
+  const { data: session } = trpc.auth.getSession.useQuery();
+  const partnerId = (session as { id?: string } | null | undefined)?.id;
+  if (!partnerId) return null;
+  return (
+    <div
+      style={{
+        marginTop: "20px",
+        background: "#ffffff",
+        border: "1px solid #e2e8f0",
+        borderRadius: "12px",
+        overflow: "hidden",
+      }}
+    >
+      <div style={{ padding: "20px 24px", borderBottom: "1px solid #f1f5f9" }}>
+        <h3 style={{ fontSize: "15px", fontWeight: 700, color: "#1a1a2e", margin: 0 }}>
+          Foto cliente
+        </h3>
+      </div>
+      <div style={{ padding: "20px 24px" }}>
+        <ClientPhotoGallery clientId={clientId} partnerId={partnerId} />
+      </div>
     </div>
   );
 }

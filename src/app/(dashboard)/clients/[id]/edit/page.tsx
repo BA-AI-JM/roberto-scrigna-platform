@@ -21,6 +21,7 @@ import {
   EMPTY_SKINFOLDS,
   type SkinfoldsValue,
 } from "@/components/skinfolds-editor";
+import { ClientPhotoGallery } from "@/components/client-photo-gallery";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -837,6 +838,9 @@ export default function ClientEditPage() {
           )}
         </div>
 
+        {/* Photo gallery — separate card so it works regardless of the "Aggiorna" toggle */}
+        <PhotosCard clientId={clientId} />
+
         {/* Error */}
         {saveError && (
           <div
@@ -890,6 +894,44 @@ export default function ClientEditPage() {
           </button>
         </div>
       </form>
+    </div>
+  );
+}
+
+// ── Photos card ────────────────────────────────────────────────────────────────
+
+/**
+ * Photo gallery card. Fetches the partner_id (needed to build the storage path
+ * prefix) and renders the gallery once it's available.
+ */
+function PhotosCard({ clientId }: { clientId: string }) {
+  const { data: session } = trpc.auth.getSession.useQuery();
+  const partnerId = (session as { id?: string } | null | undefined)?.id;
+
+  return (
+    <div
+      style={{
+        background: "#ffffff",
+        border: "1px solid #e2e8f0",
+        borderRadius: "12px",
+        padding: "24px",
+        marginBottom: "20px",
+      }}
+    >
+      <div style={{ marginBottom: "16px" }}>
+        <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#1a1a2e", margin: 0 }}>
+          Foto cliente
+        </h2>
+        <p style={{ fontSize: "13px", color: "#6b7280", marginTop: "4px" }}>
+          Foto di progresso, plicometria o composizione corporea — visibili anche al cliente nel suo portale.
+        </p>
+      </div>
+
+      {partnerId ? (
+        <ClientPhotoGallery clientId={clientId} partnerId={partnerId} />
+      ) : (
+        <p style={{ fontSize: "13px", color: "#9ca3af" }}>Caricamento…</p>
+      )}
     </div>
   );
 }
