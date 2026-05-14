@@ -1,330 +1,273 @@
-# Questions for Roberto — to unblock Phase 1–2
+# Questions for Roberto — refined after reading the v4.4 spec
 
-**Date:** 2026-05-14
-**Context:** I've shipped Phase 0 + every answer-independent piece of Phase 1–4 (see `FEEDBACK-RESOLUTION-PLAN-2026-05.md`). The questions below are what's blocking the remaining work. Please answer in as much detail as you can — the more specifics you give, the less guesswork goes into the engine and UI. Where I've proposed defaults, feel free to say "fine" / "no, do X instead" — concrete reactions are faster than open-ended design.
+**Date:** 2026-05-14 (revised)
+**Context:** Thank you for the `Nutrition_Planning_System_Unified_Specification_v4_4.docx`. It answered most of the engine and meal-plan questions — see `SPEC-ANSWERS-2026-05.md` for the full mapping. The list below is what the spec **doesn't** answer (and that I can't reasonably default to). The biggest blocker is still **§1 (food rounding)**.
 
-The most important section by far is **§1 (rounding)** — until I have these rules, every meal plan's gram amounts will keep coming out impractical.
+A handful of items below are **either-or** confirmations where the spec says one thing and the current engine does another. Tell me which you actually want and I'll align both.
 
 ---
 
-## 1. Food quantity rounding (your #4, "macro planner" logic)
+## 1. Food quantity rounding (still the biggest blocker)
 
-You said in the feedback that the rounding rules "had already been defined" in the macro planner. They are **not** in either GitHub repo, and we believe they're in the v4.4 spec doc (`Nutrition_Planning_System_Unified_Specification_v4_4.docx`) which lives in a separate `roberto-scrigna-handoff` repo we don't have access to. Two parallel questions:
+The spec defines tolerances, scale-factor bounds, ingredient minimums (50 g protein, 150 g veg/main, 21 g oil max, 40 g cheese max) and macro-scaling priorities — but it does **not** specify how individual gram amounts should round in the final plan. That's the "macro-planner" rounding logic you referred to. Please pick one set of rules.
 
-### 1.a — Can you share the v4.4 spec?
-- A PDF / DOCX / scan / paste of the relevant chapter is fine.
-- If it's on someone else's GitHub or Drive, please share the link or have them add the repo to our account.
-- Even partial: the rounding section, the macro-allocation section, the day-type definitions section.
+### 1.a — Default rounding tier
+Pick a row (or describe your own):
 
-### 1.b — If the doc is hard to dig up, please confirm or correct these defaults
-Until we have the spec, I'll implement these. Tell me which are right, which are wrong, and what the actual rule should be.
+| Option | Solids ≥ 20 g | Small solids < 20 g | Liquids | Notes |
+|---|---|---|---|---|
+| A (proposed default) | nearest **5 g** | nearest **1 g** | nearest **10 ml** | clean, readable |
+| B (tighter) | nearest **5 g** | nearest **0.5 g** | nearest **5 ml** | for athletes who weigh precisely |
+| C (looser) | nearest **10 g** | nearest **1 g** | nearest **10 ml** | mass-market friendly |
 
-| Food category | Proposed rule | Example |
+### 1.b — Foods that snap to **whole units**
+Please give the per-unit gram weights. If you don't know exactly, your best guess is fine.
+
+| Food | Unit | Grams per unit |
 |---|---|---|
-| Solids ≥ 20 g (rice, pasta, oats, meat, cheese) | round to nearest **5 g** | 93 g → 95 g · 207 g → 205 g |
-| Small solids < 20 g (oils, nut butters, parmesan) | round to nearest **1 g** | 11.4 g → 11 g |
-| **Eggs** (whole) | snap to multiples of 50 g (≈ 1 egg = 50 g) | 78 g → 100 g (= 2 eggs) · 32 g → 50 g (= 1 egg) |
-| **Egg whites** (separately) | round to nearest **5 g** | 73 g → 75 g |
-| Bread / slices (pane, fette biscottate) | snap to whole-unit weights *that you give me* | (need: 1 fetta biscottata = ? g; 1 fetta di pane = ? g) |
-| Yogurt / packaged servings (vasetto 125 g, 170 g) | snap to whole packets when within ±15% | 140 g of "yogurt vasetto 125 g" → 125 g |
-| Liquids (milk, oil-by-volume, milk substitutes) | round to nearest **10 ml** | 187 ml → 190 ml |
-| Protein powder | round to nearest **5 g** | 27 g → 25 g |
-| Fruit (whole) | snap to typical units (1 mela = 150 g, 1 banana = 120 g) — list TBC | 165 g mela → 150 g (1 mela) |
+| Uovo intero (medio) | 1 uovo | **? g** (proposed 50) |
+| Albume | 1 albume | **? g** (proposed 30) |
+| Fetta biscottata | 1 fetta | **? g** (proposed 10) |
+| Fetta di pane integrale | 1 fetta | **? g** (proposed 30) |
+| Vasetto yogurt Greco | 1 vasetto | **? g** (proposed 125 or 170 — confirm) |
+| Mela media | 1 mela | **? g** (proposed 150) |
+| Banana media | 1 banana | **? g** (proposed 120) |
+| Cucchiaio olio EVO | 1 cucchiaio | **? g** (proposed 10) |
+| Cucchiaino zucchero/miele | 1 cucchiaino | **? g** (proposed 5) |
+| Misurino proteine in polvere | 1 scoop | **? g** (proposed 30) |
+| Wasa / cracker integrali | 1 fetta | **? g** (proposed 10) |
+| Pacchetto cottage cheese | 1 confezione | **? g** (proposed 200) |
+| Mozzarella confezionata | 1 confezione | **? g** (proposed 125) |
+| Other unit-foods we should snap | — | — |
 
-**Specific questions:**
-1. Which of these rules are wrong, and what's the right rule?
-2. Are there foods that should *never* be rounded (e.g. integratori, oli per dosaggio preciso)?
-3. After rounding, the daily macro total drifts by 1–3 %. **Do you prefer**: (a) round first then re-true the *largest* slot to absorb the drift, (b) round everything then recompute and accept the drift, (c) round only the foods within the slot that are *not* the protein anchor?
-4. Should rounding be applied at **plan generation** or only at **plan export** (so internal math stays precise)? Or both?
-5. **Unit-snapping list**: please send me your canonical list of "comune unità" — 1 fetta biscottata, 1 fetta di pane, 1 vasetto yogurt, 1 mela, 1 banana, 1 cucchiaio olio, 1 cucchiaino zucchero, etc. Even a quick voice-note transcribed → spreadsheet works.
-6. Do these rules differ for **competition prep / weighing**-aware clients versus general clients? Some athletes weigh precisely — do they get tighter rounding (e.g. 1 g)?
+### 1.c — Snap tolerance
+When the calculated portion is *close* to a whole unit, how aggressively should we snap?
+- **A (strict):** snap only if within ±10 % of a unit boundary.
+- **B (proposed default):** ±15 %.
+- **C (loose):** ±25 % — clients see "1 mela" even when the math wanted 110 or 190 g.
 
----
+### 1.d — Where the leftover macros land
+After rounding, the day total drifts by 1–3 %. Pick one:
+- **A (proposed default):** round all ingredients, then re-true the **largest carb slot** (e.g. lunch pasta) to absorb the drift.
+- **B:** re-true the **largest protein slot**.
+- **C:** distribute the drift evenly across all slots (no re-trueing).
 
-## 2. Day-type structures and protocols (your #3)
+### 1.e — Foods that should **never** round
+e.g. integratori, oli da dosaggio preciso, alcuni alimenti specifici. Please list.
 
-Today the app assigns a day type by inference: any day with ≥ 1 training session = "training", others = "rest". `refeed` and `deload` exist in the engine but no UI ever picks them. You want the **professional to decide the structure**.
-
-### 2.a — Which preset structures should I offer?
-For each, say **YES** (build it) / **NO** (don't bother) / **MODIFY** (with notes):
-
-1. **Media settimanale** — single set of macros applied every day (today's behavior collapsed into one).
-2. **ON / OFF** — two day types: Allenamento (ON) and Riposo (OFF). What you have today.
-3. **Leggero / Medio / Pesante** — three intensity tiers; coach assigns each weekday to one. Macros differ per tier.
-4. **ON / OFF / REFEED** — adds 1–2 high-carb refeed days for clients in deep deficit.
-5. **ON / OFF / DELOAD** — adds reduced-load deload weeks (auto-applied every Nth week?).
-6. **Carb cycling** — high / medium / low carb days assigned independently of training. Frequency rules?
-7. **Custom** — coach manually labels each weekday with a free-text day type and supplies macros.
-8. **Other** — anything I'm missing?
-
-### 2.b — How are macros differentiated between day types?
-For each day type that's not "average", what changes vs the baseline? Pick a model:
-- **Calorie shift only**: same macro ratio, different total kcal (e.g. training day +300 kcal).
-- **Carb shift only**: protein + fat fixed, carbs vary.
-- **Independent macros**: each day type has its own P / F / C in grams.
-- **Rule-based**: I give a rule (e.g. "training day: +1 g/kg carbs, +200 kcal").
-
-Concrete example I need to code: client TDEE_rest = 2000 kcal, TDEE_training = 2300 kcal, deficit goal 250 kcal/day. What should each day's macros look like?
-
-### 2.c — Multiple active plans per client?
-- Can one client have **multiple "active" plans at once** (e.g. a "fase di definizione" plus a separate "settimana di prova carb cycling")?
-- Or strictly one active at a time, with older plans becoming "completato" / "archiviato"?
-- If multiple: how does the portal decide which one to show the client? (Manual selection? Default to most recent?)
-
-### 2.d — Refeed / deload triggers
-- Should refeed days be **manually assigned** or **auto-recommended** (e.g. every 10–14 days in deficit)?
-- Same question for deload weeks — auto-suggest after N training weeks?
-- For each, what's the macro/calorie change vs the baseline training day?
-
-### 2.e — Weekly EE table view
-You asked for "a simple table showing Monday: 2 sessions, swimming + CrossFit, estimated 2900 kcal; Tuesday: rest, 2200 kcal; ...". Confirm the columns you want:
-- Day of week
-- Day type (Allenamento / Riposo / Refeed / Deload / …)
-- Sessions of the day (modality + duration)
-- TDEE for the day
-- Apporto pianificato (kcal)
-- Δ (deficit / surplus / mantenimento)
-
-Should this be view-only in the review page, or fully editable in a plan-config wizard? (I assume editable — confirm.)
+### 1.f — When does rounding kick in?
+- **A (proposed default):** at plan generation (the macros stored in the DB are already rounded).
+- **B:** only at PDF/portal export (internal math stays precise).
+- **C:** both — store precise + display rounded.
 
 ---
 
-## 3. Client context history model (your #1)
+## 2. Day-type presets (spec says "1–4 flexible labels"; you pick the defaults)
 
-We need to decide how "edit the client" interacts with measurement history. My current default is:
+The spec confirms the day-type system is flexible — up to 4 custom-labeled day types per plan. Please pick which presets I should ship in the plan-config wizard as ready-made templates:
 
-> Editing the client creates a **new dated snapshot** that carries the updated goal + training routine + measurements. The engine always reads "latest". Untouched fields carry over from the previous snapshot so each row is a complete picture.
+- [ ] **Media settimanale** — 1 day type (collapse the week into a single average).
+- [ ] **ON / OFF** — Allenamento / Riposo. *(spec's basic preset)*
+- [ ] **OFF / WEIGHTS / SPORT / DOUBLE** — the 4-day pattern from Appendix A.2 (rest / strength / endurance / double session). *(spec's worked example)*
+- [ ] **Leggero / Medio / Pesante** — three intensity tiers, coach assigns each weekday. Macros differ per tier.
+- [ ] **ON / OFF / REFEED** — adds 1–2 high-carb refeed days for clients in deep deficit.
+- [ ] **ON / OFF / DELOAD** — adds reduced-load deload days (e.g. weekly low-volume).
+- [ ] **Carb cycling** — high / med / low carb days, independent of training.
+- [ ] **Custom** — coach manually labels up to 4 day types per plan.
 
-Is that right, or would you prefer one of:
+Mark the ones you want first-class. The rest stay buildable via "Custom".
 
-- **A. Single editable "scheda corrente"** — the client's current goal/routine lives in a separate editable record (you can rewrite it any time); measurements remain immutable history. Two stores, two UIs.
-- **B. New-snapshot model (my default)** — every edit dates a new snapshot; nothing is ever overwritten.
-- **C. Hybrid** — measurements are immutable history (B); goal + routine are mutable single records (A).
+### 2.a — Multiple active plans per client
+- **A:** One active plan at a time (current model). Older plans become "completed/archived".
+- **B:** Multiple active plans allowed (e.g. "fase definizione" + "settimana sperimentale carb cycling"). If multiple, which one does the **portal** show the client by default — most recent, or coach-pinned?
 
-**Follow-up questions:**
-1. When you "aggiorna la scheda" with no new measurements (only new goal), should it still create a snapshot? Or just update the live goal?
-2. Should you be able to **see** the goal/routine that was active at the time each plan was generated? (For audit / explaining old plans to clients?)
-3. How do you want the patient **photos** versioned? Tied to a snapshot (set per measurement session)? Independent gallery? Or both views?
+### 2.b — Refeed / deload cadence
+The spec supports refeed/deload day types but doesn't say when. Please pick:
+- **A (manual):** coach assigns refeed/deload days per plan, no auto-suggestion.
+- **B (auto-suggest, manual approve):** app suggests "you've been in deficit 14 days, add a refeed" — coach decides.
+- **C (auto-apply):** app automatically schedules a refeed every Nth day (configurable).
+
+### 2.c — Refeed magnitude (relative to baseline training day)
+- Calories: +X % of TDEE? +X kcal flat? Same kcal but carb-shifted?
+- Carbs: +X g vs training day?
+- Protein: same?
+- Fat: same / lower?
+
+A concrete worked example would be ideal: client with TDEE_off 2000, TDEE_train 2300 in a 20 % deficit — what would a refeed day look like?
 
 ---
 
-## 4. Target-date deficit & aggressiveness (your #9)
+## 3. Target-date deficit + aggressiveness (spec is silent on the upfront calculator)
 
-You want: "current weight, target weight, time available, weekly loss needed, estimated avg deficit, aggressiveness level."
+The spec has POST-plan calibration (after 2 weeks of weigh-ins, adjust ±5 % or ±10 %), but no UPFRONT "client wants X kg in Y weeks → here's the deficit". You asked for that in your #9. Please pick:
 
-### 4.a — Aggressiveness expression
-Which do you want to drive (and clamp) the deficit? Pick one — both is fine but be explicit:
-- **% of bodyweight per week** (e.g. 0.5 % / 0.75 % / 1.0 % / 1.25 %).
-- **% of TDEE** (e.g. 10 % / 15 % / 20 % / 25 %).
-- **Absolute kcal/day deficit** (e.g. 200 / 400 / 600).
-- **Combination** — set primary expression + a hard cap from the other.
+### 3.a — Which expression drives + caps the deficit
+- **A (proposed):** **% of bodyweight per week**, primary; cap at 1.0 %/wk.
+- **B:** **% of TDEE**, primary; cap at 25 %.
+- **C:** **Both** — set primary in % BW/wk; soft-warn if also exceeds 25 % TDEE.
+- **D:** Absolute kcal/day; cap at 600 kcal.
 
-### 4.b — Caps & safety rules
-- Lower-bound on calories: what's your floor? (Common defaults: 1.2 × BMR; or `lean_mass_kg × 22 kcal`; or absolute 1200 kcal F / 1500 kcal M.)
-- Maximum sustainable deficit per week — when do you say "the timeline is unrealistic, push the deadline"?
-- Should the app **block** the coach from approving a plan that violates these rules, or just **warn**?
+### 3.b — Lower kcal floor
+- **A:** `floor = 1.2 × BMR`.
+- **B (proposed):** `floor = lean_mass_kg × 22 kcal` (a common practical floor).
+- **C:** Absolute floor (1200 F / 1500 M).
+- **D:** Use spec's Energy Availability bands — block if EA would drop below 20 kcal/kg FFM.
 
-### 4.c — Worked example
-Client: M, 35 y, 90 kg → 80 kg in 12 weeks. TDEE 2600 kcal.
-- Δ weight = -10 kg → required weekly loss ≈ 0.83 kg/wk
-- 1 kg fat ≈ 7700 kcal → required daily deficit ≈ 913 kcal/day
-- That's 35 % of TDEE → very aggressive.
+### 3.c — When the timeline is unrealistic
+Client says "X kg in Y weeks" → math says deficit > cap. What does the app do?
+- **A:** Refuse to set the goal, ask for a longer timeline.
+- **B (proposed):** Allow but flag "aggressivo" + auto-propose a more conservative timeline (e.g. "consigliamo 20 settimane invece di 12").
+- **C:** Allow up to the cap and auto-extend the timeline silently.
 
-**What should the app do?**
-- Tell the coach "questo deficit è oltre la soglia 0.75 %/sett — extend the target date to ~20 weeks OR accept aggressive deficit + refeeds."
-- Auto-suggest a more conservative timeline (e.g. 20 weeks instead of 12)?
-- Auto-set refeed cadence when deficit > X %?
-
-### 4.d — Surplus (muscle gain) rules
-For target-date surplus (e.g. "gain 5 kg lean in 16 weeks"):
+### 3.d — Surplus (muscle gain) rules
+For target-date *gain* (e.g. +5 kg lean in 16 weeks):
 - Same expression (% BW/wk)?
-- Lean gain rate caps (e.g. 0.25–0.5 % BW/wk for natural lifters)?
-- Surplus distribution: same across days? Bigger on training? Refeed-style?
-
-### 4.e — Refeed / diet-break protocol
-- Frequency: every 7 / 10 / 14 / 21 days, or adaptive based on deficit depth?
-- Magnitude: how many kcal added on a refeed day vs baseline? Mostly carbs?
-- Diet break (multi-day at maintenance) — built-in? Or out of scope?
+- Cap (e.g. 0.5 %/wk for natural lifters, 0.25 % for advanced)?
+- Surplus distribution across day types — same as deficit, just inverted?
 
 ---
 
-## 5. Macro composition rules
+## 4. Macro multiplier discrepancies (engine vs spec — pick which you want)
 
-Today the engine has built-in defaults; please confirm or adjust.
+Two places where what the engine outputs today doesn't match the spec's defaults. The fidelity tests (`marco-bellini`, `niccolo`, `raphael`) are pegged to the engine's current numbers, so before I change anything I want your call.
 
-### 5.a — Protein
-- Default target: protein in g/kg lean mass — what range?
-- Defaults today: ~2.0 g/kg lean (rest) / ~2.2 g/kg (training). Confirm?
-- **Per goal**: fat loss vs muscle gain vs maintenance vs performance — same range or different?
-- Minimum protein floor (absolute g/day) for very lean / very heavy clients?
-- Max useful intake — at what point does adding more lose value (e.g. > 2.8 g/kg)?
+### 4.a — Fat on training days
+- **Spec default:** fat = **1.0 g/kg BW**, *constant* across day types, with a small **+3–5 g** bump on training days. → training day fat ≈ 73–75 g for a 70 kg client.
+- **Engine today:** training day fat = **0.9 × BW** (= 63 g for 70 kg); rest day fat = 1.0 × BW (70 g). So the engine has *less* fat on training days than rest. Opposite of spec.
+- **Which is right?** Spec? Or your clinical practice (engine)?
 
-### 5.b — Fat
-- Default fat: 0.8 g/kg bodyweight, or % of total kcal, or "remainder after P and C"?
-- Minimum fat floor (essential fatty acid floor: typically 0.5 g/kg or 20 % of kcal)?
-- Goal-specific differences?
+### 4.b — Protein on rest days
+- **Spec default:** protein = **2.5 g/kg FFM** constant across day types (small +5–10 g bump on training).
+- **Engine today:** training 2.5 × FFM, **rest 2.2 × FFM** (lower).
+- **Which is right?** Constant 2.5 (spec) or training-elevated 2.5 / rest-reduced 2.2 (engine)?
 
-### 5.c — Carbs
-- Currently the remainder after P + F. Confirm.
-- Carb periodization (training vs rest):
-    - Training day = +X g carbs over rest? (specify rule)
-    - Should pre/post-workout carb allocation matter at meal-plan level, or only as a guideline?
-
-### 5.d — Per-meal distribution
-Today the meal plan distributes daily macros across 3–6 meals via a fractional template. Examples for 4 meals: colazione 22%, pranzo 30%, spuntino 15%, cena 33%. Should:
-- The distribution be **goal-aware** (e.g. higher protein at colazione for muscle gain)?
-- Vary by **day type** (training day shifts carbs around the workout)?
-- Or stay as a single global template?
-
-### 5.e — Diet emphasis flags
-The engine has a `dietEmphasis` parameter that affects TEF — does the **coach** ever set this, or is it always auto-derived from goal?
+### 4.c — Salt formula
+- **Spec:** `salt_g = 1.5 × water_liters`. For 70 kg client: water = 2.625 L → salt ≈ 3.9 g rest, ≈ 4.7 g training.
+- **Engine today:** **5 g rest + 1.5 g training bonus** (= 6.5 g training).
+- The engine's salt is ~25 % higher than spec. Bug or intentional?
 
 ---
 
-## 6. Hydration & salt
+## 5. History / context-edit model (your #1)
 
-Engine returns water_ml and salt_g per day. Confirm formula:
-- Currently `water_ml = bodyweight_kg × 35 ml + 500 ml on training days`. Right?
-- Salt: typically 1.5–2 g/day baseline + 1–1.5 g per hour of training. Right?
-- Climate / sweat-rate adjustments — do you want a "clima caldo" toggle?
-- For specific sports (endurance / combat), different defaults?
+When the coach updates a client (new goal, new training routine, new plicometria), what's stored?
 
----
+- **A (current default — what I shipped):** a **new dated snapshot** carries the updated context. Untouched fields carry over from the previous snapshot. Historical snapshots are immutable. The engine always reads "latest."
+- **B:** a single editable "scheda corrente" (mutable record) for goal + routine, separate from measurement history (immutable snapshots).
+- **C:** hybrid — measurements immutable; goal + routine mutable on a single live record.
 
-## 7. Body composition methods (your audit's open item)
+Confirm A is OK, or pick B/C.
 
-When no plicometria is provided, the engine falls back to a **BMI heuristic** — imprecise. Decisions:
+### 5.a — When only the goal changes (no new measurements)
+- **A:** Create a new snapshot anyway (preserves the change date).
+- **B:** Update in place; no new snapshot.
 
-1. **Default fallback** — confirm BMI heuristic, or should it instead refuse to generate a plan until plicometria is captured?
-2. **Bioimpedance / DEXA input** — should I add a field to enter a measured BF% directly (overriding both skinfolds and the heuristic)? You have `bodyFatPctOverride` already; should I surface it in the intake/edit UI?
-3. **3-site vs 7-site preference** — if a coach has 7-site, that's preferred. If only 3-site, should I require the male/female specific sites or accept any 3?
-4. **Periodic re-plicometria reminder** — auto-prompt every N weeks?
+### 5.b — Should plans link to the snapshot they were generated from?
+Currently yes — `plan.snapshot_id` is set. So when you re-open an old plan you can see "this was generated when you weighed 78 kg with goal X." Confirm that's what you want.
 
 ---
 
-## 8. Activity / sport taxonomy unification (your #10)
+## 6. Onboarding & portal (your #6 / #11)
 
-The "martial arts on phone not desktop" issue: it's two separate dropdowns at different abstraction levels:
-- **Intake modality** (in the training-routine editor): Forza, Ipertrofia, Cardio LISS, Cardio HIIT, Crossfit, Yoga/Mobilità, Sport di squadra, Arti marziali, Ciclismo, Corsa, Nuoto, Altro.
-- **Training-log session type** (when logging an actual session): strength, hypertrophy, cardio, hiit, flexibility, deload, other.
-- **SCP category** (for HR-zone correction): GRAPPLING, STRIKING, MMA, STRENGTH, HIIT, CYCLIC, TEAM, RACKET.
+When you click **Approva** on a plan, today the system does:
+1. Sets plan status → `active`.
+2. Dispatches an Inngest `plan/delivered` event (which can be wired to do anything — currently it doesn't email).
+3. Shows you a banner with the portal URL.
 
-Questions:
-1. **Canonical list**: please send the complete list of activities/sports your clients do. I'll make this the single canonical "modalità" list across the app.
-2. **MET values**: if you know the MET (Compendium of Physical Activities) value for each, send those too. Otherwise I'll use reasonable defaults.
-3. **SCP mapping**: which of these are appropriate for the Sport Correction Protocol? (SCP works best for: grappling, striking, MMA, strength training, HIIT, cyclic endurance.)
-4. **What about pure rest-modal stuff** (yoga, mobility, sauna, walking)? Treated as "training day" or "rest day"?
-5. Should the **training-log session type** be removed entirely and replaced by the modality list?
+You separately have **Condividi con Cliente** (sends a branded Resend email with the plan summary) and **Invita al portale** (provisions the auth user + emails the magic-link login).
 
----
-
-## 9. Plan-configuration wizard (your #2 — editing side)
-
-Showing the per-day TDEE breakdown is in place. You wanted the coach to **edit** these before generating the plan. Confirm the editable fields:
-
-- [ ] Per-day TDEE (override the engine's calculation)
-- [ ] Per-day exercise kcal (override exercise component only)
-- [ ] Per-day activity level / occupational level
-- [ ] Per-day macro grams (P / F / C, or % shares)
-- [ ] Per-day water + salt
-- [ ] Meal count (per day or fixed for the week)
-- [ ] Goal type (fat loss / maintenance / muscle gain / performance) at plan time, independent of the client's stored goal?
-- [ ] Custom notes per day
-
-**Question**: should the wizard let you save a plan as a **template** to apply to other clients?
+Decisions:
+- **6.a — Auto-send on approve?** Should clicking "Approva" automatically email the plan? Or keep it as a separate two-click flow (Approva, then Condividi)?
+- **6.b — Auto-invite on approve?** If the client doesn't have portal access yet, should Approve also send the invite? Or always two separate buttons?
+- **6.c — Welcome email content** for the portal invite. Send me a sentence or two of copy you'd like — short, warm, in your voice.
+- **6.d — Self-service registration** — should a new client be able to register themselves at `/portal/login` without an invite? (Currently no — they must be invited.)
 
 ---
 
-## 10. Workout-screenshot OCR — live Claude Vision integration (your #8)
+## 7. Branding / PDF / public-facing details
 
-Screenshot upload is built (coach + client portal). The OCR is still a stub. To wire the real Claude Vision call I need:
-
-1. **Which apps do your clients use?** Strong / Hevy / Jefit / Apple Fitness / Garmin Connect / Polar Flow / Suunto / Whoop / Apple Watch screenshots — each has a different visual layout. Send me a few sample screenshots per app and I'll tune the prompt.
-2. **What should we extract?**
-    - Per-exercise: name, sets × reps × load, rest, RPE? — confirm fields and priority.
-    - Session-level: total time, kcal (if shown), HR avg/max, HR-zone minutes (if shown)?
-3. **Per-zone HR minutes** are gold for the Sport Correction Protocol (Method 0). When the screenshot includes them, should we auto-feed SCP and use its result as the exercise EE? (My default: yes when present + the modality is one SCP supports.)
-4. **Confidence threshold** — what's the minimum OCR confidence to auto-fill exercises vs flag for manual review?
-5. **Italian vs English** — your clients' apps are mostly in Italian (e.g. "Distensioni su panca")? In English? Mixed?
-
----
-
-## 11. Supplement library
-
-Today there are 20 fixed supplements with auto-inclusion rules. You said you want to "add more supplements."
-
-1. **What's missing from the library?** Send a list (name, dosage, timing, rationale, category, when to recommend) and I'll add them.
-2. **Coach-edit-only library** vs **fully editable per-client**: today you can add ad-hoc supplements per plan (the "Salva modifiche" button now persists this). Do you also want a UI to manage the **master library** (add / edit / disable globally)?
-3. **Interaction warnings** — you flagged this in an earlier audit. Which interactions matter most? (Iron+Calcium, Caffeine+Magnesium-timing, Omega-3 dosage, Vit D + K2 synergy, Iron + tea/coffee, …)
-4. **Forms / brands** — should I track a recommended form (e.g. "magnesio bisglicinato vs ossido") per supplement? Brand recommendations?
+- **7.a — Logo** (PNG/SVG). Please attach.
+- **7.b — Brand colors** — currently navy `#1a1a2e` + a yellow accent. Confirm or replace.
+- **7.c — Italian legal text** for the PDF footer / portal footer:
+    - Privacy notice (GDPR / Italian privacy)?
+    - "Non sostituisce consulto medico" disclaimer?
+    - Iscrizione albo / P.IVA / codice fiscale / contatto?
+- **7.d — Cover page**: anything beyond `<Client Name> · <Plan Date>`? (Logo, your photo, contact, social handles?)
+- **7.e — Email signature** for plan-share and invite emails. Send me a block of copy.
 
 ---
 
-## 12. PDF / branded delivery
+## 8. Tone / language
 
-Roberto's PDF is fairly built but please confirm:
-
-1. **Logo** — send a PNG/SVG.
-2. **Colors** — preferred brand colors (currently navy / gold).
-3. **Cover-page text** — anything beyond client name + plan date?
-4. **Disclosures / legal text** — Italian privacy notice, "non sostituisce consulto medico", iscrizione albo, partita IVA, codice fiscale, ECM credentials?
-5. **Footer**: any contact info / website / Instagram handle to standardize?
-6. **Sections you want to add / remove** from the current PDF?
+- **8.a — Formal "lei" or informal "tu"** with clients? (Today's mix is inconsistent.) Pick one.
+- **8.b — "Mantenimento" vs "Equilibrio calorico"** — preferred term?
+- **8.c — Technical vs plain** in the portal: do clients see "TEF / NEAT / EE" or do those become "termogenesi / movimento quotidiano / esercizio"?
+- **8.d — Anything else terminology-wise** you want me to standardise.
 
 ---
 
-## 13. Tone, language, and copy
+## 9. Supplement library expansion
 
-The app is Italian. Confirm:
-1. **Formal vs informal** — currently uses "lei" in some places and "tu" in others. Pick one for clients, one for the coach UI.
-2. **Glossary / preferred terms**: e.g. "Mantenimento" or "Equilibrio calorico"? "Aggiusta porzioni" or "Adatta porzioni"? "Allenamento" or "Sessione"?
-3. **Italian vs Latin nutritional terms** (e.g. "Termogenesi indotta dagli alimenti" vs "TEF"). Do clients prefer plain Italian everywhere, or are technical terms fine on the coach side?
+The spec explicitly excludes supplement prescriptions from its scope, so this is your call.
 
----
-
-## 14. Onboarding flow (your #6 / #11)
-
-1. When you **approve a plan**, should the system automatically:
-    - Send the client the plan via email? (today: only if you click "Condividi con Cliente")
-    - Provision portal access if they don't have it yet? (today: only via the new "Invita al portale" button)
-    - Both, automatically, on approve?
-2. **Welcome email content** for new clients (when invited to portal): brief intro from Roberto? Instructions on what to do first? Send me copy.
-3. **Self-service registration** — should a brand-new client be able to register themselves at `/portal/login`? Or always coach-invited?
+- **9.a — Master library additions.** Send me a list (name · dosage · timing · rationale · category · condition for auto-include) and I'll add them. Even 5–10 names with a one-liner each is enough.
+- **9.b — Editable master library** — do you want a UI to add/edit/disable supplements globally (rather than only per-plan)?
+- **9.c — Interaction warnings** — which interactions do you want flagged?
+    - Iron + Calcium (timing)
+    - Caffeine + Magnesium (timing)
+    - Iron + tea/coffee tannins
+    - Omega-3 dosage > 3 g/day → blood-thinning
+    - Vit D + K2 (synergy suggestion when D is recommended)
+    - Others?
 
 ---
 
-## 15. Monitoring & check-ins
+## 10. Live OCR — which workout apps
 
-1. **Check-in frequency** by goal type — what are your defaults? (Today: 7 days for everything.)
-    - Fat loss: 7 days?
+Screenshot upload is wired end-to-end (coach side + portal). The OCR stub still returns `[]`. To wire the real Claude Vision call I need:
+
+- **10.a — Which workout apps do your clients screenshot?** Strong / Hevy / Jefit / Apple Fitness / Garmin Connect / Polar Flow / Suunto / Whoop / Apple Watch summary screen / TrainHeroic / Excel sheets? Send me 2–3 sample screenshots per app and I'll tune the OCR prompt.
+- **10.b — What should we extract?** Per-exercise: name, sets × reps × load, RPE, rest? Session-level: total time, HR avg/max, HR-zone minutes, kcal?
+- **10.c — HR-zone minutes → SCP automatic** — when a screenshot has per-zone HR minutes and the modality is SCP-eligible, should we auto-feed SCP and use its EE? *(My default: yes when present.)*
+- **10.d — Confidence threshold** — when OCR confidence < X, flag for manual review rather than auto-save.
+- **10.e — Italian-language apps** — most of your clients' apps are in Italian or English?
+
+---
+
+## 11. Monitoring & check-ins
+
+- **11.a — Check-in frequency by goal type** (today 7 days for everything):
+    - Fat loss: every 7 days?
     - Muscle gain: 14 days?
     - Performance: 21 days?
     - Maintenance: 28 days?
-2. **What questions are in the check-in form** today vs what you want? Send the canonical list.
-3. **Weight-flag alert thresholds** — at what Δ should the app alert you? (e.g. +1 kg vs last week → flag.)
-4. **Adherence calculation** — how do you want it computed? (% of meals logged, % of training sessions logged, % of macro targets hit ±5 %?)
-5. **Photo cadence** — auto-suggest a photo upload every Nth check-in?
+- **11.b — Check-in form fields** — what do you actually want to ask the client? (Weight, energy 1–10, sleep 1–10, hunger 1–10, adherence %, stress 1–10, training adherence %, notes…)
+- **11.c — Weight-flag alert thresholds** — at what Δ should the app alert you? (e.g. >+1 kg vs last week → flag; or > 1 % bodyweight Δ in one week.)
+- **11.d — Adherence calculation** — % of meals logged? % of trainings logged? % of macros within tolerance? Combined score?
+- **11.e — Photo cadence** — auto-prompt for a photo every Nth check-in? Or just optional?
+- **11.f — Plicometry reminder** — auto-prompt every N weeks since last 7-site? (Spec is silent.)
 
 ---
 
-## 16. Coach workflow questions (open-ended — these help me design well)
+## 12. Coach workflow (open-ended — any color helps)
 
-You don't have to answer these in detail, but **any color helps**:
+Not strictly necessary but very useful for the plan-config wizard design:
 
-1. Walk me through a typical Monday morning: which clients do you triage, in what order, using what data? Where does the app help you, where does it slow you down?
-2. When you generate a plan, in what order do you make decisions? (Goal → routine → calories → macros → meals → integratori → guida → invio?) I want the wizard to match.
-3. What's the single most common manual override you do on a generated plan?
-4. What's the most common reason you re-generate a plan for an existing client?
-5. Are there client types you handle very differently? (e.g. atleti agonisti vs amatoriali vs pazienti clinici)? Should the app know about these?
-6. What integrations would you want with **other systems** (CRM, calendar, billing, payment, accounting/fatturazione elettronica)?
+- **12.a — Typical Monday morning**: which clients do you triage, in what order, using what signals? Where does the app help you, where does it slow you down?
+- **12.b — Plan-generation decision order**: which steps do you make first → last? (Goal → routine → calories → macros → meals → integratori → guida → invio? Or different order?)
+- **12.c — Single most common manual override** you do on a generated plan?
+- **12.d — Most common reason** to re-generate a plan for an existing client (Δ weight, change of goal, change of routine, request from client)?
+- **12.e — Distinct client types** — atleti agonisti vs amatoriali vs pazienti clinici — do you treat them very differently? Should the app know about these?
+- **12.f — External systems** you'd want to integrate — CRM, calendar, billing, fatturazione elettronica, payment, accounting?
 
 ---
 
 ## How to answer
 
-- **Best**: a single doc / email reply with answers under each numbered section.
-- **Good**: voice notes — I'll transcribe and structure.
-- **OK**: piecewise replies (just tell us which sections you're answering so we know what's still pending).
-- **For the v4.4 spec (§1.a)**: a file share / link is much faster than re-typing the rules.
+- **Best**: one doc / email reply with answers under each numbered section.
+- **Good**: voice notes (I'll transcribe + structure).
+- **OK**: piecewise replies — just tell us which section you're answering.
 
-If a question is ambiguous, please ask back — I'd rather take an extra round than guess wrong and have to rework.
+For §1 (rounding) and §2 (presets), even partial answers unblock real work. The rest can wait.
+
+If anything is unclear, please push back — better one extra round than a wrong guess.
