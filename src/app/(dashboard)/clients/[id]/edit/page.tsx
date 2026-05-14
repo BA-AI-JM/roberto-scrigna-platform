@@ -11,6 +11,16 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter, useParams } from "next/navigation";
 import { trpc } from "@/lib/trpc/client";
+import {
+  WeekSessionsEditor,
+  type WeekSessions,
+  type TrainingSession,
+} from "@/components/week-sessions-editor";
+import {
+  SkinfoldsEditor,
+  EMPTY_SKINFOLDS,
+  type SkinfoldsValue,
+} from "@/components/skinfolds-editor";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -36,7 +46,39 @@ interface SnapshotForm {
   thighL: string;
   abdomen: string;
   dailySteps: string;
+  occupationalLevel: "" | "sedentary" | "light" | "moderate" | "heavy" | "very_heavy";
 }
+
+type GoalKind = "" | "fat_loss" | "muscle_gain" | "maintenance" | "performance";
+
+interface GoalForm {
+  goal: GoalKind;
+  targetWeightKg: string;
+  targetEvent: string;
+  targetEventDate: string;
+}
+
+const EMPTY_GOAL: GoalForm = {
+  goal: "",
+  targetWeightKg: "",
+  targetEvent: "",
+  targetEventDate: "",
+};
+
+const GOAL_OPTIONS: { value: Exclude<GoalKind, "">; label: string }[] = [
+  { value: "fat_loss", label: "Dimagrimento (Fat Loss)" },
+  { value: "muscle_gain", label: "Aumento Massa Muscolare" },
+  { value: "maintenance", label: "Mantenimento" },
+  { value: "performance", label: "Performance Sportiva" },
+];
+
+const OCC_LEVEL_OPTIONS: { value: SnapshotForm["occupationalLevel"]; label: string }[] = [
+  { value: "sedentary", label: "Sedentario (lavoro d'ufficio / studio)" },
+  { value: "light", label: "Leggero (in piedi buona parte del giorno)" },
+  { value: "moderate", label: "Moderato (lavoro fisico medio)" },
+  { value: "heavy", label: "Pesante (lavoro fisico intenso)" },
+  { value: "very_heavy", label: "Molto pesante (lavoro manuale estremo)" },
+];
 
 // ── Form field components ──────────────────────────────────────────────────────
 
@@ -111,7 +153,12 @@ export default function ClientEditPage() {
     thighL: "",
     abdomen: "",
     dailySteps: "",
+    occupationalLevel: "",
   });
+
+  const [goalForm, setGoalForm] = useState<GoalForm>(EMPTY_GOAL);
+  const [weekSessions, setWeekSessions] = useState<WeekSessions>({});
+  const [skinfolds, setSkinfolds] = useState<SkinfoldsValue>(EMPTY_SKINFOLDS);
 
   const [addSnapshot, setAddSnapshot] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -119,7 +166,7 @@ export default function ClientEditPage() {
 
   const { data, isLoading, isError } = trpc.client.getById.useQuery({ id: clientId });
 
-  // Pre-populate form when data loads
+  // Pre-populate from latest snapshot when data loads.
   useEffect(() => {
     if (!data?.client) return;
     const c = data.client;
@@ -133,6 +180,50 @@ export default function ClientEditPage() {
       tags: ((c.tags as string[]) ?? []).join(", "),
       status: (c.status as "active" | "paused" | "archived") ?? "active",
     });
+
+    // Pre-fill goal / occupational level / training routine from the latest
+    // snapshot. These live inside skinfold_data._intake (intake-form blob) and
+    // on the snapshot row itself; we read them so the coach can update
+    // incrementally rather than re-entering from scratch.
+    const snap = data.latestSnapshot as Record<string, unknown> | null;
+    if (snap) {
+      const skinfoldRaw = snap.skinfold_data as Record<string, unknown> | null;
+      const intake = (skinfoldRaw?._intake as Record<string, unknown> | undefined) ?? {};
+
+      const occ = (snap.occupational_level as SnapshotForm["occupationalLevel"]) ?? "";
+      setSnapshotForm((prev) => ({ ...prev, occupationalLevel: occ }));
+
+      const goal = intake.goal as
+        | {
+            goal?: GoalKind;
+            target_weight_kg?: number;
+            target_event?: string;
+            target_event_date?: string;
+          }
+        | undefined;
+      if (goal) {
+        setGoalForm({
+          goal: goal.goal ?? "",
+          targetWeightKg: goal.target_weight_kg != null ? String(goal.target_weight_kg) : "",
+          targetEvent: goal.target_event ?? "",
+          targetEventDate: goal.target_event_date ?? "",
+        });
+      }
+
+      const sessions = intake.training_sessions as
+        | Record<string, TrainingSession[]>
+        | undefined;
+      if (sessions) {
+        const next: WeekSessions = {};
+        for (const [k, v] of Object.entries(sessions)) {
+          const idx = Number(k);
+          if (!Number.isNaN(idx) && Array.isArray(v)) next[idx] = v;
+        }
+        setWeekSessions(next);
+      }
+      // Skinfolds intentionally left empty — the coach enters new measurements
+      // when re-measuring, not silently re-submitting old ones.
+    }
   }, [data]);
 
   const updateMutation = trpc.client.update.useMutation();
@@ -162,33 +253,134 @@ export default function ClientEditPage() {
         status: profileForm.status,
       });
 
-      // 2. Optionally create a new snapshot — only if at least weight is provided
+      // 2. Optionally create a new "context" snapshot. The "Aggiorna scheda"
+      //    section captures: weight/circumferences/steps, occupational level,
+      //    goal, weekly training routine and (optionally) a new plicometria.
+      //    A new snapshot dates the change so history is preserved; values not
+      //    touched in the form are carried over from the latest snapshot so the
+      //    new one is a complete picture, not a partial diff.
       if (addSnapshot) {
-        const weightKg = snapshotForm.weightKg ? parseFloat(snapshotForm.weightKg) : undefined;
-        const hasSnapshotData = snapshotForm.weightKg !== "" && snapshotForm.weightKg !== undefined;
+        const parseOpt = (s: string) => (s.trim() === "" ? undefined : parseFloat(s));
 
-        if (hasSnapshotData) {
-          const circumferences: Record<string, number | undefined> = {};
-          if (snapshotForm.waist) circumferences.waist = parseFloat(snapshotForm.waist);
-          if (snapshotForm.hips) circumferences.hips = parseFloat(snapshotForm.hips);
-          if (snapshotForm.chest) circumferences.chest = parseFloat(snapshotForm.chest);
-          if (snapshotForm.armR) circumferences.arm_r = parseFloat(snapshotForm.armR);
-          if (snapshotForm.armL) circumferences.arm_l = parseFloat(snapshotForm.armL);
-          if (snapshotForm.thighR) circumferences.thigh_r = parseFloat(snapshotForm.thighR);
-          if (snapshotForm.thighL) circumferences.thigh_l = parseFloat(snapshotForm.thighL);
-          if (snapshotForm.abdomen) circumferences.abdomen = parseFloat(snapshotForm.abdomen);
+        const prevSnap = (data?.latestSnapshot as Record<string, unknown> | null) ?? null;
+        const prevSkinfoldRaw =
+          (prevSnap?.skinfold_data as Record<string, unknown> | null) ?? null;
+        const prevIntake =
+          (prevSkinfoldRaw?._intake as Record<string, unknown> | undefined) ?? {};
+        const prevLifestyle =
+          (prevIntake.lifestyle as Record<string, unknown> | undefined) ?? {};
+        const prevCirc =
+          (prevIntake.circumferences as Record<string, number | undefined> | undefined) ??
+          undefined;
+        const prevMedHistory =
+          (prevIntake.medical_history as Record<string, unknown> | undefined) ?? undefined;
 
-          const hasCircumferences = Object.keys(circumferences).length > 0;
+        // Circumferences: form values override prev values per-field; if neither
+        // is set, the field is undefined.
+        const circ: Record<string, number | undefined> = { ...(prevCirc ?? {}) };
+        const setIfPresent = (key: string, raw: string) => {
+          const n = parseOpt(raw);
+          if (n != null) circ[key] = n;
+        };
+        setIfPresent("waist", snapshotForm.waist);
+        setIfPresent("hips", snapshotForm.hips);
+        setIfPresent("chest", snapshotForm.chest);
+        setIfPresent("arm_r", snapshotForm.armR);
+        setIfPresent("arm_l", snapshotForm.armL);
+        setIfPresent("thigh_r", snapshotForm.thighR);
+        setIfPresent("thigh_l", snapshotForm.thighL);
+        setIfPresent("abdomen", snapshotForm.abdomen);
+        const hasCirc = Object.values(circ).some((v) => v != null);
 
-          await createSnapshotMutation.mutateAsync({
-            clientId,
-            weightKg,
-            circumferences: hasCircumferences ? circumferences : undefined,
-            lifestyle: snapshotForm.dailySteps
-              ? { daily_steps: parseFloat(snapshotForm.dailySteps) }
-              : undefined,
-          });
+        // Weight / height / steps carry over from prev if not entered now.
+        const weightKg =
+          parseOpt(snapshotForm.weightKg) ??
+          (prevSnap?.weight_kg as number | undefined) ??
+          undefined;
+        const heightCm = (prevSnap?.height_cm as number | undefined) ?? undefined;
+        const dailySteps =
+          parseOpt(snapshotForm.dailySteps) ??
+          (prevLifestyle.daily_steps as number | undefined) ??
+          undefined;
+
+        // Skinfolds: only included if at least one site is filled. Otherwise
+        // we let the new snapshot pick up whatever method the previous one
+        // used (via the next plan generation, which always reads the latest).
+        const sf = skinfolds;
+        const skinfoldsFilled =
+          Object.values(sf).some((v) => v.trim() !== "" && !isNaN(parseFloat(v)));
+        const skinfoldsPayload = skinfoldsFilled
+          ? {
+              triceps: parseOpt(sf.triceps),
+              chest: parseOpt(sf.chest),
+              abdomen: parseOpt(sf.abdomen),
+              suprailiac: parseOpt(sf.suprailiac),
+              subscapular: parseOpt(sf.subscapular),
+              thigh: parseOpt(sf.thigh),
+              midaxillary: parseOpt(sf.midaxillary),
+            }
+          : undefined;
+
+        // Training sessions: serialize back to the intake shape (string keys).
+        const trainingSessions: Record<
+          string,
+          Array<{ modality: string; duration_min: number; rpe: number }>
+        > = {};
+        for (const [k, v] of Object.entries(weekSessions)) {
+          if (v && v.length > 0) trainingSessions[k] = v;
         }
+        const hasTraining = Object.keys(trainingSessions).length > 0;
+
+        // Occupational level: form override or prev.
+        const occupationalLevel =
+          snapshotForm.occupationalLevel !== ""
+            ? snapshotForm.occupationalLevel
+            : ((prevSnap?.occupational_level as SnapshotForm["occupationalLevel"]) || undefined);
+
+        // Goal: form override or prev.
+        const hasGoalEdit =
+          goalForm.goal !== "" ||
+          goalForm.targetWeightKg !== "" ||
+          goalForm.targetEvent !== "" ||
+          goalForm.targetEventDate !== "";
+        const goalPayload = hasGoalEdit
+          ? {
+              goal: goalForm.goal || undefined,
+              target_weight_kg: parseOpt(goalForm.targetWeightKg),
+              target_event: goalForm.targetEvent || undefined,
+              target_event_date: goalForm.targetEventDate || undefined,
+            }
+          : (prevIntake.goal as
+              | {
+                  goal?: GoalKind;
+                  target_weight_kg?: number;
+                  target_event?: string;
+                  target_event_date?: string;
+                }
+              | undefined);
+
+        await createSnapshotMutation.mutateAsync({
+          clientId,
+          weightKg,
+          heightCm,
+          circumferences: hasCirc ? circ : undefined,
+          skinfolds: skinfoldsPayload,
+          medicalHistory: prevMedHistory as Parameters<
+            typeof createSnapshotMutation.mutateAsync
+          >[0]["medicalHistory"],
+          trainingSessions: hasTraining ? trainingSessions : undefined,
+          occupationalLevel: occupationalLevel || undefined,
+          lifestyle: {
+            daily_steps: dailySteps,
+            occupation: (prevLifestyle.occupation as string | undefined) || undefined,
+            hunger_timing: (prevLifestyle.hunger_timing as string | undefined) || undefined,
+            preferred_training_time:
+              (prevLifestyle.preferred_training_time as string | undefined) || undefined,
+          },
+          goal: goalPayload as Parameters<
+            typeof createSnapshotMutation.mutateAsync
+          >[0]["goal"],
+        });
       }
 
       router.push(`/clients/${clientId}`);
@@ -415,10 +607,11 @@ export default function ClientEditPage() {
           >
             <div>
               <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#1a1a2e", margin: 0 }}>
-                Nuova misurazione
+                Aggiorna scheda
               </h2>
               <p style={{ fontSize: "13px", color: "#6b7280", marginTop: "4px" }}>
-                Aggiungi un nuovo snapshot con le misurazioni aggiornate
+                Nuova rilevazione: misure, obiettivo, scheda allenamento e plicometria.
+                I valori non compilati vengono ereditati dall'ultima scheda.
               </p>
             </div>
             <button
@@ -436,7 +629,7 @@ export default function ClientEditPage() {
                 flexShrink: 0,
               }}
             >
-              {addSnapshot ? "Annulla misurazione" : "+ Aggiungi misurazione"}
+              {addSnapshot ? "Annulla aggiornamento" : "+ Aggiorna scheda"}
             </button>
           </div>
 
@@ -519,6 +712,127 @@ export default function ClientEditPage() {
                     style={inputStyle} placeholder="cm" />
                 </FormField>
               </div>
+
+              {/* ── Obiettivo ─────────────────────────────────────────── */}
+              <div
+                style={{
+                  fontSize: "13px",
+                  fontWeight: 600,
+                  color: "#374151",
+                  marginTop: "20px",
+                  marginBottom: "12px",
+                  borderTop: "1px solid #f1f5f9",
+                  paddingTop: "16px",
+                }}
+              >
+                Obiettivo
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: "16px" }}>
+                <FormField label="Obiettivo principale">
+                  <select
+                    value={goalForm.goal}
+                    onChange={(e) =>
+                      setGoalForm((g) => ({ ...g, goal: e.target.value as GoalKind }))
+                    }
+                    style={selectStyle}
+                  >
+                    <option value="">Non specificato</option>
+                    {GOAL_OPTIONS.map((g) => (
+                      <option key={g.value} value={g.value}>
+                        {g.label}
+                      </option>
+                    ))}
+                  </select>
+                </FormField>
+                <FormField label="Peso target (kg)">
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={goalForm.targetWeightKg}
+                    onChange={(e) =>
+                      setGoalForm((g) => ({ ...g, targetWeightKg: e.target.value }))
+                    }
+                    style={inputStyle}
+                    placeholder="es. 70"
+                  />
+                </FormField>
+                <FormField label="Evento / obiettivo a data fissa">
+                  <input
+                    type="text"
+                    value={goalForm.targetEvent}
+                    onChange={(e) =>
+                      setGoalForm((g) => ({ ...g, targetEvent: e.target.value }))
+                    }
+                    style={inputStyle}
+                    placeholder="Matrimonio, gara, vacanza"
+                  />
+                </FormField>
+                <FormField label="Data evento">
+                  <input
+                    type="date"
+                    value={goalForm.targetEventDate}
+                    onChange={(e) =>
+                      setGoalForm((g) => ({ ...g, targetEventDate: e.target.value }))
+                    }
+                    style={inputStyle}
+                  />
+                </FormField>
+              </div>
+
+              {/* ── Livello occupazionale ────────────────────────────── */}
+              <div style={{ marginBottom: "16px" }}>
+                <FormField label="Livello di attività lavorativa">
+                  <select
+                    value={snapshotForm.occupationalLevel}
+                    onChange={(e) =>
+                      setSnapshotForm((f) => ({
+                        ...f,
+                        occupationalLevel: e.target.value as SnapshotForm["occupationalLevel"],
+                      }))
+                    }
+                    style={selectStyle}
+                  >
+                    <option value="">Non specificato</option>
+                    {OCC_LEVEL_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                </FormField>
+              </div>
+
+              {/* ── Scheda allenamento settimanale ───────────────────── */}
+              <div
+                style={{
+                  fontSize: "13px",
+                  fontWeight: 600,
+                  color: "#374151",
+                  marginTop: "8px",
+                  marginBottom: "12px",
+                  borderTop: "1px solid #f1f5f9",
+                  paddingTop: "16px",
+                }}
+              >
+                Scheda allenamento settimanale
+              </div>
+              <WeekSessionsEditor value={weekSessions} onChange={setWeekSessions} />
+
+              {/* ── Nuova plicometria ────────────────────────────────── */}
+              <div
+                style={{
+                  fontSize: "13px",
+                  fontWeight: 600,
+                  color: "#374151",
+                  marginTop: "20px",
+                  marginBottom: "12px",
+                  borderTop: "1px solid #f1f5f9",
+                  paddingTop: "16px",
+                }}
+              >
+                Nuova plicometria (opzionale)
+              </div>
+              <SkinfoldsEditor value={skinfolds} onChange={setSkinfolds} />
             </>
           )}
         </div>
