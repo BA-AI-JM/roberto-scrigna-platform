@@ -42,8 +42,10 @@ const createTrainingLogSchema = z.object({
   ]),
   durationMinutes: z.number().int().min(1).max(480).optional(),
   exercises: z.array(exerciseEntrySchema).max(50).optional(),
-  // Restrict to https:// — these URLs are passed to Claude Vision API.
-  screenshotUrls: z.array(z.string().url().startsWith("https://")).max(10).optional(),
+  // Accept either an https:// URL or a Supabase Storage path
+  // (e.g. "training-screenshots/<partner_id>/<client_id>/<file>"). At OCR
+  // time the consumer resolves a fresh signed URL from the path.
+  screenshotUrls: z.array(z.string().min(1).max(500)).max(10).optional(),
   ocrExtracted: z.boolean().default(false),
   perceivedEffort: z.number().int().min(1).max(10).optional(),
   notes: z.string().max(5000).optional(),
@@ -161,7 +163,8 @@ export const trainingLogRouter = router({
         .from("training_log")
         .select(
           `id, session_date, session_type, duration_min,
-           perceived_effort, ocr_extracted, notes, created_at`,
+           perceived_effort, ocr_extracted, notes, created_at,
+           screenshot_urls`,
           { count: "exact" }
         )
         .eq("client_id", input.clientId)

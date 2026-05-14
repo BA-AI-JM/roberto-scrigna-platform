@@ -13,6 +13,10 @@
 import { useState } from "react";
 import { trpc } from "@/lib/trpc/client";
 import { useQueryClient } from "@tanstack/react-query";
+import {
+  ScreenshotUploader,
+  type UploadedScreenshot,
+} from "@/components/screenshot-uploader";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -36,6 +40,7 @@ interface TrainingLogItem {
   ocrExtracted: boolean;
   notes: string | null;
   clientName: string;
+  screenshotCount: number;
 }
 
 interface NewSessionForm {
@@ -149,10 +154,13 @@ export default function TrainingLogPage() {
     perceivedEffort: 7,
     notes: "",
   });
+  const [screenshots, setScreenshots] = useState<UploadedScreenshot[]>([]);
 
-  // Fetch clients for the selector
+  // Fetch clients + the partner id (needed for the screenshot upload path).
   const { data: clientsData } = trpc.client.list.useQuery({ limit: 100, status: "active" });
   const clients = clientsData?.clients ?? [];
+  const { data: session } = trpc.auth.getSession.useQuery();
+  const partnerId = (session as { id?: string } | null | undefined)?.id ?? "";
 
   // Active client driving the log list (form selection takes priority over filter)
   const activeClientId = selectedClientId;
@@ -185,6 +193,9 @@ export default function TrainingLogPage() {
       ocrExtracted: Boolean(l.ocr_extracted),
       notes: l.notes as string | null,
       clientName: client?.full_name ?? "",
+      screenshotCount: Array.isArray((l as { screenshot_urls?: unknown }).screenshot_urls)
+        ? ((l as { screenshot_urls?: string[] }).screenshot_urls!.length)
+        : 0,
     };
   });
 
@@ -203,6 +214,7 @@ export default function TrainingLogPage() {
         perceivedEffort: 7,
         notes: "",
       });
+      setScreenshots([]);
     },
     onError: (err) => {
       setSubmitError(err.message ?? "Errore nel salvataggio della sessione. Riprova.");
@@ -224,6 +236,7 @@ export default function TrainingLogPage() {
       durationMinutes: form.durationMinutes ? parseInt(form.durationMinutes, 10) : undefined,
       perceivedEffort: form.perceivedEffort,
       notes: form.notes || undefined,
+      screenshotUrls: screenshots.length > 0 ? screenshots.map((s) => s.storagePath) : undefined,
     });
   };
 
@@ -409,23 +422,13 @@ export default function TrainingLogPage() {
             </div>
 
             {/* Screenshot upload area */}
-            <div
-              style={{
-                border: "2px dashed #e2e8f0",
-                borderRadius: "12px",
-                padding: "32px",
-                textAlign: "center",
-                marginBottom: "16px",
-                cursor: "pointer",
-              }}
-            >
-              <div style={{ fontSize: "32px", marginBottom: "8px" }}>📸</div>
-              <p style={{ fontSize: "14px", color: "#6b7280", margin: 0 }}>
-                Trascina uno screenshot del workout o clicca per caricare
-              </p>
-              <p style={{ fontSize: "12px", color: "#9ca3af", marginTop: "4px" }}>
-                L&apos;OCR (Claude Vision) estrarrà automaticamente gli esercizi
-              </p>
+            <div style={{ marginBottom: "16px" }}>
+              <ScreenshotUploader
+                partnerId={partnerId}
+                clientId={form.clientId || selectedClientId}
+                value={screenshots}
+                onChange={setScreenshots}
+              />
             </div>
 
             <div style={{ marginBottom: "16px" }}>
@@ -624,6 +627,25 @@ export default function TrainingLogPage() {
                       whiteSpace: "nowrap",
                     }}
                   >
+                    {log.screenshotCount > 0 && (
+                      <span
+                        title={`${log.screenshotCount} screenshot caricat${
+                          log.screenshotCount === 1 ? "o" : "i"
+                        }`}
+                        style={{
+                          display: "inline-block",
+                          marginRight: "6px",
+                          padding: "1px 8px",
+                          borderRadius: "10px",
+                          background: "#eff6ff",
+                          color: "#1d4ed8",
+                          fontSize: "11px",
+                          fontWeight: 600,
+                        }}
+                      >
+                        📸 {log.screenshotCount}
+                      </span>
+                    )}
                     {log.notes ?? "—"}
                   </td>
                   <td style={{ padding: "14px 16px", textAlign: "right" }}>
