@@ -1,77 +1,88 @@
 # Questions for Roberto — May 2026
 
-A few questions to unblock the next round of work. Answer in any order, prose is fine.
+We've made a lot of defaults to avoid pestering you. **Skim the first section — if anything looks wrong, tell us.** The "questions" section at the bottom is the short list of things we genuinely need from you.
 
 ---
 
-**1. How would you like food amounts to round?**
-Right now the app spits out things like 93 g pasta, 187 ml milk. What rounding feels right — to the nearest 5 g and 10 ml? Something else?
+## Defaults we're going with (just say if any are wrong)
 
-**2. How many grams do you count for "1 unit" of these?**
-- 1 uovo intero medio
-- 1 albume
-- 1 fetta biscottata
-- 1 fetta di pane integrale
-- 1 vasetto di yogurt greco
-- 1 mela media
-- 1 banana media
-- 1 cucchiaio d'olio EVO
-- 1 cucchiaino di zucchero/miele
-- 1 misurino di proteine in polvere
-- anything else you commonly treat as a whole unit?
+**Food rounding.** Solids to nearest 5 g · liquids to nearest 10 ml · integratori never round.
 
-**3. Any foods that should never be rounded?** (e.g. integratori with precise dosing)
+**Food unit weights** (whatever the math gives us snaps to the nearest whole unit when within ~15 %):
 
-**4. Which plan structures do you actually use?**
-The app can do any of these — which ones should I make ready-to-pick? Tick all that apply: average weekly · ON/OFF (allenamento/riposo) · OFF/pesi/sport/doppia · leggero/medio/pesante · refeed days · deload days · carb cycling · anything else?
+| | grams |
+|---|---|
+| 1 uovo intero medio | 50 g |
+| 1 albume | 33 g |
+| 1 fetta biscottata | 8 g |
+| 1 fetta di pane | 30 g |
+| 1 vasetto yogurt greco | 150 g |
+| 1 scatoletta tonno (sgocciolato) | 80 g |
+| 1 mela media | 150 g |
+| 1 banana media | 120 g |
+| 1 cucchiaio olio EVO | 10 g |
+| 1 cucchiaino zucchero/miele | 5 g |
+| 1 misurino proteine in polvere | 30 g |
 
-**5. Can one client have more than one active plan at the same time?** (Or one at a time, with old ones archived?)
+**Day-type structures** (ready to pick when generating a plan): Media settimanale · ON/OFF (Allenamento/Riposo) · OFF / Pesi / Sport / Doppia · ON/OFF + Refeed. Anything else stays buildable via "Custom".
 
-**6. When a client says "I want to weigh X by date Y", how do you set the deficit?**
-What % of bodyweight per week feels right as a maximum (0.5, 0.75, 1.0)? What's the minimum calories you'd ever drop someone to? If the math says the timeline is unrealistic, do you push back, or set the most aggressive deficit you can and warn them?
+**Plans per client.** One active at a time; older plans archived.
 
-**7. For surplus (muscle gain), what weekly rate cap do you use?** (e.g. 0.25 % bodyweight/week for natural lifters?)
+**Deficit / surplus calculator.**
+Fat loss: cap at 1.0 % bodyweight/week. Warn above 0.75 %.
+Muscle gain: cap at 0.5 % bodyweight/week.
+Minimum calories: Energy Availability ≥ 20 kcal/kg lean mass (spec-aligned).
+If the client's timeline is impossible at the cap, we set the most aggressive plan and warn — we don't block.
 
-**8. Refeed and deload — when do you add them, and how much bigger/smaller than a normal training day?**
+**Refeed.** Auto-suggested after 14 days continuous deficit > 15 % of TDEE; refeed day = baseline training day + 20 % kcal, all in carbs.
+**Deload.** Optional — suggested every 6 training weeks; same kcal, training day-type with reduced exercise expenditure.
 
-**9. When you click "Approva" on a plan, should the app automatically:**
-- email the plan to the client?
-- invite them to the portal if they don't have access yet?
+**Approving a plan.** Approve sets it active. It does **not** auto-send — you click "Condividi" when ready. (Avoids accidental sends.)
 
-Or do you prefer to do those as separate steps?
+**Portal invite.** Manual via "Invita al portale" button. The email says (current draft):
 
-**10. Welcome email when you invite a client to the portal — what would you like it to say?** 2–3 sentences in your voice.
+> *Ciao [nome], ti ho preparato il tuo piano nutrizionale personalizzato. Lo trovi nel portale, dove puoi consultarlo, scaricare il PDF e inviarmi i check-in settimanali. Accedi qui: [link]. A presto, Roberto.*
 
-**11. Tu or Lei with clients?** And any specific terms you want me to standardise (e.g. "Mantenimento" vs "Equilibrio calorico")?
+**Tone.** Tu (informal) with clients in app and PDF.
 
-**12. Branding for the PDF and emails:**
-- Logo (please send a file)
-- Brand colors if you want to override the current navy + yellow
-- Italian footer text — privacy notice, "non sostituisce consulto medico", iscrizione albo, P.IVA
-- Email signature
+**Branding.** Navy `#1a1a2e` + yellow accent (current). Footer text (current draft):
 
-**13. Supplements you want in the library beyond what's there?** Even a quick list — name, dosage, timing, when to recommend.
+> *Roberto Scrigna — Nutrizionista Sportivo · P.IVA [da inserire] · Iscritto all'albo [da inserire] · Questo piano è un supporto nutrizionale e non sostituisce il consulto medico. Trattamento dati conforme al GDPR.*
 
-**14. Workout-screenshot OCR:**
-Which apps do your clients screenshot from? (Strong, Hevy, Apple Fitness, Garmin, Polar, Whoop, Apple Watch, …) If you can send 2–3 sample screenshots per app I'll tune the AI extraction to read them.
+**Check-in defaults.** Fat loss every 7 days · muscle gain every 14 · maintenance every 28. Form asks: peso, energia 1–10, sonno 1–10, fame 1–10, aderenza dieta %, aderenza allenamento %, note. Alert when weight changes more than 1 % of bodyweight vs last check-in.
 
-**15. Check-ins:**
-How often should clients check in by goal type — every 7 days for fat loss, longer for maintenance? What questions do you want the check-in form to ask?
+**Supplements we'll add to the library** (on top of what's already there): Curcumina (recovery / anti-infiammatorio) · Vitamine gruppo B (energia / stress) · Iodio + Selenio (tiroide) · MSM (articolare) · Mio-inositolo (donne / sindrome dell'ovaio policistico) · Spirulina (antiossidante / micronutrienti) · Glicina (sonno) · Tirosina (concentrazione / mood) · Coenzima Q10 (cardio / atleti master).
 
-**16. Three places the engine doesn't match the v4.4 spec.** Tell me which one you actually want — or just say "keep what we have":
+Auto-flagged interaction warnings: Ferro+Calcio (timing) · Caffeina+Magnesio (timing) · Omega-3 > 3 g/die (effetto anticoagulante) · Vit D senza K2.
 
-a) **Training-day fat.** Spec wants 1.0 g/kg bodyweight on training days. Today the engine uses 0.9 g/kg on training and 1.0 on rest — so training days have *less* fat than rest. Bug or intentional?
-
-b) **Rest-day protein.** Spec wants 2.5 g/kg lean mass constant. Today the engine drops to 2.2 g/kg on rest days. Intentional?
-
-c) **Salt.** Spec wants 1.5 g per litre of water. Today the engine uses 5 g base + 1.5 g training bonus — about 25 % higher. Intentional?
-
-**17. Open-ended — anything goes:**
-- Walk us through your typical Monday morning. Where does the app help you? Where does it slow you down?
-- Single most common manual override you do on a generated plan?
-- Most common reason to re-generate a plan for an existing client?
-- Any external system you'd want integrated (CRM, calendar, fatturazione elettronica, payment)?
+**OCR.** We'll wire support first for Strong, Hevy, Apple Fitness, Garmin Connect, Polar Flow, and Apple Watch summary screens. Extracts exercise list (name · serie × ripetizioni × carico · RPE), session totals (durata, FC media/max, minuti per zona FC quando presenti, kcal). When HR-zone data is present and the modality is SCP-eligible, we feed it to the Sport Correction Protocol automatically.
 
 ---
 
-If anything's unclear, just push back — better one extra round than the wrong guess.
+## Things we actually need from you
+
+**1. Three places the engine doesn't match the v4.4 spec — pick which one is right (or say "keep engine as-is"):**
+
+a) Training-day fat. Spec says 1.0 g/kg bodyweight. Engine uses 0.9 g/kg on training, 1.0 on rest — so training has *less* fat than rest. Bug or your clinical practice?
+
+b) Rest-day protein. Spec says 2.5 g/kg lean mass constant. Engine drops to 2.2 g/kg on rest days. Bug or your practice?
+
+c) Salt. Spec says 1.5 g per litre of water. Engine uses 5 g base + 1.5 g training bonus (~25 % higher). Bug or your practice?
+
+**2. Your refeed / deload protocols.** The defaults above are textbook. Tell us if you do something specific (e.g. "refeed = +500 kcal, carbs only, every 10 days").
+
+**3. Logo and the real values for the footer:**
+- Logo file (PNG or SVG, transparent background ideal)
+- Your P.IVA / codice fiscale
+- Albo di iscrizione (name + number)
+- Anything else you want in the PDF footer or email signature
+
+**4. Workout-app screenshots.** Send 2–3 sample screenshots per app you actually see from clients (Strong, Hevy, Garmin, Polar, Whoop, Apple Watch — whichever ones are real for you). We'll tune the OCR to read them.
+
+**5. Any of the defaults wrong?** Anywhere in the section above where you'd do it differently — just say which item and what you'd change. One line per item is fine.
+
+**6. One open-ended question:** what's the single most common manual override you do on a generated plan? (Tells us where the engine is consistently a bit off, so we can fix it at the source.)
+
+---
+
+That's it. Reply in any format — prose, voice note, paste this back with edits inline.
