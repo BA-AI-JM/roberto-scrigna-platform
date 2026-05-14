@@ -72,6 +72,8 @@ const trainingLogSchema = z.object({
   steps: z.number().int().min(0).max(100000).optional(),
   rpe: z.number().min(1).max(10).optional(),
   trainingNotes: z.string().max(2000).optional(),
+  // Storage paths (e.g. "training-screenshots/<pid>/<cid>/<file>") OR https URLs.
+  screenshotUrls: z.array(z.string().min(1).max(500)).max(10).optional(),
 });
 
 const snapshotSchema = z.object({
@@ -391,6 +393,7 @@ export const portalRouter = router({
           steps: input.steps ?? null,
           rpe: input.rpe ?? null,
           training_notes: input.trainingNotes ?? null,
+          screenshot_urls: input.screenshotUrls ?? [],
         })
         .select("id")
         .single();

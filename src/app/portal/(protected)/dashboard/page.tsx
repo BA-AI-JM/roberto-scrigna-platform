@@ -875,6 +875,28 @@ export default function PortalDashboardPage() {
         loading={dashboardQuery.isLoading}
       />
 
+      {/* ── Training log shortcut ── */}
+      <Link
+        href="/portal/training"
+        style={{
+          display: "block",
+          padding: "16px 20px",
+          background: "#ffffff",
+          border: "1px solid #e2e8f0",
+          borderRadius: "14px",
+          marginBottom: "24px",
+          textDecoration: "none",
+          color: "#1a1a2e",
+        }}
+      >
+        <div style={{ fontSize: "15px", fontWeight: 700, marginBottom: "4px" }}>
+          🏋️ I miei allenamenti
+        </div>
+        <div style={{ fontSize: "13px", color: "#6b7280" }}>
+          Registra un nuovo allenamento o consulta lo storico.
+        </div>
+      </Link>
+
       {/* ── Footer ── */}
       <div
         style={{
