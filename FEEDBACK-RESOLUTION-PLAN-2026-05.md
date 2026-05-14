@@ -2,7 +2,7 @@
 
 **Date:** 2026-05-12
 **Source:** Roberto's 12-point feedback (May 2026) + still-open items from the April/May audit docs
-**Status:** Phase 0 implemented (branch `fix/roberto-feedback-phase0`, not yet committed). Phases 1–4 pending answers to the open questions in §4.
+**Status:** Phase 0 + all answer-independent items from Phases 1–4 shipped on branch `fix/roberto-feedback-phase0` (8 commits, +3.1k lines). Remaining work in Phases 1–4 is gated on the open questions in §4 (rounding rules, day-type structures, deficit aggressiveness, etc.).
 
 ---
 
@@ -20,9 +20,38 @@ Build green (`next build`), typecheck clean, 393/393 vitest tests pass (the 2 pr
 | **#1 (small part) — meal count asked at intake** | `src/app/(dashboard)/plans/new/IntakeForm.tsx` | Removed the "Numero di pasti al giorno" question from the intake form (Stile di Vita page) — it's chosen at plan-generation time, where it actually matters. |
 | **housekeeping** | `src/engine/sport-correction/__tests__/edge-cases.test.ts` | Replaced two `require("../stage2-cutoff")` calls (which vitest can't resolve) with a top-level `import` — fixes the 2 failing tests. |
 
-**Not done in Phase 0** (depends on §4 answers or is bigger): editable goal/training-routine/skinfolds + photo upload (#1), per-day TDEE visibility & editing + plan-structure chooser + day-types (#2, #3), target-date deficit (#9), practical food rounding (#4 — needs Roberto's rules), selectable substitutions with quantities (rest of #5), training-log screenshot upload + client-side log (#8), responsiveness pass + activity-taxonomy unification (#10), supplement/meal-timing extras. These are Phases 1–4 below.
+**Deploy note for Phase 0:** Phase 0 changes nothing about env config. For email (plan share + portal invite) to actually send, the Vercel project still needs `RESEND_API_KEY`, `RESEND_FROM_EMAIL` (verified domain), `NEXT_PUBLIC_APP_URL`, and the Inngest endpoint registered post-deploy (see `DEPLOYMENT-GUIDE.md`).
 
-**Deploy note:** Phase 0 changes nothing about env config. For email (plan share + portal invite) to actually send, the Vercel project still needs `RESEND_API_KEY`, `RESEND_FROM_EMAIL` (verified domain), `NEXT_PUBLIC_APP_URL`, and the Inngest endpoint registered post-deploy (see `DEPLOYMENT-GUIDE.md`).
+---
+
+## 0b. Answer-independent items from Phases 1–4 — also implemented 2026-05-12/13
+
+| Item | Files touched | What changed |
+|---|---|---|
+| **#2 (engine) — real training data drives exercise EE** | new `src/services/training-modality.ts` (+ 10 vitest tests), `src/server/routers/plan.ts`, `src/services/plan-generator.ts` | Replaces the flat 300 kcal `default_estimate` on training days. Intake's per-day modality + duration + RPE is mapped to a Compendium-ish MET table and an RPE multiplier (0.84× at RPE 1, 1.0× at 5, 1.2× at 10), summed within a day and averaged across training days into a single representative `met_value` `ExerciseSession` passed through `engineOptions.trainingSession`. `collectAssumptions` distinguishes the MET-based path vs the bare default. |
+| **#2 (UI) — TDEE breakdown visible** | `src/app/(dashboard)/plans/[id]/review/page.tsx` | Each day-type card on the Macro tab now shows BMR · NEAT · Esercizio · TEF · TDEE plus a label of the exercise estimation method (METs / FC / SCP / default). Renamed the footer strip "Target Calorico" → "Apporto pianificato" so the *expenditure* vs *intake* distinction is obvious. |
+| **#5 (cont'd) — selectable meal alternatives** | new `plan.swapMealSelection` server mutation + `src/app/(dashboard)/plans/[id]/review/page.tsx` | The previous name-only "Alternative: A, B, C" line is now an expandable section per slot. Each substitution renders as a card (name, kcal/macro line, full scaled ingredient list with grams) with a **"Usa come principale"** button that swaps primary ↔ substitution in place (count stays stable) and recomputes day macros + deviation + tolerance. |
+| **#1 (cont'd) — editable client context** | new `src/components/week-sessions-editor.tsx`, `src/components/skinfolds-editor.tsx`, `src/app/(dashboard)/clients/[id]/edit/page.tsx` | New reusable Tailwind editors (the same `WeekSessionsEditor` powers the engine MET work above). "Nuova misurazione" renamed to **"Aggiorna scheda"** and extended with: Obiettivo (dropdown + target weight + target date), Livello occupazionale, Scheda allenamento settimanale (per-day sessions), Nuova plicometria (7 sites with live method label). Pre-filled from the latest snapshot's `_intake` blob so the coach edits incrementally; new snapshot rows carry over weight/height/lifestyle/medical history from prev so each is a complete picture, not a partial diff. |
+| **#1 (cont'd) — patient photo upload** | new `supabase/migrations/002_client_media_storage.sql`, `src/components/client-photo-gallery.tsx`, edits in `clients/[id]/page.tsx` + `clients/[id]/edit/page.tsx` | New private "client-media" Supabase Storage bucket (10 MiB, image MIME types) with RLS policies: partner full access on their subtree, client SELECT on theirs. Path: `client-photos/<partner_id>/<client_id>/<uuid>-<file>`. Browser-side uploader + grid gallery with click-to-zoom, available on both the client detail page and the edit page. |
+| **#8 (cont'd) — workout screenshots, end to end** | new `src/components/screenshot-uploader.tsx`, `src/server/routers/training-log.ts` (relaxed `screenshotUrls` schema), edits in `monitoring/training/page.tsx`, new `supabase/migrations/003_client_media_client_write.sql`, new `src/app/portal/(protected)/training/page.tsx`, `src/server/routers/portal.ts` (extended `addTrainingLog` schema + insert) | Coach side: the decorative `<div>` is replaced by a real `<ScreenshotUploader>` with drag-and-drop, instant thumbnails, and storage path persistence; the training-log list now shows a "📸 N" badge per row. Migration 003 grants clients INSERT/UPDATE/DELETE on the bucket's `training-screenshots/<partner_id>/<client_id>/...` subtree. New portal page **/portal/training** lets the client log their own workouts (day type, duration, HR, kcal, steps, RPE slider, notes) and upload screenshots — surfaced from the portal dashboard via a "🏋️ I miei allenamenti" tile. |
+| **#10 — responsiveness pass** | 6 dashboard pages | Every fixed inline `gridTemplateColumns: "1fr 1fr 1fr"` / `"repeat(4, 1fr)"` etc. swapped to `repeat(auto-fit, minmax(<min>px, 1fr))` so layouts collapse gracefully on phones (~360px) without forcing tiny columns. Desktop appearance unchanged. |
+
+**Still not built** (genuinely answer-blocked or out of scope until the §4 questions land):
+
+- #4 practical food rounding (needs Roberto's macro-planner rules / v4.4 spec).
+- #3 day-type structure chooser + manual ON/OFF/refeed/deload assignment + weekly EE table view + multiple active protocols per client.
+- #9 target-date-driven deficit calculator (rate of loss → deficit + aggressiveness slider). Engine helper module + UI in the configure-plan wizard.
+- #2 (UI) full plan-configuration wizard (per-day TDEE overrides + macro overrides) — viewing is in place; *editing* needs the wizard.
+- #10 activity / sport-category taxonomy unification across intake / training-log / SCP — needs Roberto's call on the canonical list (touches a DB CHECK constraint).
+- Live Claude-Vision OCR on training screenshots (stub still returns `[]`).
+- Audit leftovers from the May report: weekly macro distribution chart, meal-timing recommendations, supplement interaction warnings, body-fat-method nudge, PDF QA pass.
+- Tech debt: normalize the `daily_targets` JSONB (promote `plan_bundle` to its own column).
+
+**Deploy note for 0b:** apply the two new SQL migrations:
+```sh
+bun run db:migrate   # picks up 002_client_media_storage.sql + 003_client_media_client_write.sql
+```
+The `client-media` Storage bucket and its RLS policies are created idempotently. No new env vars are required beyond what Phase 0 already documented.
 
 ---
 
