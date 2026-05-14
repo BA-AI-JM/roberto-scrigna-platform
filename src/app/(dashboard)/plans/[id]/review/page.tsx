@@ -18,6 +18,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { trpc } from "../../../../../lib/trpc/client";
 import type { DayType, MacroTargets } from "../../../../../engine/types";
+import { computeSlotDeviation as slotDeviation } from "../../../../../engine/meal-plan/types";
 import type {
   SupplementEntry,
   GuidanceSection,
@@ -1125,7 +1126,15 @@ function MealsTab({
             )}
           </div>
 
-          {plan.mealPlan?.slots.map((slot) => (
+          {plan.mealPlan?.slots.map((slot) => {
+            // Per-meal tolerance check (spec §10.8.3: ±5 g P, ±5 g F, ±10 g C, ±50 kcal)
+            const dev = slotDeviation(slot.primary.actualMacros, slot.targetMacros);
+            const slotOOT =
+              Math.abs(dev.proteinG) > 5 ||
+              Math.abs(dev.fatG) > 5 ||
+              Math.abs(dev.carbsG) > 10 ||
+              Math.abs(dev.kcal) > 50;
+            return (
             <div
               key={slot.slot}
               style={{
@@ -1133,7 +1142,7 @@ function MealsTab({
                 borderRadius: "8px",
                 backgroundColor: "#fafafa",
                 marginBottom: "8px",
-                border: "1px solid #f4f4f5",
+                border: slotOOT ? "1px solid #fde68a" : "1px solid #f4f4f5",
               }}
             >
               <div
@@ -1141,6 +1150,9 @@ function MealsTab({
                   display: "flex",
                   justifyContent: "space-between",
                   marginBottom: "4px",
+                  alignItems: "center",
+                  gap: "8px",
+                  flexWrap: "wrap",
                 }}
               >
                 <span
@@ -1151,6 +1163,26 @@ function MealsTab({
                   }}
                 >
                   {MEAL_LABELS[slot.slot] ?? slot.slot.replace(/_/g, " ")}
+                  {slotOOT && (
+                    <span
+                      title={`Deviazione vs target: ${dev.kcal > 0 ? "+" : ""}${dev.kcal} kcal · P ${
+                        dev.proteinG > 0 ? "+" : ""
+                      }${dev.proteinG}g · C ${dev.carbsG > 0 ? "+" : ""}${
+                        dev.carbsG
+                      }g · F ${dev.fatG > 0 ? "+" : ""}${dev.fatG}g`}
+                      style={{
+                        marginLeft: "8px",
+                        padding: "1px 8px",
+                        borderRadius: "10px",
+                        backgroundColor: "#fef9c3",
+                        color: "#854d0e",
+                        fontSize: "10px",
+                        fontWeight: 600,
+                      }}
+                    >
+                      Fuori tolleranza pasto
+                    </span>
+                  )}
                 </span>
                 <span style={{ fontSize: "12px", color: "#71717a" }}>
                   {Math.round(slot.primary.actualMacros.kcal)} kcal &middot; P{" "}
@@ -1346,7 +1378,8 @@ function MealsTab({
                 );
               })()}
             </div>
-          ))}
+            );
+          })}
         </div>
       ))}
     </div>

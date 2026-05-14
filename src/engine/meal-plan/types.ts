@@ -157,13 +157,61 @@ export interface ToleranceBands {
   kcal: number;
 }
 
-/** Default tolerance bands per spec */
+/** Default per-day tolerance bands (v4.4 spec §10.8.3). */
 export const DEFAULT_TOLERANCES: ToleranceBands = {
   proteinG: 10,
   fatG: 10,
   carbsG: 15,
   kcal: 100,
 } as const;
+
+/** Per-meal tolerance bands (v4.4 spec §10.8.3). Tighter than per-day. */
+export const PER_MEAL_TOLERANCES: ToleranceBands = {
+  proteinG: 5,
+  fatG: 5,
+  carbsG: 10,
+  kcal: 50,
+} as const;
+
+/**
+ * Macro deviation for a single slot's actual vs target.
+ * Helper for UI / validator code; not stored on the slot.
+ */
+export interface SlotDeviation {
+  proteinG: number;
+  fatG: number;
+  carbsG: number;
+  kcal: number;
+}
+
+/**
+ * Compute the deviation between a slot's actual macros and its target macros.
+ * Positive values indicate "over target".
+ */
+export function computeSlotDeviation(
+  actual: SlotMacroTargets,
+  target: SlotMacroTargets
+): SlotDeviation {
+  return {
+    proteinG: Math.round((actual.proteinG - target.proteinG) * 10) / 10,
+    fatG: Math.round((actual.fatG - target.fatG) * 10) / 10,
+    carbsG: Math.round((actual.carbsG - target.carbsG) * 10) / 10,
+    kcal: actual.kcal - target.kcal,
+  };
+}
+
+/** Check whether a deviation is within the provided tolerance bands. */
+export function withinTolerance(
+  deviation: SlotDeviation,
+  tolerances: ToleranceBands = PER_MEAL_TOLERANCES
+): boolean {
+  return (
+    Math.abs(deviation.proteinG) <= tolerances.proteinG &&
+    Math.abs(deviation.fatG) <= tolerances.fatG &&
+    Math.abs(deviation.carbsG) <= tolerances.carbsG &&
+    Math.abs(deviation.kcal) <= tolerances.kcal
+  );
+}
 
 // ── Scaling Bounds ──────────────────────────────────────────────────────────
 
