@@ -490,7 +490,7 @@ export default function ClientEditPage() {
             Dati anagrafici
           </h2>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: "16px" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "16px", marginBottom: "16px" }}>
             <FormField label="Nome completo *">
               <input
                 type="text"
@@ -636,7 +636,7 @@ export default function ClientEditPage() {
 
           {addSnapshot && (
             <>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "16px", marginBottom: "16px" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "16px", marginBottom: "16px" }}>
                 <FormField label="Peso (kg)">
                   <input
                     type="number"
@@ -671,7 +671,7 @@ export default function ClientEditPage() {
                 Circonferenze (cm) — opzionali
               </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "16px" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "16px" }}>
                 <FormField label="Vita">
                   <input type="number" step="0.1" value={snapshotForm.waist}
                     onChange={(e) => setSnapshotForm((f) => ({ ...f, waist: e.target.value }))}
@@ -728,7 +728,7 @@ export default function ClientEditPage() {
               >
                 Obiettivo
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: "16px" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "16px", marginBottom: "16px" }}>
                 <FormField label="Obiettivo principale">
                   <select
                     value={goalForm.goal}

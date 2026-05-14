@@ -773,7 +773,7 @@ function OverviewTab({
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(3, 1fr)",
+            gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
             gap: "16px",
           }}
         >
@@ -869,7 +869,7 @@ function MacrosTab({
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(4, 1fr)",
+              gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))",
               gap: "12px",
               marginBottom: "12px",
             }}
@@ -916,7 +916,7 @@ function MacrosTab({
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "repeat(5, 1fr)",
+                gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))",
                 gap: "8px",
                 textAlign: "center",
               }}
@@ -1361,7 +1361,7 @@ function SupplementsTab({
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "1fr 1fr",
+              gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
               gap: "12px",
               marginBottom: "10px",
             }}
@@ -1386,7 +1386,7 @@ function SupplementsTab({
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "1fr 1fr",
+              gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
               gap: "12px",
             }}
           >

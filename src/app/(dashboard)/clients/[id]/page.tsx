@@ -235,7 +235,7 @@ function PanoramicaTab({
             Ultima misurazione
           </h3>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "0" }}>
           {rows.map(({ label, value }, i) => (
             <div
               key={label}
