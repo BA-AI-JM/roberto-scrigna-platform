@@ -26,6 +26,7 @@ import { getResend, FROM_EMAIL } from "../../lib/resend/client";
 import { DEFAULT_TOLERANCES } from "../../engine/meal-plan/types";
 import {
   buildTrainingSessionFromIntake,
+  buildTrainingSessionForDay,
   type IntakeTrainingSession,
 } from "../../services/training-modality";
 import { roundGrams } from "../../engine/meal-plan/rounding";
@@ -110,6 +111,60 @@ const generatePlanSchema = z.object({
    * computes this from goalOverride + the latest snapshot via the
    * goal-rate engine module. Bounded ±1500 kcal/day defensively.
    */
+  dailyDeficitKcal: z.number().min(-1500).max(1500).optional(),
+  /**
+   * Override the snapshot's stored 7-day schedule for this plan only.
+   * Lets the practitioner pick OFF / ON / refeed / deload per weekday
+   * without mutating the intake. Stored on macro_payload for replay.
+   */
+  weekScheduleOverride: z
+    .array(z.enum(["training", "rest", "refeed", "deload"]))
+    .length(7)
+    .optional(),
+  /**
+   * Per-weekday training session override (length-7, Mon-Sun). Each
+   * entry is an array of intake sessions (`{modality, duration_min, rpe}`)
+   * or null/empty for "use the global default for this day". Server
+   * resolves each entry into a single ExerciseSession via
+   * buildTrainingSessionForDay and passes them to the engine as
+   * `perDayTrainingSession`.
+   */
+  perDayTrainingSession: z
+    .array(
+      z
+        .array(
+          z.object({
+            modality: z.string().max(80).optional(),
+            duration_min: z.number().min(1).max(480).optional(),
+            rpe: z.number().min(1).max(10).optional(),
+          })
+        )
+        .nullable()
+    )
+    .length(7)
+    .optional(),
+});
+
+const previewWeekSchema = z.object({
+  clientId: z.string().uuid(),
+  weekScheduleOverride: z
+    .array(z.enum(["training", "rest", "refeed", "deload"]))
+    .length(7)
+    .optional(),
+  perDayTrainingSession: z
+    .array(
+      z
+        .array(
+          z.object({
+            modality: z.string().max(80).optional(),
+            duration_min: z.number().min(1).max(480).optional(),
+            rpe: z.number().min(1).max(10).optional(),
+          })
+        )
+        .nullable()
+    )
+    .length(7)
+    .optional(),
   dailyDeficitKcal: z.number().min(-1500).max(1500).optional(),
 });
 
@@ -255,7 +310,17 @@ export const planRouter = router({
       const clientSex: "male" | "female" =
         (client.sex as "male" | "female") ?? "male";
       const snapshotRecord = snapshotRow as unknown as Record<string, unknown>;
-      const snapshot = buildEngineSnapshot(snapshotRecord, clientSex);
+      const snapshotBase = buildEngineSnapshot(snapshotRecord, clientSex);
+
+      // 3a. Apply the per-plan week-schedule override (if any). This swaps
+      // out the intake schedule for this plan only; nothing on the client
+      // snapshot row is mutated.
+      const snapshot: ClientSnapshot = input.weekScheduleOverride
+        ? {
+            ...snapshotBase,
+            weekSchedule: input.weekScheduleOverride as ClientSnapshot["weekSchedule"],
+          }
+        : snapshotBase;
 
       // 3b. Derive a per-training-day exercise session from the intake schedule
       // (falls back to the engine default when no training data is present).
@@ -263,6 +328,13 @@ export const planRouter = router({
         intakeTrainingSessions(snapshotRecord),
         snapshot.weekSchedule
       );
+
+      // 3c. Resolve per-weekday training-session overrides into ExerciseSessions.
+      // Null entries (or empty arrays) keep the global fallback for that day.
+      const perDayTrainingSession =
+        input.perDayTrainingSession?.map((daySessions) =>
+          buildTrainingSessionForDay(daySessions ?? null)
+        ) ?? undefined;
 
       // 4. Build client info for PDF cover
       const planDate = new Date().toISOString().split("T")[0]!;
@@ -283,6 +355,9 @@ export const planRouter = router({
       if (trainingSession) engineOptions.trainingSession = trainingSession;
       if (input.dailyDeficitKcal != null && input.dailyDeficitKcal !== 0) {
         engineOptions.dailyDeficitKcal = input.dailyDeficitKcal;
+      }
+      if (perDayTrainingSession && perDayTrainingSession.some((s) => s != null)) {
+        engineOptions.perDayTrainingSession = perDayTrainingSession;
       }
       const genInput: PlanGenerationInput = {
         clientInfo,
@@ -320,6 +395,12 @@ export const planRouter = router({
           ? { dailyDeficitKcal: input.dailyDeficitKcal }
           : {}),
         ...(input.goalOverride ? { goalOverride: input.goalOverride } : {}),
+        ...(input.weekScheduleOverride
+          ? { weekScheduleOverride: input.weekScheduleOverride }
+          : {}),
+        ...(input.perDayTrainingSession
+          ? { perDayTrainingSessionRaw: input.perDayTrainingSession }
+          : {}),
       };
 
       // 8. Persist plan to DB
@@ -434,6 +515,95 @@ export const planRouter = router({
         leanMassKg: Math.round(leanMassKg * 10) / 10,
         avgTdeeKcal,
         savedGoal,
+        weekSchedule: snapshot.weekSchedule as DayType[],
+        intakeTrainingSessions: intakeTrainingSessions(snapshotRecord) ?? {},
+      };
+    }),
+
+  /**
+   * Live preview of a 7-day plan for the "Struttura del piano" wizard.
+   * Runs the engine with the proposed weekSchedule + per-day training
+   * sessions (and optional deficit) and returns per-day kcal/macros plus
+   * the weekly average. No DB writes — safe to call on every UI edit.
+   */
+  previewWeek: protectedProcedure
+    .input(previewWeekSchema)
+    .query(async ({ ctx, input }) => {
+      const { data: client } = await ctx.supabase
+        .from("client")
+        .select("sex")
+        .eq("id", input.clientId)
+        .eq("partner_id", ctx.partnerId)
+        .is("deleted_at", null)
+        .single();
+      if (!client) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Cliente non trovato." });
+      }
+
+      const { data: snapshotRow } = await ctx.supabase
+        .from("client_snapshot")
+        .select("*")
+        .eq("client_id", input.clientId)
+        .order("taken_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (!snapshotRow) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "Nessuna misurazione per questo cliente.",
+        });
+      }
+
+      const clientSex = (client.sex as "male" | "female") ?? "male";
+      const snapshotRecord = snapshotRow as unknown as Record<string, unknown>;
+      const snapshotBase = buildEngineSnapshot(snapshotRecord, clientSex);
+
+      const snapshot: ClientSnapshot = input.weekScheduleOverride
+        ? {
+            ...snapshotBase,
+            weekSchedule: input.weekScheduleOverride as ClientSnapshot["weekSchedule"],
+          }
+        : snapshotBase;
+
+      const fallbackTraining = buildTrainingSessionFromIntake(
+        intakeTrainingSessions(snapshotRecord),
+        snapshot.weekSchedule
+      );
+
+      const perDayTrainingSession =
+        input.perDayTrainingSession?.map((daySessions) =>
+          buildTrainingSessionForDay(daySessions ?? null)
+        ) ?? undefined;
+
+      const { generateWeeklyPlan } = await import("../../engine");
+      const weekly = generateWeeklyPlan(snapshot, {
+        ...(fallbackTraining ? { trainingSession: fallbackTraining } : {}),
+        ...(perDayTrainingSession && perDayTrainingSession.some((s) => s != null)
+          ? { perDayTrainingSession }
+          : {}),
+        ...(input.dailyDeficitKcal != null && input.dailyDeficitKcal !== 0
+          ? { dailyDeficitKcal: input.dailyDeficitKcal }
+          : {}),
+      });
+
+      const days = weekly.days.map((d, i) => ({
+        index: i,
+        dayType: d.dayType,
+        tdeeKcal: Math.round(d.tdee.totalTdeeKcal),
+        exerciseKcal: Math.round(d.tdee.exercise.exerciseKcal),
+        targetKcal: d.macros.totalKcal,
+        proteinG: d.macros.proteinG,
+        fatG: d.macros.fatG,
+        carbG: d.macros.carbG,
+      }));
+
+      return {
+        days,
+        weeklyAverageKcal: weekly.weeklyAverageKcal,
+        weeklyAverageProteinG: weekly.weeklyAverageProteinG,
+        weeklyAverageTdeeKcal: Math.round(
+          days.reduce((s, d) => s + d.tdeeKcal, 0) / 7
+        ),
       };
     }),
 

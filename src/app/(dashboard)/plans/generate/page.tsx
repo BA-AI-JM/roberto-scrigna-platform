@@ -14,12 +14,47 @@ import { useState, useCallback, useEffect, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { trpc } from "../../../../lib/trpc/client";
 import type { Allergen, MealTag } from "../../../../engine/meal-plan/types";
+import type { DayType } from "../../../../engine/types";
 import {
   computeGoalRate,
   weeksUntil,
   type AggressivenessBand,
   type GoalDirection,
 } from "../../../../engine/goal-rate";
+import { groupedSportOptions } from "../../../../engine/sport-taxonomy";
+
+/**
+ * Per-day training session shape sent to the server. Matches
+ * IntakeTrainingSession from services/training-modality.
+ */
+interface DaySession {
+  modality?: string;
+  duration_min?: number;
+  rpe?: number;
+}
+
+const DAY_LABELS_IT = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"] as const;
+
+const DAY_TYPE_LABELS: Record<DayType, string> = {
+  training: "ON",
+  rest: "OFF",
+  refeed: "Refeed",
+  deload: "Deload",
+};
+
+const DAY_TYPE_COLORS: Record<DayType, { bg: string; text: string; border: string }> = {
+  training: { bg: "#18181b", text: "#ffffff", border: "#18181b" },
+  rest:     { bg: "#f4f4f5", text: "#71717a", border: "#d4d4d8" },
+  refeed:   { bg: "#fffbeb", text: "#b45309", border: "#fcd34d" },
+  deload:   { bg: "#eff6ff", text: "#1d4ed8", border: "#93c5fd" },
+};
+
+const WEEK_PRESETS: Record<string, DayType[]> = {
+  "3/sett": ["training", "rest",     "training", "rest",     "training", "rest", "rest"],
+  "4/sett": ["training", "training", "rest",     "training", "training", "rest", "rest"],
+  "5/sett": ["training", "training", "rest",     "training", "training", "training", "rest"],
+  "6/sett": ["training", "training", "training", "rest",     "training", "training", "training"],
+};
 
 // ── Form State ───────────────────────────────────────────────────────────────
 
@@ -39,6 +74,17 @@ interface GeneratePlanFormState {
    * proposes; when a number, the coach has manually overridden it via the slider.
    */
   deficitOverride: number | null;
+  /**
+   * Per-plan override of the snapshot's 7-day schedule. `null` means
+   * "use the snapshot's schedule" — server falls back to the stored value.
+   */
+  weekSchedule: DayType[] | null;
+  /**
+   * Per-weekday training-session override (length-7, Mon-Sun). Each entry
+   * is an array of sessions for that day (or empty for "no extra session
+   * — fall back to the global average").
+   */
+  perDaySessions: (DaySession[] | null)[];
 }
 
 const GOAL_LABELS: Record<Exclude<GeneratePlanFormState["goalType"], "">, string> = {
@@ -129,6 +175,8 @@ export default function GeneratePlanPage() {
     targetWeightKg: "",
     targetEventDate: "",
     deficitOverride: null,
+    weekSchedule: null,
+    perDaySessions: [null, null, null, null, null, null, null],
   });
   const [error, setError] = useState<string | null>(null);
 
@@ -162,6 +210,26 @@ export default function GeneratePlanPage() {
       };
     });
   }, [estimate]);
+
+  // Pre-fill weekSchedule + perDaySessions from the intake snapshot once,
+  // when the estimate first lands and the form hasn't been edited yet.
+  useEffect(() => {
+    if (!estimate) return;
+    setForm((prev) => {
+      if (prev.weekSchedule) return prev; // coach already edited
+      const intake = estimate.intakeTrainingSessions ?? {};
+      const perDay: (DaySession[] | null)[] = Array.from({ length: 7 }, (_, i) => {
+        const list = intake[String(i)] as DaySession[] | undefined;
+        return list && list.length > 0 ? list : null;
+      });
+      return {
+        ...prev,
+        weekSchedule: estimate.weekSchedule as DayType[],
+        perDaySessions: perDay,
+      };
+    });
+  }, [estimate]);
+
 
   // Live goal-rate computation. Returns null when we don't have enough data
   // (no estimate yet, or no target weight + date pair).
@@ -201,6 +269,59 @@ export default function GeneratePlanPage() {
 
   const belowFloor =
     targetDailyKcal != null && goalRate != null && targetDailyKcal < goalRate.kcalFloor;
+
+  // Live week preview. Only fires when we have a schedule to send (i.e.
+  // after the prefill from estimateForClient has run). Refetches whenever
+  // schedule / per-day sessions / deficit change.
+  const previewEnabled = Boolean(form.clientId && form.weekSchedule);
+  const { data: weekPreview, isFetching: weekPreviewFetching } =
+    trpc.plan.previewWeek.useQuery(
+      {
+        clientId: form.clientId,
+        ...(form.weekSchedule
+          ? { weekScheduleOverride: form.weekSchedule }
+          : {}),
+        ...(form.weekSchedule
+          ? {
+              perDayTrainingSession: form.perDaySessions.map((d) => d ?? null),
+            }
+          : {}),
+        ...(effectiveDeficitKcal != null && effectiveDeficitKcal !== 0
+          ? { dailyDeficitKcal: Math.round(effectiveDeficitKcal) }
+          : {}),
+      },
+      { enabled: previewEnabled, staleTime: 30_000 }
+    );
+
+  // Helper used by the Struttura card to mutate one day's slot.
+  const updateDay = useCallback(
+    (i: number, patch: { dayType?: DayType; sessions?: DaySession[] | null }) => {
+      setForm((prev) => {
+        const schedule = (prev.weekSchedule ?? Array(7).fill("rest")).slice() as DayType[];
+        const sessions = prev.perDaySessions.slice();
+        if (patch.dayType !== undefined) schedule[i] = patch.dayType;
+        if (patch.sessions !== undefined) sessions[i] = patch.sessions;
+        // Non-training days clear their session list to keep the engine
+        // mapping honest (perDayTrainingSession is only applied on training).
+        if (patch.dayType !== undefined && patch.dayType !== "training") {
+          sessions[i] = null;
+        }
+        return { ...prev, weekSchedule: schedule, perDaySessions: sessions };
+      });
+    },
+    []
+  );
+
+  const applyPreset = useCallback((preset: DayType[]) => {
+    setForm((prev) => ({
+      ...prev,
+      weekSchedule: preset.slice() as DayType[],
+      // Drop sessions on days that flipped to non-training.
+      perDaySessions: prev.perDaySessions.map((s, i) =>
+        preset[i] === "training" ? s : null
+      ),
+    }));
+  }, []);
 
   // Generate mutation
   const generateMutation = trpc.plan.generate.useMutation({
@@ -268,6 +389,14 @@ export default function GeneratePlanPage() {
         : {}),
       ...(effectiveDeficitKcal != null && effectiveDeficitKcal !== 0
         ? { dailyDeficitKcal: Math.round(effectiveDeficitKcal) }
+        : {}),
+      ...(form.weekSchedule
+        ? { weekScheduleOverride: form.weekSchedule }
+        : {}),
+      ...(form.weekSchedule
+        ? {
+            perDayTrainingSession: form.perDaySessions.map((d) => d ?? null),
+          }
         : {}),
     });
   }, [form, generateMutation, belowFloor, effectiveDeficitKcal]);
@@ -578,6 +707,21 @@ export default function GeneratePlanPage() {
         </div>
       )}
 
+      {/* Struttura del piano (Phase B) */}
+      {form.clientId && form.weekSchedule && (
+        <WeekStructureCard
+          weekSchedule={form.weekSchedule}
+          perDaySessions={form.perDaySessions}
+          weekPreview={weekPreview}
+          weekPreviewFetching={weekPreviewFetching}
+          onPreset={applyPreset}
+          onUpdateDay={updateDay}
+          sectionStyle={sectionStyle}
+          labelStyle={labelStyle}
+          inputStyle={inputStyle}
+        />
+      )}
+
       {/* Meal Configuration */}
       <div style={sectionStyle}>
         <h2
@@ -770,6 +914,297 @@ export default function GeneratePlanPage() {
           ? "Sotto la soglia minima — riduci il deficit"
           : "Genera Piano Nutrizionale"}
       </button>
+    </div>
+  );
+}
+
+// ── Week structure wizard ────────────────────────────────────────────────────
+
+type WeekPreviewData = {
+  days: ReadonlyArray<{
+    index: number;
+    dayType: DayType;
+    tdeeKcal: number;
+    exerciseKcal: number;
+    targetKcal: number;
+    proteinG: number;
+    fatG: number;
+    carbG: number;
+  }>;
+  weeklyAverageKcal: number;
+  weeklyAverageProteinG: number;
+  weeklyAverageTdeeKcal: number;
+};
+
+interface WeekStructureCardProps {
+  weekSchedule: DayType[];
+  perDaySessions: (DaySession[] | null)[];
+  weekPreview: WeekPreviewData | undefined;
+  weekPreviewFetching: boolean;
+  onPreset: (preset: DayType[]) => void;
+  onUpdateDay: (i: number, patch: { dayType?: DayType; sessions?: DaySession[] | null }) => void;
+  sectionStyle: React.CSSProperties;
+  labelStyle: React.CSSProperties;
+  inputStyle: React.CSSProperties;
+}
+
+function WeekStructureCard({
+  weekSchedule,
+  perDaySessions,
+  weekPreview,
+  weekPreviewFetching,
+  onPreset,
+  onUpdateDay,
+  sectionStyle,
+  labelStyle,
+  inputStyle,
+}: WeekStructureCardProps) {
+  const sportGroups = useMemo(() => groupedSportOptions(), []);
+
+  return (
+    <div style={sectionStyle}>
+      <h2 style={{ fontSize: "15px", fontWeight: 600, marginBottom: "4px", marginTop: 0, color: "#18181b" }}>
+        Struttura del piano
+      </h2>
+      <p style={{ fontSize: "12px", color: "#71717a", marginTop: 0, marginBottom: "14px" }}>
+        Imposta i giorni ON / OFF / refeed / deload e l&apos;attività di ogni giorno ON. Il dispendio
+        e le kcal target si aggiornano in tempo reale.
+      </p>
+
+      {/* Presets */}
+      <div style={{ marginBottom: "16px" }}>
+        <label style={labelStyle}>Preset rapidi</label>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+          {Object.entries(WEEK_PRESETS).map(([label, preset]) => (
+            <button
+              key={label}
+              type="button"
+              onClick={() => onPreset(preset)}
+              style={{
+                padding: "6px 14px",
+                borderRadius: "20px",
+                border: "1px solid #d4d4d8",
+                backgroundColor: "#ffffff",
+                color: "#3f3f46",
+                cursor: "pointer",
+                fontSize: "12px",
+                fontWeight: 500,
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Calendar grid */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(7, 1fr)",
+          gap: "6px",
+          marginBottom: "14px",
+        }}
+      >
+        {weekSchedule.map((dt, i) => {
+          const c = DAY_TYPE_COLORS[dt];
+          return (
+            <div
+              key={i}
+              style={{
+                border: `1px solid ${c.border}`,
+                borderRadius: "8px",
+                padding: "8px 6px",
+                background: c.bg,
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: "4px",
+              }}
+            >
+              <div style={{ fontSize: "11px", color: c.text, fontWeight: 600 }}>
+                {DAY_LABELS_IT[i]}
+              </div>
+              <select
+                value={dt}
+                onChange={(e) => onUpdateDay(i, { dayType: e.target.value as DayType })}
+                style={{
+                  fontSize: "10px",
+                  padding: "2px 4px",
+                  border: "none",
+                  background: "transparent",
+                  color: c.text,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  outline: "none",
+                }}
+              >
+                {(["training", "rest", "refeed", "deload"] as DayType[]).map((opt) => (
+                  <option key={opt} value={opt}>
+                    {DAY_TYPE_LABELS[opt]}
+                  </option>
+                ))}
+              </select>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Per-day sessions for training days */}
+      <div style={{ marginBottom: "14px" }}>
+        <label style={labelStyle}>Attività per giorno (solo giorni ON)</label>
+        <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+          {weekSchedule.map((dt, i) => {
+            if (dt !== "training") return null;
+            const sessions = perDaySessions[i] ?? [];
+            const first = sessions[0] ?? { modality: "", duration_min: 60, rpe: 7 };
+            return (
+              <div
+                key={i}
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "60px 1fr 100px 80px",
+                  gap: "8px",
+                  alignItems: "center",
+                }}
+              >
+                <div style={{ fontSize: "12px", fontWeight: 600, color: "#3f3f46" }}>
+                  {DAY_LABELS_IT[i]}
+                </div>
+                <select
+                  value={first.modality ?? ""}
+                  onChange={(e) =>
+                    onUpdateDay(i, {
+                      sessions: e.target.value
+                        ? [{ ...first, modality: e.target.value }]
+                        : null,
+                    })
+                  }
+                  style={{ ...inputStyle, padding: "6px 8px", fontSize: "12px" }}
+                >
+                  <option value="">Default (media settimanale)</option>
+                  {sportGroups.map((g) => (
+                    <optgroup key={g.group} label={g.group}>
+                      {g.entries.map((s) => (
+                        <option key={s.displayIt} value={s.displayIt}>
+                          {s.displayIt}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+                <input
+                  type="number"
+                  min={10}
+                  max={300}
+                  step={5}
+                  value={first.duration_min ?? 60}
+                  onChange={(e) =>
+                    onUpdateDay(i, {
+                      sessions: [{ ...first, duration_min: Number(e.target.value) || 60 }],
+                    })
+                  }
+                  placeholder="min"
+                  style={{ ...inputStyle, padding: "6px 8px", fontSize: "12px" }}
+                />
+                <input
+                  type="number"
+                  min={1}
+                  max={10}
+                  step={1}
+                  value={first.rpe ?? 7}
+                  onChange={(e) =>
+                    onUpdateDay(i, {
+                      sessions: [{ ...first, rpe: Number(e.target.value) || 7 }],
+                    })
+                  }
+                  placeholder="RPE"
+                  style={{ ...inputStyle, padding: "6px 8px", fontSize: "12px" }}
+                />
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Live weekly table */}
+      <div>
+        <label style={labelStyle}>
+          Dispendio energetico settimanale {weekPreviewFetching ? "· aggiornamento…" : ""}
+        </label>
+        <div
+          style={{
+            border: "1px solid #e4e4e7",
+            borderRadius: "8px",
+            overflow: "hidden",
+            fontSize: "12px",
+          }}
+        >
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "60px 60px 1fr 1fr 1fr",
+              background: "#f4f4f5",
+              padding: "6px 10px",
+              fontWeight: 600,
+              color: "#52525b",
+            }}
+          >
+            <div>Giorno</div>
+            <div>Tipo</div>
+            <div style={{ textAlign: "right" }}>TDEE</div>
+            <div style={{ textAlign: "right" }}>Attività</div>
+            <div style={{ textAlign: "right" }}>Apporto</div>
+          </div>
+          {(weekPreview?.days ?? Array.from({ length: 7 }, (_, i) => ({
+            index: i,
+            dayType: weekSchedule[i] ?? "rest",
+            tdeeKcal: 0,
+            exerciseKcal: 0,
+            targetKcal: 0,
+          }))).map((d) => (
+            <div
+              key={d.index}
+              style={{
+                display: "grid",
+                gridTemplateColumns: "60px 60px 1fr 1fr 1fr",
+                padding: "6px 10px",
+                borderTop: "1px solid #e4e4e7",
+                color: "#3f3f46",
+              }}
+            >
+              <div style={{ fontWeight: 600 }}>{DAY_LABELS_IT[d.index]}</div>
+              <div style={{ color: DAY_TYPE_COLORS[d.dayType].text }}>
+                {DAY_TYPE_LABELS[d.dayType]}
+              </div>
+              <div style={{ textAlign: "right" }}>{d.tdeeKcal || "—"}</div>
+              <div style={{ textAlign: "right" }}>{d.exerciseKcal || "—"}</div>
+              <div style={{ textAlign: "right", fontWeight: 600 }}>
+                {d.targetKcal || "—"}
+              </div>
+            </div>
+          ))}
+          {weekPreview && (
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "60px 60px 1fr 1fr 1fr",
+                padding: "8px 10px",
+                background: "#fafafa",
+                borderTop: "1px solid #e4e4e7",
+                fontWeight: 700,
+                color: "#18181b",
+              }}
+            >
+              <div>Media</div>
+              <div>—</div>
+              <div style={{ textAlign: "right" }}>{weekPreview.weeklyAverageTdeeKcal}</div>
+              <div style={{ textAlign: "right" }}>—</div>
+              <div style={{ textAlign: "right" }}>{weekPreview.weeklyAverageKcal}</div>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

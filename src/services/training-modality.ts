@@ -125,3 +125,29 @@ export function buildTrainingSessionFromIntake(
 
   return { method: "met_value", durationMin: avgMinutes, metValue: avgMet };
 }
+
+/**
+ * Build an ExerciseSession from a single day's intake sessions, using the
+ * same modality-resolution + duration-weighted-MET rules as
+ * buildTrainingSessionFromIntake but scoped to one day. Returns null for
+ * an empty session list — caller decides whether to fall back to the
+ * weekly default or treat the day as a rest day.
+ */
+export function buildTrainingSessionForDay(
+  sessions: IntakeTrainingSession[] | undefined | null
+): ExerciseSession | null {
+  if (!sessions || sessions.length === 0) return null;
+
+  let totalMin = 0;
+  let metMinSum = 0;
+  for (const s of sessions) {
+    const minutes = Math.min(480, Math.max(1, Number(s.duration_min) || 60));
+    const entry = resolveSportEntry(s.modality);
+    totalMin += minutes;
+    metMinSum += effectiveMet(entry, s.rpe) * minutes;
+  }
+  if (totalMin <= 0) return null;
+
+  const avgMet = Math.round((metMinSum / totalMin) * 10) / 10;
+  return { method: "met_value", durationMin: totalMin, metValue: avgMet };
+}

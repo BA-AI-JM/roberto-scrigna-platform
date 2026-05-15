@@ -411,4 +411,54 @@ describe("Full Plan Generation", () => {
     expect(plan.macros.totalKcal).toBeGreaterThan(1000);
     expect(plan.macros.totalKcal).toBeLessThan(4000);
   });
+
+  test("perDayTrainingSession swaps the session on the matching index", () => {
+    // Mon (index 0) gets a high-MET session; Wed (index 2) gets a low-MET session.
+    // Both are training days in clientWithOverride's schedule.
+    const weekly = generateWeeklyPlan(clientWithOverride, {
+      perDayTrainingSession: [
+        { method: "met_value", durationMin: 90, metValue: 9.0 },
+        null,
+        { method: "met_value", durationMin: 45, metValue: 4.0 },
+      ],
+    });
+    expect(weekly.days[0].dayType).toBe("training");
+    expect(weekly.days[2].dayType).toBe("training");
+    expect(weekly.days[0].tdee.exercise.exerciseKcal).toBeGreaterThan(
+      weekly.days[2].tdee.exercise.exerciseKcal
+    );
+  });
+
+  test("perDayTrainingSession is ignored on non-training days", () => {
+    // Index 1 = rest day in clientWithOverride. Setting a session there must NOT
+    // increase the day's TDEE — rest days zero out exercise.
+    const weekly = generateWeeklyPlan(clientWithOverride, {
+      perDayTrainingSession: [
+        undefined,
+        { method: "met_value", durationMin: 60, metValue: 8.0 },
+      ],
+    });
+    expect(weekly.days[1].dayType).toBe("rest");
+    expect(weekly.days[1].tdee.exercise.exerciseKcal).toBe(0);
+  });
+
+  test("perDayTrainingSession falls back to global trainingSession when entry is null", () => {
+    const globalSession = {
+      method: "met_value" as const,
+      durationMin: 60,
+      metValue: 6.0,
+    };
+    const weekly = generateWeeklyPlan(clientWithOverride, {
+      trainingSession: globalSession,
+      perDayTrainingSession: [
+        null,
+        null,
+        { method: "met_value", durationMin: 60, metValue: 6.0 }, // same as fallback
+      ],
+    });
+    // Mon (null override) and Wed (explicit equal) should have ~equal exercise kcal
+    expect(weekly.days[0].tdee.exercise.exerciseKcal).toBe(
+      weekly.days[2].tdee.exercise.exerciseKcal
+    );
+  });
 });
