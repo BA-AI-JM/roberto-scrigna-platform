@@ -10,10 +10,16 @@
 
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { trpc } from "../../../../lib/trpc/client";
 import type { Allergen, MealTag } from "../../../../engine/meal-plan/types";
+import {
+  computeGoalRate,
+  weeksUntil,
+  type AggressivenessBand,
+  type GoalDirection,
+} from "../../../../engine/goal-rate";
 
 // ── Form State ───────────────────────────────────────────────────────────────
 
@@ -24,7 +30,36 @@ interface GeneratePlanFormState {
   preferTags: MealTag[];
   maintenanceKcalEstimate: string;
   notes: string;
+  /** Goal override for this plan only (doesn't mutate the client snapshot). */
+  goalType: "fat_loss" | "muscle_gain" | "maintenance" | "performance" | "";
+  targetWeightKg: string;
+  targetEventDate: string;
+  /**
+   * Daily deficit (kcal). When `null`, use the value the goal-rate calculator
+   * proposes; when a number, the coach has manually overridden it via the slider.
+   */
+  deficitOverride: number | null;
 }
+
+const GOAL_LABELS: Record<Exclude<GeneratePlanFormState["goalType"], "">, string> = {
+  fat_loss: "Dimagrimento",
+  muscle_gain: "Aumento massa",
+  maintenance: "Mantenimento",
+  performance: "Performance sportiva",
+};
+
+const BAND_THEMES: Record<AggressivenessBand, { bg: string; text: string; label: string }> = {
+  comfortable: { bg: "#f0fdf4", text: "#15803d", label: "Confortevole" },
+  moderate: { bg: "#eff6ff", text: "#1d4ed8", label: "Moderato" },
+  aggressive: { bg: "#fffbeb", text: "#b45309", label: "Aggressivo" },
+  extreme: { bg: "#fef2f2", text: "#b91c1c", label: "Estremo" },
+};
+
+const DIRECTION_LABELS: Record<GoalDirection, string> = {
+  fat_loss: "Deficit",
+  muscle_gain: "Surplus",
+  maintenance: "Mantenimento",
+};
 
 // ── Options ──────────────────────────────────────────────────────────────────
 
@@ -90,12 +125,82 @@ export default function GeneratePlanPage() {
     preferTags: [],
     maintenanceKcalEstimate: "",
     notes: "",
+    goalType: "",
+    targetWeightKg: "",
+    targetEventDate: "",
+    deficitOverride: null,
   });
   const [error, setError] = useState<string | null>(null);
 
   // Load active clients for the selector
   const { data: clientsData, isLoading: clientsLoading } =
     trpc.client.list.useQuery({ status: "active", limit: 100 });
+
+  // Engine preview for the selected client — drives the "Obiettivo & deficit"
+  // card readouts. Fetched once per client change.
+  const { data: estimate } = trpc.plan.estimateForClient.useQuery(
+    { clientId: form.clientId },
+    { enabled: Boolean(form.clientId), staleTime: 60_000 }
+  );
+
+  // When the estimate arrives, pre-fill goal/target/date from the saved
+  // intake blob — but only if the coach hasn't already typed something.
+  useEffect(() => {
+    if (!estimate?.savedGoal) return;
+    setForm((prev) => {
+      // Only auto-fill empty fields; never overwrite coach edits.
+      if (prev.goalType || prev.targetWeightKg || prev.targetEventDate) return prev;
+      return {
+        ...prev,
+        goalType:
+          (estimate.savedGoal!.goal as GeneratePlanFormState["goalType"]) ?? "",
+        targetWeightKg:
+          estimate.savedGoal!.target_weight_kg != null
+            ? String(estimate.savedGoal!.target_weight_kg)
+            : "",
+        targetEventDate: estimate.savedGoal!.target_event_date ?? "",
+      };
+    });
+  }, [estimate]);
+
+  // Live goal-rate computation. Returns null when we don't have enough data
+  // (no estimate yet, or no target weight + date pair).
+  const goalRate = useMemo(() => {
+    if (!estimate || estimate.leanMassKg <= 0 || estimate.avgTdeeKcal <= 0) return null;
+    const targetKg = parseFloat(form.targetWeightKg);
+    if (!Number.isFinite(targetKg) || targetKg <= 0) return null;
+    const weeks = form.targetEventDate ? weeksUntil(form.targetEventDate) : 0;
+    if (weeks <= 0) return null;
+    return computeGoalRate({
+      currentKg: estimate.weightKg,
+      targetKg,
+      weeks,
+      tdeeKcal: estimate.avgTdeeKcal,
+      leanMassKg: estimate.leanMassKg,
+    });
+  }, [estimate, form.targetWeightKg, form.targetEventDate]);
+
+  /**
+   * Effective deficit that will be sent to the server. Slider override (if
+   * set) wins; otherwise we use whatever the calculator proposes.
+   */
+  const effectiveDeficitKcal: number | null = useMemo(() => {
+    if (form.deficitOverride != null) return form.deficitOverride;
+    return goalRate ? goalRate.dailyDeficitKcal : null;
+  }, [form.deficitOverride, goalRate]);
+
+  /**
+   * Implied daily intake (rounded). When set, this is the number the
+   * macros engine will target instead of pure TDEE.
+   */
+  const targetDailyKcal: number | null = useMemo(() => {
+    if (!estimate) return null;
+    if (effectiveDeficitKcal == null) return null;
+    return estimate.avgTdeeKcal - effectiveDeficitKcal;
+  }, [estimate, effectiveDeficitKcal]);
+
+  const belowFloor =
+    targetDailyKcal != null && goalRate != null && targetDailyKcal < goalRate.kcalFloor;
 
   // Generate mutation
   const generateMutation = trpc.plan.generate.useMutation({
@@ -130,7 +235,17 @@ export default function GeneratePlanPage() {
       setError("Seleziona un cliente.");
       return;
     }
+    if (belowFloor) {
+      setError(
+        "L'apporto pianificato è sotto la soglia minima di sicurezza. Estendi la data target o riduci il deficit."
+      );
+      return;
+    }
     setError(null);
+    const hasGoalEdit =
+      form.goalType !== "" ||
+      form.targetWeightKg !== "" ||
+      form.targetEventDate !== "";
     generateMutation.mutate({
       clientId: form.clientId,
       mealCount: form.mealCount,
@@ -140,8 +255,22 @@ export default function GeneratePlanPage() {
         ? Number(form.maintenanceKcalEstimate)
         : undefined,
       notes: form.notes || undefined,
+      ...(hasGoalEdit
+        ? {
+            goalOverride: {
+              goal: form.goalType || undefined,
+              targetWeightKg: form.targetWeightKg
+                ? Number(form.targetWeightKg)
+                : undefined,
+              targetEventDate: form.targetEventDate || undefined,
+            },
+          }
+        : {}),
+      ...(effectiveDeficitKcal != null && effectiveDeficitKcal !== 0
+        ? { dailyDeficitKcal: Math.round(effectiveDeficitKcal) }
+        : {}),
     });
-  }, [form, generateMutation]);
+  }, [form, generateMutation, belowFloor, effectiveDeficitKcal]);
 
   const isGenerating = generateMutation.isPending;
 
@@ -244,6 +373,210 @@ export default function GeneratePlanPage() {
           </p>
         )}
       </div>
+
+      {/* Obiettivo & deficit (Phase A) */}
+      {form.clientId && estimate && (
+        <div style={sectionStyle}>
+          <h2
+            style={{
+              fontSize: "15px",
+              fontWeight: 600,
+              marginBottom: "4px",
+              marginTop: 0,
+              color: "#18181b",
+            }}
+          >
+            Obiettivo &amp; deficit
+          </h2>
+          <p style={{ fontSize: "12px", color: "#71717a", marginTop: 0, marginBottom: "14px" }}>
+            Imposta peso target e data. L&apos;app calcola il deficit (o surplus) necessario,
+            mostra l&apos;aggressività e blocca i piani sotto la soglia di sicurezza.
+            Peso attuale {estimate.weightKg.toFixed(1)} kg · massa magra {estimate.leanMassKg.toFixed(1)} kg ·
+            TDEE medio {estimate.avgTdeeKcal} kcal/giorno.
+          </p>
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+              gap: "12px",
+              marginBottom: "12px",
+            }}
+          >
+            <div>
+              <label style={labelStyle}>Tipo di obiettivo</label>
+              <select
+                value={form.goalType}
+                onChange={(e) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    goalType: e.target.value as GeneratePlanFormState["goalType"],
+                    deficitOverride: null,
+                  }))
+                }
+                style={{ ...inputStyle, backgroundColor: "#ffffff" }}
+              >
+                <option value="">Non specificato</option>
+                {Object.entries(GOAL_LABELS).map(([k, label]) => (
+                  <option key={k} value={k}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label style={labelStyle}>Peso target (kg)</label>
+              <input
+                type="number"
+                step="0.1"
+                value={form.targetWeightKg}
+                onChange={(e) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    targetWeightKg: e.target.value,
+                    deficitOverride: null,
+                  }))
+                }
+                placeholder={`es. ${(estimate.weightKg - 5).toFixed(0)}`}
+                style={inputStyle}
+              />
+            </div>
+            <div>
+              <label style={labelStyle}>Data target</label>
+              <input
+                type="date"
+                value={form.targetEventDate}
+                onChange={(e) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    targetEventDate: e.target.value,
+                    deficitOverride: null,
+                  }))
+                }
+                style={inputStyle}
+              />
+            </div>
+          </div>
+
+          {/* Live readout */}
+          {goalRate ? (
+            <div style={{ display: "grid", gap: "8px" }}>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+                  gap: "8px",
+                  padding: "12px 14px",
+                  background: "#fafafa",
+                  borderRadius: "8px",
+                  border: "1px solid #f4f4f5",
+                }}
+              >
+                <Stat
+                  label={DIRECTION_LABELS[goalRate.direction] === "Mantenimento" ? "Variazione" : "Da perdere"}
+                  value={`${goalRate.totalDeltaKg > 0 ? "-" : "+"}${Math.abs(goalRate.totalDeltaKg).toFixed(1)} kg`}
+                />
+                <Stat label="Ritmo" value={`${goalRate.requiredKgPerWeek} kg/sett`} />
+                <Stat
+                  label="% peso/sett"
+                  value={`${goalRate.percentBwPerWeek.toFixed(2)} %`}
+                />
+                <Stat
+                  label={goalRate.direction === "muscle_gain" ? "Surplus" : "Deficit"}
+                  value={`${Math.abs(goalRate.dailyDeficitKcal)} kcal/giorno`}
+                />
+                <Stat
+                  label="Apporto pianificato"
+                  value={`${goalRate.targetDailyKcal} kcal/giorno`}
+                />
+              </div>
+
+              {/* Status badge + suggestion */}
+              <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
+                <span
+                  style={{
+                    display: "inline-block",
+                    padding: "3px 12px",
+                    borderRadius: "12px",
+                    fontSize: "12px",
+                    fontWeight: 700,
+                    backgroundColor: BAND_THEMES[goalRate.band].bg,
+                    color: BAND_THEMES[goalRate.band].text,
+                  }}
+                >
+                  {BAND_THEMES[goalRate.band].label}
+                </span>
+                {goalRate.band === "extreme" && goalRate.suggestedWeeks && (
+                  <span style={{ fontSize: "12px", color: "#71717a" }}>
+                    Suggerimento: estendi la data a ~{goalRate.suggestedWeeks} settimane per restare entro i limiti.
+                  </span>
+                )}
+              </div>
+
+              {/* Below-floor warning */}
+              {belowFloor && (
+                <div
+                  style={{
+                    padding: "10px 14px",
+                    background: "#fef2f2",
+                    border: "1px solid #fecaca",
+                    borderRadius: "8px",
+                    color: "#991b1b",
+                    fontSize: "12px",
+                  }}
+                >
+                  ⚠ Apporto pianificato sotto la soglia minima ({goalRate.kcalFloor} kcal/giorno). Estendi la
+                  data target o riduci il deficit con lo slider.
+                </div>
+              )}
+
+              {/* Manual override slider */}
+              <div>
+                <label style={{ ...labelStyle, marginTop: "8px" }}>
+                  Affinamento manuale del {goalRate.direction === "muscle_gain" ? "surplus" : "deficit"}
+                </label>
+                <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                  <input
+                    type="range"
+                    min={goalRate.direction === "muscle_gain" ? -800 : 0}
+                    max={goalRate.direction === "muscle_gain" ? 0 : 1200}
+                    step={25}
+                    value={effectiveDeficitKcal ?? goalRate.dailyDeficitKcal}
+                    onChange={(e) =>
+                      setForm((prev) => ({ ...prev, deficitOverride: Number(e.target.value) }))
+                    }
+                    style={{ flex: 1, accentColor: "#18181b" }}
+                  />
+                  <span style={{ fontSize: "13px", fontWeight: 600, color: "#18181b", minWidth: "80px", textAlign: "right" }}>
+                    {effectiveDeficitKcal ?? goalRate.dailyDeficitKcal} kcal
+                  </span>
+                  {form.deficitOverride != null && (
+                    <button
+                      type="button"
+                      onClick={() => setForm((prev) => ({ ...prev, deficitOverride: null }))}
+                      style={{
+                        fontSize: "11px",
+                        color: "#3b82f6",
+                        background: "none",
+                        border: "none",
+                        cursor: "pointer",
+                        padding: 0,
+                      }}
+                    >
+                      reset
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <p style={{ fontSize: "12px", color: "#a1a1aa", margin: 0 }}>
+              Inserisci peso target e data per vedere il calcolo del deficit. Se non specifichi nulla,
+              il piano viene generato a mantenimento.
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Meal Configuration */}
       <div style={sectionStyle}>
@@ -416,22 +749,42 @@ export default function GeneratePlanPage() {
       {/* Generate button */}
       <button
         onClick={handleGenerate}
-        disabled={isGenerating || !form.clientId}
+        disabled={isGenerating || !form.clientId || belowFloor}
         style={{
           width: "100%",
           padding: "14px",
           backgroundColor:
-            isGenerating || !form.clientId ? "#a1a1aa" : "#18181b",
+            isGenerating || !form.clientId || belowFloor ? "#a1a1aa" : "#18181b",
           color: "#ffffff",
           border: "none",
           borderRadius: "10px",
           fontSize: "16px",
           fontWeight: 700,
-          cursor: isGenerating || !form.clientId ? "not-allowed" : "pointer",
+          cursor:
+            isGenerating || !form.clientId || belowFloor ? "not-allowed" : "pointer",
         }}
       >
-        {isGenerating ? "Generazione in corso..." : "Genera Piano Nutrizionale"}
+        {isGenerating
+          ? "Generazione in corso..."
+          : belowFloor
+          ? "Sotto la soglia minima — riduci il deficit"
+          : "Genera Piano Nutrizionale"}
       </button>
+    </div>
+  );
+}
+
+// ── Small UI helpers ─────────────────────────────────────────────────────────
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <div style={{ fontSize: "10px", color: "#9ca3af", marginBottom: "2px", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+        {label}
+      </div>
+      <div style={{ fontSize: "14px", fontWeight: 700, color: "#18181b" }}>
+        {value}
+      </div>
     </div>
   );
 }

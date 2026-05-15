@@ -363,6 +363,81 @@ export const planRouter = router({
     }),
 
   /**
+   * Read-only engine preview for a client: fetches the latest snapshot,
+   * runs the engine (with the same intake-derived training session the real
+   * `generate` would use), and returns the data the configure-plan wizard
+   * needs to drive its live readouts. No DB writes; cheap to call on every
+   * client-selection change.
+   */
+  estimateForClient: protectedProcedure
+    .input(z.object({ clientId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      const { data: client } = await ctx.supabase
+        .from("client")
+        .select("sex")
+        .eq("id", input.clientId)
+        .eq("partner_id", ctx.partnerId)
+        .is("deleted_at", null)
+        .single();
+      if (!client) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Cliente non trovato." });
+      }
+
+      const { data: snapshotRow } = await ctx.supabase
+        .from("client_snapshot")
+        .select("*")
+        .eq("client_id", input.clientId)
+        .order("taken_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (!snapshotRow) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "Nessuna misurazione per questo cliente — completa prima il modulo di intake.",
+        });
+      }
+
+      const clientSex = (client.sex as "male" | "female") ?? "male";
+      const snapshotRecord = snapshotRow as unknown as Record<string, unknown>;
+      const snapshot = buildEngineSnapshot(snapshotRecord, clientSex);
+      const trainingSession = buildTrainingSessionFromIntake(
+        intakeTrainingSessions(snapshotRecord),
+        snapshot.weekSchedule
+      );
+      const { generateWeeklyPlan } = await import("../../engine");
+      const weeklyPlan = generateWeeklyPlan(
+        snapshot,
+        trainingSession ? { trainingSession } : {}
+      );
+
+      const avgTdeeKcal = Math.round(
+        weeklyPlan.days.reduce((sum, d) => sum + d.tdee.totalTdeeKcal, 0) /
+          weeklyPlan.days.length
+      );
+      const leanMassKg = weeklyPlan.days[0]!.tdee.bmr.bodyComposition.leanMassKg;
+
+      // The saved goal lives inside skinfold_data._intake.goal (the intake
+      // form's blob). Pull it out so the wizard can pre-fill.
+      const skinfoldRaw = snapshotRecord.skinfold_data as Record<string, unknown> | null;
+      const intake = (skinfoldRaw?._intake as Record<string, unknown> | undefined) ?? {};
+      const savedGoal = (intake.goal as
+        | {
+            goal?: string;
+            target_weight_kg?: number;
+            target_event?: string;
+            target_event_date?: string;
+          }
+        | undefined) ?? null;
+
+      return {
+        weightKg: snapshot.weightKg,
+        leanMassKg: Math.round(leanMassKg * 10) / 10,
+        avgTdeeKcal,
+        savedGoal,
+      };
+    }),
+
+  /**
    * Retrieve a single plan by ID with full bundle for the review UI.
    */
   getById: protectedProcedure
