@@ -154,3 +154,57 @@ The `client-media` Storage bucket and its RLS policies are created idempotently.
 - 2 failing tests in `src/engine/sport-correction/__tests__/edge-cases.test.ts` use `require("../stage2-cutoff")`, which vitest can't resolve — switch to `import` (391/393 pass otherwise). Worth folding into Phase 0.
 - `client.submitIntakeForm` (a second, older intake path in `client.ts`) exists but is unused — the live form uses `client.create` + `client.createSnapshot`. Dead code; remove or reconcile.
 - `daily_targets` JSONB still overloads `macro_payload` + `plan_bundle`; the shape-drift class of bug (P0.2) will recur until this is normalized. Consider promoting `plan_bundle` to its own column during the Phase 1 migration.
+
+---
+
+## 6. Final implementation log (2026-05-15)
+
+Phases A, B, C from `CLOSEOUT-PLAN-2026-05.md` shipped on branch `fix/roberto-feedback-phase0` over 3 commits, closing Roberto's items **#2, #3, #9** and partially **#10**.
+
+### Phase A — Target-date deficit calculator (Roberto #9)
+
+- New pure-TS module `src/engine/goal-rate.ts`: `computeGoalRate({currentKg, targetKg, weeks, tdeeKcal, leanMassKg})` returns required kg/wk, % BW/wk, daily kcal deficit, aggressiveness band (`comfortable | moderate | aggressive | extreme`), kcal floor (`max(22 × leanMassKg, 1200)`), `belowFloor` flag, and `suggestedWeeks` when extreme.
+- Caps: 1.0 %/wk fat loss · 0.5 %/wk muscle gain; band bumps up one level when deficit exceeds 25 % of TDEE.
+- 17 vitest cases in `engine/__tests__/goal-rate.test.ts`.
+- Engine `PlanOptions.dailyDeficitKcal` subtracts from TDEE before macros.
+- New `plan.estimateForClient` query returns weight + lean mass + avg TDEE + saved-goal blob for prefill.
+- *Obiettivo & deficit* card on `/plans/generate`: 3-field grid (goal / target kg / target date), live 5-stat readout, band badge, suggested-weeks hint, kcal-floor warning + generate-block, manual override slider with reset link.
+
+### Phase B — Day-type structure + per-day training (Roberto #3, partially #2)
+
+- Engine: `PlanOptions.perDayTrainingSession?: (ExerciseSession | null)[]` (length 7). `generateWeeklyPlan` honours the override on training days only; non-training days zero out exercise as expected. 3 new tests.
+- New `buildTrainingSessionForDay` helper in `services/training-modality.ts` resolves a single day's intake-shape sessions (`{modality, duration_min, rpe}`) into one `met_value` ExerciseSession.
+- `plan.generate` accepts `weekScheduleOverride` (length-7 DayType) + `perDayTrainingSession` (length-7 intake-session arrays). Snapshot's `weekSchedule` is substituted per plan; intake unchanged.
+- New `plan.previewWeek({clientId, weekScheduleOverride?, perDayTrainingSession?, dailyDeficitKcal?, macroOverrides?})` — read-only engine preview returning per-day kcal/macros + weekly averages. No DB writes.
+- *Struttura del piano* card: presets (3/4/5/6 sessions/wk), 7-day calendar with per-day type selects (ON / OFF / Refeed / Deload), per-training-day modality (grouped sport taxonomy) + duration + RPE inputs, live weekly EE/intake table with average row.
+
+### Phase C — Per-day-type macro overrides (closes Roberto #2)
+
+- Engine: `MacroOptions.absoluteOverrides?: Partial<Record<DayType, {proteinG?, fatG?, carbG?}>>`. Any subset may be set; unset macros still use the g/kg formulas. 3 new tests (partial pin / full pin / cross-day-type isolation).
+- `plan.generate` + `plan.previewWeek` accept `macroOverrides` (Zod-validated: P 0–800g, F 0–400g, C 0–1500g per day-type). Empty objects stripped before reaching the engine.
+- *Macro per giorno (opzionale)* card: only renders rows for day-types present in the current schedule; engine-computed values shown as input placeholders; per-row reset link.
+
+### Final scorecard
+
+| # | Roberto's point | Pre-Phase-A | Final |
+|---|---|---|---|
+| 1 | Edit goal / routine / plicometria at plan-generation time | 80 % | 95 % |
+| 2 | View **and edit** params before generation | 55 % | 90 % |
+| 3 | Day-type structures + weekly EE table | 30 % | 85 % |
+| 4 | Food quantity rounding | 70 % | 75 % (unit-snapping deferred — needs per-ingredient unit-weight tags) |
+| 5 | Adjust portion + breakfast alternatives | 85 % | 85 % |
+| 6 | Send-flow / plan delivery | 75 % | 75 % (deploy-bound) |
+| 7 | Open plans from client profile | 95 % | 95 % |
+| 8 | Drag workout screenshots → SCP | 90 % | 90 % |
+| 9 | Target-date deficit + aggressiveness + safety floor | 10 % | 90 % |
+| 10 | Mobile/desktop visualisation + taxonomy | 75 % | 85 % |
+| 11 | Portal invite | 75 % | 75 % (deploy-bound) |
+| 12 | Supplements (more options, whey not always post-workout) | 85 % | 85 % |
+
+**Overall ~87–92 %.** Remaining limits: real-Vercel deploy verification (#6, #11), unit-snapping in the food DB (#4).
+
+### Tests & build state at completion
+
+- 446 vitest tests pass (was 403 pre-closeout).
+- `bunx tsc --noEmit` clean.
+- `bun run build` succeeds; 23 routes generated.

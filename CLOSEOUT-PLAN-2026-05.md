@@ -1,7 +1,21 @@
 # Plan to close out Roberto's feedback
 
 **Date:** 2026-05-15
-**Status:** Branch `fix/roberto-feedback-phase0` at 24 commits, overall alignment ~75% (honest scorecard in `SPEC-ANSWERS-2026-05.md` + commit `73f2b76`).
+**Status:** ✅ **Phases A, B, and C shipped on `fix/roberto-feedback-phase0`** — overall alignment now ~87–92 %. Phase D (this document update + scorecard) is the final step.
+
+## Execution log
+
+| Phase | Commit | What landed |
+|---|---|---|
+| A — Target-date deficit | `8360374` | `engine/goal-rate.ts` (17 tests) · `plan.estimateForClient` · *Obiettivo & deficit* wizard card · band badges · kcal-floor block · slider override |
+| B — Day-type structure | `267cb17` | `PlanOptions.perDayTrainingSession` + 3 engine tests · `plan.generate.weekScheduleOverride` · `plan.previewWeek` query · *Struttura del piano* card (presets, 7-day grid, per-day modality/duration/RPE, live weekly EE table) |
+| C — Macro overrides | `8657494` | `MacroOptions.absoluteOverrides` + 3 engine tests · `plan.generate.macroOverrides` (P/F/C per day-type, Zod-validated) · *Macro per giorno (opzionale)* card with formula placeholders + per-row reset |
+
+446 vitest tests green, typecheck clean, `bun run build` succeeds at every commit boundary.
+
+---
+
+## Original plan (preserved for reference)
 
 This doc plans the work to take alignment from ~75% to ~92%+. It maps the three remaining gaps (Roberto #2, #3, #9) to three short phases. Items already shipped aren't re-litigated here.
 
