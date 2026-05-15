@@ -10,6 +10,7 @@ import type {
   SlotMacroTargets,
 } from "./types";
 import { SCALE_BOUNDS } from "./types";
+import { roundGrams } from "./rounding";
 
 /**
  * Calculate the optimal scale factor to best match target macros.
@@ -54,7 +55,13 @@ export function calculateScaleFactor(
 
 /**
  * Scale ingredients by the given factor.
- * Returns new ingredient objects with adjusted grams (rounded to nearest gram).
+ *
+ * Applies practical rounding from `./rounding.ts`: ingredients ≥ 20 g snap to
+ * the nearest 5 g, smaller ingredients to the nearest 1 g. This trades a
+ * little macro precision for portions that are actually weighable in the
+ * kitchen — the per-day macro tolerance band (±100 kcal, ±10–15 g) absorbs
+ * the difference; per-meal drift past the band shows up as a "Fuori
+ * tolleranza pasto" badge on the review UI.
  */
 export function scaleIngredients(
   ingredients: MealIngredient[],
@@ -62,7 +69,7 @@ export function scaleIngredients(
 ): MealIngredient[] {
   return ingredients.map((ing) => ({
     ...ing,
-    grams: Math.round(ing.grams * factor),
+    grams: roundGrams(ing.grams * factor),
   }));
 }
 

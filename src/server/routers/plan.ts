@@ -28,6 +28,7 @@ import {
   buildTrainingSessionFromIntake,
   type IntakeTrainingSession,
 } from "../../services/training-modality";
+import { roundGrams } from "../../engine/meal-plan/rounding";
 
 // ── Email helpers (shared with inngest functions) ────────────────────────────
 
@@ -562,7 +563,7 @@ export const planRouter = router({
             m.scaleFactor != null ? Math.round(m.scaleFactor * scale * 1000) / 1000 : m.scaleFactor,
           scaledIngredients: m.scaledIngredients?.map((ing) => ({
             ...ing,
-            grams: Math.max(1, Math.round(ing.grams * scale)),
+            grams: Math.max(1, roundGrams(ing.grams * scale)),
           })),
           actualMacros: am
             ? {
