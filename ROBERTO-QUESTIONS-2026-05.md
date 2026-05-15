@@ -1,88 +1,45 @@
-# Questions for Roberto — May 2026
+# Status note for Roberto — May 2026
 
-We've made a lot of defaults to avoid pestering you. **Skim the first section — if anything looks wrong, tell us.** The "questions" section at the bottom is the short list of things we genuinely need from you.
+We've based every decision below on what the engine already does for your real clients (Marco Bellini, Niccolò, Raphael) plus Italian sport-nutrition norms. **Skim — push back on anything that looks wrong; we'll proceed otherwise.**
 
 ---
 
-## Defaults we're going with (just say if any are wrong)
+## What we've decided
 
-**Food rounding.** Solids to nearest 5 g · liquids to nearest 10 ml · integratori never round.
+**Macros (your current practice, kept).**
+Protein 2.5 g/kg massa magra training, 2.2 g/kg rest · Fat 0.9 g/kg BW training, 1.0 g/kg rest · Carbs = remainder · Salt 6.5 g training, 5 g rest.
 
-**Food unit weights** (whatever the math gives us snaps to the nearest whole unit when within ~15 %):
+**Food rounding.** Solids to nearest 5 g, liquids to nearest 10 ml. Integratori never round.
 
-| | grams |
-|---|---|
-| 1 uovo intero medio | 50 g |
-| 1 albume | 33 g |
-| 1 fetta biscottata | 8 g |
-| 1 fetta di pane | 30 g |
-| 1 vasetto yogurt greco | 150 g |
-| 1 scatoletta tonno (sgocciolato) | 80 g |
-| 1 mela media | 150 g |
-| 1 banana media | 120 g |
-| 1 cucchiaio olio EVO | 10 g |
-| 1 cucchiaino zucchero/miele | 5 g |
-| 1 misurino proteine in polvere | 30 g |
+**Whole-unit food weights** (used when the math is close to one whole unit):
+1 uovo 50 g · 1 albume 33 g · 1 fetta biscottata 8 g · 1 fetta pane integrale 30 g · 1 vasetto yogurt greco 150 g · 1 scatoletta tonno sgocciolato 80 g · 1 mela 150 g · 1 banana 120 g · 1 cucchiaio olio EVO 10 g · 1 cucchiaino zucchero/miele 5 g · 1 misurino proteine 30 g.
 
-**Day-type structures** (ready to pick when generating a plan): Media settimanale · ON/OFF (Allenamento/Riposo) · OFF / Pesi / Sport / Doppia · ON/OFF + Refeed. Anything else stays buildable via "Custom".
+**Plan structures.** ON/OFF (Allenamento/Riposo, your current default) and Media settimanale ready to pick. Refeed/deload not shipped — your fidelity tests don't use them. We'll add them when you ask.
 
-**Plans per client.** One active at a time; older plans archived.
+**One active plan per client** at a time; older plans archived.
 
-**Deficit / surplus calculator.**
-Fat loss: cap at 1.0 % bodyweight/week. Warn above 0.75 %.
-Muscle gain: cap at 0.5 % bodyweight/week.
-Minimum calories: Energy Availability ≥ 20 kcal/kg lean mass (spec-aligned).
-If the client's timeline is impossible at the cap, we set the most aggressive plan and warn — we don't block.
+**Deficit / surplus calculator.** Fat loss cap 1.0 % bodyweight/week; muscle gain cap 0.5 %. Minimum calories = Energy Availability ≥ 20 kcal/kg massa magra. If the client's target date implies a deficit above the cap, the app warns and suggests a longer timeline — it doesn't block.
 
-**Refeed.** Auto-suggested after 14 days continuous deficit > 15 % of TDEE; refeed day = baseline training day + 20 % kcal, all in carbs.
-**Deload.** Optional — suggested every 6 training weeks; same kcal, training day-type with reduced exercise expenditure.
+**Approve flow.** Approving a plan does **not** auto-send. "Condividi con Cliente" stays a separate button — keeps you in control.
 
-**Approving a plan.** Approve sets it active. It does **not** auto-send — you click "Condividi" when ready. (Avoids accidental sends.)
+**Tone.** Tu with clients in both app and PDF.
 
-**Portal invite.** Manual via "Invita al portale" button. The email says (current draft):
+**Check-ins.** Fat loss every 7 days · muscle gain every 14 · maintenance every 28. Form: peso, energia 1–10, sonno 1–10, fame 1–10, aderenza dieta %, aderenza allenamento %, note. Alert when weight changes more than 1 % bodyweight vs last check-in.
 
-> *Ciao [nome], ti ho preparato il tuo piano nutrizionale personalizzato. Lo trovi nel portale, dove puoi consultarlo, scaricare il PDF e inviarmi i check-in settimanali. Accedi qui: [link]. A presto, Roberto.*
+**Supplements added to the library:** Curcumina · Vitamine gruppo B · Iodio + Selenio · MSM · Mio-inositolo · Spirulina · Glicina · Tirosina · Coenzima Q10. Interactions auto-flagged: Ferro+Calcio · Caffeina+Magnesio · Omega-3 > 3 g/die · Vit D senza K2.
 
-**Tone.** Tu (informal) with clients in app and PDF.
-
-**Branding.** Navy `#1a1a2e` + yellow accent (current). Footer text (current draft):
-
+**Branding.** Navy + yellow accent (current). Footer text (draft):
 > *Roberto Scrigna — Nutrizionista Sportivo · P.IVA [da inserire] · Iscritto all'albo [da inserire] · Questo piano è un supporto nutrizionale e non sostituisce il consulto medico. Trattamento dati conforme al GDPR.*
 
-**Check-in defaults.** Fat loss every 7 days · muscle gain every 14 · maintenance every 28. Form asks: peso, energia 1–10, sonno 1–10, fame 1–10, aderenza dieta %, aderenza allenamento %, note. Alert when weight changes more than 1 % of bodyweight vs last check-in.
-
-**Supplements we'll add to the library** (on top of what's already there): Curcumina (recovery / anti-infiammatorio) · Vitamine gruppo B (energia / stress) · Iodio + Selenio (tiroide) · MSM (articolare) · Mio-inositolo (donne / sindrome dell'ovaio policistico) · Spirulina (antiossidante / micronutrienti) · Glicina (sonno) · Tirosina (concentrazione / mood) · Coenzima Q10 (cardio / atleti master).
-
-Auto-flagged interaction warnings: Ferro+Calcio (timing) · Caffeina+Magnesio (timing) · Omega-3 > 3 g/die (effetto anticoagulante) · Vit D senza K2.
-
-**OCR.** We'll wire support first for Strong, Hevy, Apple Fitness, Garmin Connect, Polar Flow, and Apple Watch summary screens. Extracts exercise list (name · serie × ripetizioni × carico · RPE), session totals (durata, FC media/max, minuti per zona FC quando presenti, kcal). When HR-zone data is present and the modality is SCP-eligible, we feed it to the Sport Correction Protocol automatically.
+**Portal-invite email** (draft):
+> *Ciao [nome], ti ho preparato il tuo piano nutrizionale personalizzato. Lo trovi nel portale dove puoi consultarlo, scaricare il PDF e inviarmi i check-in settimanali. Accedi qui: [link]. A presto, Roberto.*
 
 ---
 
-## Things we actually need from you
+## What we still need from you
 
-**1. Three places the engine doesn't match the v4.4 spec — pick which one is right (or say "keep engine as-is"):**
+1. **Logo** (PNG or SVG, transparent background ideal).
+2. **P.IVA + albo info** to drop into the footer.
+3. **A few workout-app screenshots from your clients** — Strong, Hevy, Apple Fitness, Garmin, Polar, Whoop, Apple Watch, whichever you actually see. Only needed when you want the OCR feature live; not urgent.
 
-a) Training-day fat. Spec says 1.0 g/kg bodyweight. Engine uses 0.9 g/kg on training, 1.0 on rest — so training has *less* fat than rest. Bug or your clinical practice?
-
-b) Rest-day protein. Spec says 2.5 g/kg lean mass constant. Engine drops to 2.2 g/kg on rest days. Bug or your practice?
-
-c) Salt. Spec says 1.5 g per litre of water. Engine uses 5 g base + 1.5 g training bonus (~25 % higher). Bug or your practice?
-
-**2. Your refeed / deload protocols.** The defaults above are textbook. Tell us if you do something specific (e.g. "refeed = +500 kcal, carbs only, every 10 days").
-
-**3. Logo and the real values for the footer:**
-- Logo file (PNG or SVG, transparent background ideal)
-- Your P.IVA / codice fiscale
-- Albo di iscrizione (name + number)
-- Anything else you want in the PDF footer or email signature
-
-**4. Workout-app screenshots.** Send 2–3 sample screenshots per app you actually see from clients (Strong, Hevy, Garmin, Polar, Whoop, Apple Watch — whichever ones are real for you). We'll tune the OCR to read them.
-
-**5. Any of the defaults wrong?** Anywhere in the section above where you'd do it differently — just say which item and what you'd change. One line per item is fine.
-
-**6. One open-ended question:** what's the single most common manual override you do on a generated plan? (Tells us where the engine is consistently a bit off, so we can fix it at the source.)
-
----
-
-That's it. Reply in any format — prose, voice note, paste this back with edits inline.
+If anything above is wrong, just say which line and what to change. Otherwise we proceed.
