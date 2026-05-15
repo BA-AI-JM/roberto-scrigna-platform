@@ -85,7 +85,15 @@ interface GeneratePlanFormState {
    * — fall back to the global average").
    */
   perDaySessions: (DaySession[] | null)[];
+  /**
+   * Per-day-type absolute macro overrides (grams). Empty strings mean
+   * "leave blank → use formula". The render layer converts to numbers
+   * before sending.
+   */
+  macroOverrides: Record<DayType, { proteinG: string; fatG: string; carbG: string }>;
 }
+
+const EMPTY_MACRO_ROW = { proteinG: "", fatG: "", carbG: "" } as const;
 
 const GOAL_LABELS: Record<Exclude<GeneratePlanFormState["goalType"], "">, string> = {
   fat_loss: "Dimagrimento",
@@ -177,6 +185,12 @@ export default function GeneratePlanPage() {
     deficitOverride: null,
     weekSchedule: null,
     perDaySessions: [null, null, null, null, null, null, null],
+    macroOverrides: {
+      training: { ...EMPTY_MACRO_ROW },
+      rest: { ...EMPTY_MACRO_ROW },
+      refeed: { ...EMPTY_MACRO_ROW },
+      deload: { ...EMPTY_MACRO_ROW },
+    },
   });
   const [error, setError] = useState<string | null>(null);
 
@@ -270,6 +284,29 @@ export default function GeneratePlanPage() {
   const belowFloor =
     targetDailyKcal != null && goalRate != null && targetDailyKcal < goalRate.kcalFloor;
 
+  // Build the macroOverrides payload (or undefined if all fields blank).
+  // Empty strings parse to NaN → dropped; only finite numbers reach the server.
+  const macroOverridesPayload = useMemo(() => {
+    const dayTypes: DayType[] = ["training", "rest", "refeed", "deload"];
+    let any = false;
+    const out: Record<string, { proteinG?: number; fatG?: number; carbG?: number }> = {};
+    for (const dt of dayTypes) {
+      const row = form.macroOverrides[dt];
+      const p = Number(row.proteinG);
+      const f = Number(row.fatG);
+      const c = Number(row.carbG);
+      const entry: { proteinG?: number; fatG?: number; carbG?: number } = {};
+      if (Number.isFinite(p) && row.proteinG !== "") entry.proteinG = p;
+      if (Number.isFinite(f) && row.fatG !== "") entry.fatG = f;
+      if (Number.isFinite(c) && row.carbG !== "") entry.carbG = c;
+      if (Object.keys(entry).length > 0) {
+        out[dt] = entry;
+        any = true;
+      }
+    }
+    return any ? (out as { training?: typeof out.training; rest?: typeof out.rest; refeed?: typeof out.refeed; deload?: typeof out.deload }) : undefined;
+  }, [form.macroOverrides]);
+
   // Live week preview. Only fires when we have a schedule to send (i.e.
   // after the prefill from estimateForClient has run). Refetches whenever
   // schedule / per-day sessions / deficit change.
@@ -289,6 +326,7 @@ export default function GeneratePlanPage() {
         ...(effectiveDeficitKcal != null && effectiveDeficitKcal !== 0
           ? { dailyDeficitKcal: Math.round(effectiveDeficitKcal) }
           : {}),
+        ...(macroOverridesPayload ? { macroOverrides: macroOverridesPayload } : {}),
       },
       { enabled: previewEnabled, staleTime: 30_000 }
     );
@@ -398,8 +436,9 @@ export default function GeneratePlanPage() {
             perDayTrainingSession: form.perDaySessions.map((d) => d ?? null),
           }
         : {}),
+      ...(macroOverridesPayload ? { macroOverrides: macroOverridesPayload } : {}),
     });
-  }, [form, generateMutation, belowFloor, effectiveDeficitKcal]);
+  }, [form, generateMutation, belowFloor, effectiveDeficitKcal, macroOverridesPayload]);
 
   const isGenerating = generateMutation.isPending;
 
@@ -716,6 +755,36 @@ export default function GeneratePlanPage() {
           weekPreviewFetching={weekPreviewFetching}
           onPreset={applyPreset}
           onUpdateDay={updateDay}
+          sectionStyle={sectionStyle}
+          labelStyle={labelStyle}
+          inputStyle={inputStyle}
+        />
+      )}
+
+      {/* Macro overrides (Phase C) */}
+      {form.clientId && form.weekSchedule && (
+        <MacroOverridesCard
+          weekSchedule={form.weekSchedule}
+          macroOverrides={form.macroOverrides}
+          weekPreview={weekPreview}
+          onChange={(dt, field, value) =>
+            setForm((prev) => ({
+              ...prev,
+              macroOverrides: {
+                ...prev.macroOverrides,
+                [dt]: { ...prev.macroOverrides[dt], [field]: value },
+              },
+            }))
+          }
+          onClear={(dt) =>
+            setForm((prev) => ({
+              ...prev,
+              macroOverrides: {
+                ...prev.macroOverrides,
+                [dt]: { ...EMPTY_MACRO_ROW },
+              },
+            }))
+          }
           sectionStyle={sectionStyle}
           labelStyle={labelStyle}
           inputStyle={inputStyle}
@@ -1205,6 +1274,148 @@ function WeekStructureCard({
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+// ── Macro overrides card ─────────────────────────────────────────────────────
+
+interface MacroOverridesCardProps {
+  weekSchedule: DayType[];
+  macroOverrides: Record<DayType, { proteinG: string; fatG: string; carbG: string }>;
+  weekPreview: WeekPreviewData | undefined;
+  onChange: (dt: DayType, field: "proteinG" | "fatG" | "carbG", value: string) => void;
+  onClear: (dt: DayType) => void;
+  sectionStyle: React.CSSProperties;
+  labelStyle: React.CSSProperties;
+  inputStyle: React.CSSProperties;
+}
+
+function MacroOverridesCard({
+  weekSchedule,
+  macroOverrides,
+  weekPreview,
+  onChange,
+  onClear,
+  sectionStyle,
+  labelStyle,
+  inputStyle,
+}: MacroOverridesCardProps) {
+  // Only show rows for day-types actually present in the schedule
+  const presentDayTypes = useMemo(() => {
+    const seen = new Set<DayType>();
+    for (const dt of weekSchedule) seen.add(dt);
+    return (["training", "rest", "refeed", "deload"] as DayType[]).filter((dt) => seen.has(dt));
+  }, [weekSchedule]);
+
+  // Help the coach by showing what the engine would compute when the field is blank
+  const formulaPreview = useMemo(() => {
+    const out: Partial<Record<DayType, { proteinG: number; fatG: number; carbG: number }>> = {};
+    if (!weekPreview) return out;
+    for (const day of weekPreview.days) {
+      if (!out[day.dayType]) {
+        out[day.dayType] = { proteinG: day.proteinG, fatG: day.fatG, carbG: day.carbG };
+      }
+    }
+    return out;
+  }, [weekPreview]);
+
+  return (
+    <div style={sectionStyle}>
+      <h2 style={{ fontSize: "15px", fontWeight: 600, marginBottom: "4px", marginTop: 0, color: "#18181b" }}>
+        Macro per giorno (opzionale)
+      </h2>
+      <p style={{ fontSize: "12px", color: "#71717a", marginTop: 0, marginBottom: "14px" }}>
+        Lascia vuoto per usare la formula automatica (2.5/2.2 g P/kg massa magra, 0.9–1.0 g F/kg peso).
+        Imposta un valore in grammi per fissare quel macronutriente su quel tipo di giorno.
+      </p>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+        {presentDayTypes.map((dt) => {
+          const row = macroOverrides[dt];
+          const formula = formulaPreview[dt];
+          const dirty = row.proteinG !== "" || row.fatG !== "" || row.carbG !== "";
+          return (
+            <div
+              key={dt}
+              style={{
+                display: "grid",
+                gridTemplateColumns: "100px 1fr 1fr 1fr 60px",
+                gap: "8px",
+                alignItems: "center",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: "12px",
+                  fontWeight: 600,
+                  color: DAY_TYPE_COLORS[dt].text,
+                  padding: "4px 8px",
+                  borderRadius: "6px",
+                  background: DAY_TYPE_COLORS[dt].bg,
+                  border: `1px solid ${DAY_TYPE_COLORS[dt].border}`,
+                  textAlign: "center",
+                }}
+              >
+                {DAY_TYPE_LABELS[dt]}
+              </div>
+              {(["proteinG", "fatG", "carbG"] as const).map((field) => (
+                <div key={field}>
+                  <label
+                    style={{
+                      fontSize: "10px",
+                      color: "#71717a",
+                      display: "block",
+                      marginBottom: "2px",
+                    }}
+                  >
+                    {field === "proteinG" ? "P (g)" : field === "fatG" ? "F (g)" : "C (g)"}
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={row[field]}
+                    onChange={(e) => onChange(dt, field, e.target.value)}
+                    placeholder={
+                      formula
+                        ? String(
+                            field === "proteinG"
+                              ? formula.proteinG
+                              : field === "fatG"
+                              ? formula.fatG
+                              : formula.carbG
+                          )
+                        : "—"
+                    }
+                    style={{ ...inputStyle, padding: "6px 8px", fontSize: "12px" }}
+                  />
+                </div>
+              ))}
+              {dirty ? (
+                <button
+                  type="button"
+                  onClick={() => onClear(dt)}
+                  style={{
+                    fontSize: "11px",
+                    color: "#2563eb",
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    padding: 0,
+                  }}
+                >
+                  reset
+                </button>
+              ) : (
+                <div />
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Hidden labelStyle reference to satisfy linter when unused */}
+      <span style={{ ...labelStyle, display: "none" }} />
     </div>
   );
 }

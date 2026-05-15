@@ -143,6 +143,43 @@ const generatePlanSchema = z.object({
     )
     .length(7)
     .optional(),
+  /**
+   * Per-day-type absolute macro overrides (grams). When set, the engine
+   * pins those macros instead of using the g/kg formulas. Any subset of
+   * P/F/C may be set per day-type; unset macros still use the formula.
+   */
+  macroOverrides: z
+    .object({
+      training: z
+        .object({
+          proteinG: z.number().min(0).max(800).optional(),
+          fatG: z.number().min(0).max(400).optional(),
+          carbG: z.number().min(0).max(1500).optional(),
+        })
+        .optional(),
+      rest: z
+        .object({
+          proteinG: z.number().min(0).max(800).optional(),
+          fatG: z.number().min(0).max(400).optional(),
+          carbG: z.number().min(0).max(1500).optional(),
+        })
+        .optional(),
+      refeed: z
+        .object({
+          proteinG: z.number().min(0).max(800).optional(),
+          fatG: z.number().min(0).max(400).optional(),
+          carbG: z.number().min(0).max(1500).optional(),
+        })
+        .optional(),
+      deload: z
+        .object({
+          proteinG: z.number().min(0).max(800).optional(),
+          fatG: z.number().min(0).max(400).optional(),
+          carbG: z.number().min(0).max(1500).optional(),
+        })
+        .optional(),
+    })
+    .optional(),
 });
 
 const previewWeekSchema = z.object({
@@ -166,6 +203,38 @@ const previewWeekSchema = z.object({
     .length(7)
     .optional(),
   dailyDeficitKcal: z.number().min(-1500).max(1500).optional(),
+  macroOverrides: z
+    .object({
+      training: z
+        .object({
+          proteinG: z.number().min(0).max(800).optional(),
+          fatG: z.number().min(0).max(400).optional(),
+          carbG: z.number().min(0).max(1500).optional(),
+        })
+        .optional(),
+      rest: z
+        .object({
+          proteinG: z.number().min(0).max(800).optional(),
+          fatG: z.number().min(0).max(400).optional(),
+          carbG: z.number().min(0).max(1500).optional(),
+        })
+        .optional(),
+      refeed: z
+        .object({
+          proteinG: z.number().min(0).max(800).optional(),
+          fatG: z.number().min(0).max(400).optional(),
+          carbG: z.number().min(0).max(1500).optional(),
+        })
+        .optional(),
+      deload: z
+        .object({
+          proteinG: z.number().min(0).max(800).optional(),
+          fatG: z.number().min(0).max(400).optional(),
+          carbG: z.number().min(0).max(1500).optional(),
+        })
+        .optional(),
+    })
+    .optional(),
 });
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -359,6 +428,23 @@ export const planRouter = router({
       if (perDayTrainingSession && perDayTrainingSession.some((s) => s != null)) {
         engineOptions.perDayTrainingSession = perDayTrainingSession;
       }
+      if (input.macroOverrides) {
+        // Strip out empty objects so the engine sees only meaningful overrides
+        const cleaned: NonNullable<typeof input.macroOverrides> = {};
+        for (const [dt, override] of Object.entries(input.macroOverrides) as Array<
+          [DayType, { proteinG?: number; fatG?: number; carbG?: number } | undefined]
+        >) {
+          if (
+            override &&
+            (override.proteinG != null || override.fatG != null || override.carbG != null)
+          ) {
+            cleaned[dt] = override;
+          }
+        }
+        if (Object.keys(cleaned).length > 0) {
+          engineOptions.macroOptions = { absoluteOverrides: cleaned };
+        }
+      }
       const genInput: PlanGenerationInput = {
         clientInfo,
         snapshot,
@@ -400,6 +486,9 @@ export const planRouter = router({
           : {}),
         ...(input.perDayTrainingSession
           ? { perDayTrainingSessionRaw: input.perDayTrainingSession }
+          : {}),
+        ...(input.macroOverrides
+          ? { macroOverrides: input.macroOverrides }
           : {}),
       };
 
@@ -575,6 +664,22 @@ export const planRouter = router({
           buildTrainingSessionForDay(daySessions ?? null)
         ) ?? undefined;
 
+      const cleanedMacroOverrides = (() => {
+        if (!input.macroOverrides) return undefined;
+        const cleaned: NonNullable<typeof input.macroOverrides> = {};
+        for (const [dt, override] of Object.entries(input.macroOverrides) as Array<
+          [DayType, { proteinG?: number; fatG?: number; carbG?: number } | undefined]
+        >) {
+          if (
+            override &&
+            (override.proteinG != null || override.fatG != null || override.carbG != null)
+          ) {
+            cleaned[dt] = override;
+          }
+        }
+        return Object.keys(cleaned).length > 0 ? cleaned : undefined;
+      })();
+
       const { generateWeeklyPlan } = await import("../../engine");
       const weekly = generateWeeklyPlan(snapshot, {
         ...(fallbackTraining ? { trainingSession: fallbackTraining } : {}),
@@ -583,6 +688,9 @@ export const planRouter = router({
           : {}),
         ...(input.dailyDeficitKcal != null && input.dailyDeficitKcal !== 0
           ? { dailyDeficitKcal: input.dailyDeficitKcal }
+          : {}),
+        ...(cleanedMacroOverrides
+          ? { macroOptions: { absoluteOverrides: cleanedMacroOverrides } }
           : {}),
       });
 

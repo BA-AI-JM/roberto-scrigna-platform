@@ -353,6 +353,45 @@ describe("Macros", () => {
     expect(macros.proteinG).toBeCloseTo(181, 0); // 2.5 * 72.25
     expect(macros.fatG).toBe(68); // 0.8 * 85
   });
+
+  test("absolute gram override pins protein; fat formula; carbs fills", () => {
+    const bodyFat = estimateBodyFat(clientWithOverride);
+    const macros = calculateMacros(2500, bodyFat.bodyComposition, 85, "training", {
+      absoluteOverrides: { training: { proteinG: 220 } },
+    });
+    expect(macros.proteinG).toBe(220);
+    // Fat formula = 0.9 * 85 = 76.5 → 77
+    expect(macros.fatG).toBe(77);
+    // Carbs absorb the remainder
+    const totalFromMacros =
+      macros.proteinG * 4 + macros.fatG * 9 + macros.carbG * 4;
+    expect(Math.abs(totalFromMacros - 2500)).toBeLessThan(15);
+  });
+
+  test("full absolute override pins all three macros", () => {
+    const bodyFat = estimateBodyFat(clientWithOverride);
+    const macros = calculateMacros(2500, bodyFat.bodyComposition, 85, "training", {
+      absoluteOverrides: { training: { proteinG: 200, fatG: 80, carbG: 350 } },
+    });
+    expect(macros.proteinG).toBe(200);
+    expect(macros.fatG).toBe(80);
+    expect(macros.carbG).toBe(350);
+    // totalKcal is recomputed from the explicit grams, not the input TDEE
+    expect(macros.totalKcal).toBe(200 * 4 + 80 * 9 + 350 * 4);
+  });
+
+  test("absolute override scoped to one day-type doesn't leak", () => {
+    const bodyFat = estimateBodyFat(clientWithOverride);
+    const trainingMacros = calculateMacros(2500, bodyFat.bodyComposition, 85, "training", {
+      absoluteOverrides: { training: { proteinG: 250 } },
+    });
+    const restMacros = calculateMacros(2200, bodyFat.bodyComposition, 85, "rest", {
+      absoluteOverrides: { training: { proteinG: 250 } },
+    });
+    expect(trainingMacros.proteinG).toBe(250);
+    // Rest day should fall back to its own formula
+    expect(restMacros.proteinG).not.toBe(250);
+  });
 });
 
 // ── Hydration Tests ───────────────────────────────────────────────────────────
