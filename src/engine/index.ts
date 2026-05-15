@@ -70,6 +70,14 @@ import { calculateHydration } from "./hydration";
 
 export interface PlanOptions extends TdeeOptions {
   macroOptions?: MacroOptions;
+  /**
+   * Daily kcal deficit (positive) or surplus (negative) to apply to each
+   * day's TDEE before macros are calculated. When set, the macro engine
+   * targets `tdee.totalTdeeKcal − dailyDeficitKcal` per day; the weekly
+   * average naturally shifts too. Comes from the target-date deficit
+   * calculator (engine/goal-rate.ts) or a direct practitioner override.
+   */
+  dailyDeficitKcal?: number;
 }
 
 /**
@@ -81,8 +89,9 @@ export function generateDailyPlan(
   options: PlanOptions = {}
 ): DailyPlan {
   const tdee = calculateTdee(snapshot, dayType, options);
+  const targetKcal = tdee.totalTdeeKcal - (options.dailyDeficitKcal ?? 0);
   const macros = calculateMacros(
-    tdee.totalTdeeKcal,
+    targetKcal,
     tdee.bmr.bodyComposition,
     snapshot.weightKg,
     dayType,

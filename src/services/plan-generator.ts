@@ -187,6 +187,20 @@ function collectAssumptions(input: PlanGenerationInput): string[] {
     );
   }
 
+  // Deficit / surplus override from the goal-rate calculator
+  const deficit = input.engineOptions?.dailyDeficitKcal;
+  if (deficit != null && deficit !== 0) {
+    if (deficit > 0) {
+      assumptions.push(
+        `L'apporto pianificato è impostato con un deficit di ${Math.round(deficit)} kcal/giorno rispetto al TDEE — derivato dall'obiettivo di peso e dalla data target.`
+      );
+    } else {
+      assumptions.push(
+        `L'apporto pianificato è impostato con un surplus di ${Math.abs(Math.round(deficit))} kcal/giorno rispetto al TDEE — derivato dall'obiettivo di peso e dalla data target.`
+      );
+    }
+  }
+
   return assumptions;
 }
 

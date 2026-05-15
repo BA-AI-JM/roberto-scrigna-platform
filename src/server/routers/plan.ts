@@ -91,6 +91,26 @@ const generatePlanSchema = z.object({
   preferTags: z.array(z.string()).optional(),
   maintenanceKcalEstimate: z.number().positive().optional(),
   notes: z.string().max(2000).optional(),
+  /**
+   * Optional override for this plan only: goal + target weight + target
+   * date. Stored on macro_payload.goalOverride for the review UI; doesn't
+   * mutate the underlying client snapshot.
+   */
+  goalOverride: z
+    .object({
+      goal: z.enum(["fat_loss", "muscle_gain", "maintenance", "performance"]).optional(),
+      targetWeightKg: z.number().positive().max(400).optional(),
+      targetEventDate: z.string().optional(),
+    })
+    .optional(),
+  /**
+   * Daily kcal deficit (positive) or surplus (negative). When set, the
+   * engine applies this to every day's TDEE before computing macros, so
+   * the weekly average intake shifts to (avg TDEE − deficit). Client UI
+   * computes this from goalOverride + the latest snapshot via the
+   * goal-rate engine module. Bounded ±1500 kcal/day defensively.
+   */
+  dailyDeficitKcal: z.number().min(-1500).max(1500).optional(),
 });
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -254,7 +274,16 @@ export const planRouter = router({
         planDate,
       };
 
-      // 5. Build generation input
+      // 5. Build generation input. Engine options accumulate two optional
+      //    overrides: the training session derived from the intake schedule
+      //    (so training-day exercise EE isn't the flat 300 kcal default),
+      //    and a daily deficit/surplus from the goal-rate calculator that
+      //    shifts the per-day macro target away from pure-TDEE-as-intake.
+      const engineOptions: PlanGenerationInput["engineOptions"] = {};
+      if (trainingSession) engineOptions.trainingSession = trainingSession;
+      if (input.dailyDeficitKcal != null && input.dailyDeficitKcal !== 0) {
+        engineOptions.dailyDeficitKcal = input.dailyDeficitKcal;
+      }
       const genInput: PlanGenerationInput = {
         clientInfo,
         snapshot,
@@ -262,7 +291,7 @@ export const planRouter = router({
         excludeAllergens: input.excludeAllergens as PlanGenerationInput["excludeAllergens"],
         preferTags: input.preferTags as PlanGenerationInput["preferTags"],
         maintenanceKcalEstimate: input.maintenanceKcalEstimate,
-        ...(trainingSession ? { engineOptions: { trainingSession } } : {}),
+        ...(Object.keys(engineOptions).length > 0 ? { engineOptions } : {}),
       };
 
       // 6. Run the pipeline (pure, synchronous)
@@ -287,6 +316,10 @@ export const planRouter = router({
         weeklyAverageProteinG: result.weeklyPlan.weeklyAverageProteinG,
         dayTypes: uniqueDayTypes,
         energyBalance: result.energyBalance,
+        ...(input.dailyDeficitKcal != null
+          ? { dailyDeficitKcal: input.dailyDeficitKcal }
+          : {}),
+        ...(input.goalOverride ? { goalOverride: input.goalOverride } : {}),
       };
 
       // 8. Persist plan to DB
