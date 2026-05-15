@@ -15,6 +15,8 @@ import { router, protectedProcedure } from "../trpc";
 import { TRPCError } from "@trpc/server";
 import { getAnthropic } from "../../lib/anthropic/client";
 import { createSupabaseServiceRole } from "../../lib/supabase/service";
+import { runSCP } from "../../engine/sport-correction/index";
+import { findSportEntry } from "../../engine/sport-taxonomy";
 
 // ── Schemas ──────────────────────────────────────────────────────────────────
 
@@ -336,6 +338,8 @@ export const trainingLogRouter = router({
       let extractedDuration: number | null = null;
       let extractedAvgHr: number | null = null;
       let extractedKcal: number | null = null;
+      let scpKcal: number | null = null;
+      let scpMethod: string | null = null;
 
       if (input.screenshotUrls?.length && !input.exercises?.length) {
         const httpsUrl = await resolveScreenshotUrl(input.screenshotUrls[0]!);
@@ -347,6 +351,66 @@ export const trainingLogRouter = router({
           extractedDuration = result.sessionData.durationMin ?? null;
           extractedAvgHr = result.sessionData.avgHeartRate ?? null;
           extractedKcal = result.sessionData.kcalEstimated ?? null;
+
+          // SCP path: if OCR returned HR-zone minutes AND a modality we can
+          // resolve to an SCP sport entry, derive a sport-corrected exercise
+          // EE. Falls back silently to the OCR kcal_estimated on any error.
+          if (result.sessionData.hrZoneMinutes && result.sessionData.sessionTypeGuess) {
+            const entry = findSportEntry(result.sessionData.sessionTypeGuess);
+            if (entry) {
+              try {
+                const { data: snap } = await ctx.supabase
+                  .from("client_snapshot")
+                  .select("weight_kg, age_years")
+                  .eq("client_id", input.clientId)
+                  .order("taken_at", { ascending: false })
+                  .limit(1)
+                  .maybeSingle();
+                const { data: clientRow } = await ctx.supabase
+                  .from("client")
+                  .select("sex")
+                  .eq("id", input.clientId)
+                  .single();
+
+                const weightKg = Number(snap?.weight_kg);
+                const ageYears = Number(snap?.age_years);
+                const sex = clientRow?.sex as "male" | "female" | undefined;
+                if (
+                  Number.isFinite(weightKg) && weightKg > 0 &&
+                  Number.isFinite(ageYears) && ageYears > 0 &&
+                  (sex === "male" || sex === "female")
+                ) {
+                  const z = result.sessionData.hrZoneMinutes;
+                  const zoneTotal = z.z1 + z.z2 + z.z3 + z.z4 + z.z5;
+                  const durationMin = extractedDuration ?? zoneTotal;
+                  if (durationMin > 0 && zoneTotal > 0) {
+                    const scp = runSCP({
+                      hrZoneData: {
+                        // SCP expects [belowZ1, Z1, Z2, Z3, Z4, Z5]
+                        minutesPerZone: [0, z.z1, z.z2, z.z3, z.z4, z.z5],
+                        avgHeartRate: extractedAvgHr ?? 0,
+                        totalRecordedMin: durationMin,
+                      },
+                      categoryId: entry.categoryId,
+                      sessionType: entry.sessionType,
+                      durationMin,
+                      weightKg,
+                      ageYears,
+                      sex,
+                      ...(extractedKcal != null ? { deviceKcal: extractedKcal } : {}),
+                      ...(extractedAvgHr != null ? { avgHeartRate: extractedAvgHr } : {}),
+                    });
+                    if (scp) {
+                      scpKcal = scp.exerciseKcal;
+                      scpMethod = "sport_correction_protocol";
+                    }
+                  }
+                }
+              } catch (err) {
+                console.error("[trainingLog.create] SCP failed:", err);
+              }
+            }
+          }
         }
       }
 
@@ -360,6 +424,8 @@ export const trainingLogRouter = router({
           duration_min: input.durationMinutes ?? extractedDuration,
           avg_heart_rate: extractedAvgHr,
           kcal_estimated: extractedKcal,
+          kcal_calculated: scpKcal,
+          exercise_method: scpMethod,
           exercises: JSON.stringify(exercises),
           screenshot_urls: input.screenshotUrls ?? [],
           ocr_extracted: input.ocrExtracted || ocrData !== null,
@@ -378,7 +444,12 @@ export const trainingLogRouter = router({
         });
       }
 
-      return { id: data.id, ocrProcessed: ocrData !== null };
+      return {
+        id: data.id,
+        ocrProcessed: ocrData !== null,
+        scpApplied: scpKcal != null,
+        scpKcal,
+      };
     }),
 
   /**
