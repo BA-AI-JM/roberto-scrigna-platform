@@ -9,6 +9,7 @@
     "db:migrate": "bun run supabase/migrate.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.96.0",
     "@radix-ui/react-slot": "^1.2.4",
     "@radix-ui/react-tabs": "^1.1.13",
     "@sparticuz/chromium": "^147.0.2",

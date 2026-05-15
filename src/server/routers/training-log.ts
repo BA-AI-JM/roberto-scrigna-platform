@@ -13,6 +13,8 @@
 import { z } from "zod/v4";
 import { router, protectedProcedure } from "../trpc";
 import { TRPCError } from "@trpc/server";
+import { getAnthropic } from "../../lib/anthropic/client";
+import { createSupabaseServiceRole } from "../../lib/supabase/service";
 
 // ── Schemas ──────────────────────────────────────────────────────────────────
 
@@ -56,31 +58,255 @@ const updateTrainingLogSchema = createTrainingLogSchema.partial().extend({
   id: z.string().uuid(),
 });
 
-// ── OCR Processing Stub ─────────────────────────────────────────────────────
+// ── OCR via Claude Vision ───────────────────────────────────────────────────
 
 /**
- * Extract exercise data from a training screenshot.
- * This is a stub that returns a structured placeholder.
- * In production, this calls Claude Vision API.
+ * JSON Schema for structured extraction. Kept generic enough to work across
+ * the fitness apps Roberto's clients use (Strong, Hevy, Apple Fitness, Garmin
+ * Connect, Polar Flow, Whoop, Apple Watch summary, etc.) — Claude generalizes
+ * across app layouts so we don't have to tune per-app prompts.
+ *
+ * All scalar fields are nullable so the model can return null when the
+ * screenshot doesn't show a value (rather than fabricating).
  */
-function extractExercisesFromScreenshot(_imageUrl: string): {
+const OCR_JSON_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: [
+    "app_detected",
+    "session_type_guess",
+    "duration_min",
+    "avg_heart_rate",
+    "max_heart_rate",
+    "kcal",
+    "hr_zone_minutes",
+    "exercises",
+    "confidence",
+    "notes",
+  ],
+  properties: {
+    app_detected: {
+      type: ["string", "null"],
+      description:
+        "Which fitness app the screenshot is from (e.g. 'Strong', 'Hevy', 'Garmin Connect', 'Apple Fitness', 'Polar Flow', 'Whoop', 'Apple Watch'). Null if not recognisable.",
+    },
+    session_type_guess: {
+      type: ["string", "null"],
+      description:
+        "Italian-canonical session modality if it can be inferred (e.g. 'Pesi — Ipertrofia', 'Corsa — Costante', 'BJJ — Classe', 'CrossFit / WOD'). Null otherwise.",
+    },
+    duration_min: { type: ["integer", "null"] },
+    avg_heart_rate: { type: ["integer", "null"] },
+    max_heart_rate: { type: ["integer", "null"] },
+    kcal: { type: ["integer", "null"] },
+    hr_zone_minutes: {
+      type: ["object", "null"],
+      additionalProperties: false,
+      required: ["z1", "z2", "z3", "z4", "z5"],
+      properties: {
+        z1: { type: "integer" },
+        z2: { type: "integer" },
+        z3: { type: "integer" },
+        z4: { type: "integer" },
+        z5: { type: "integer" },
+      },
+      description:
+        "Minutes spent in each HR zone, when the screenshot shows a zone breakdown. The sum should roughly equal duration_min.",
+    },
+    exercises: {
+      type: "array",
+      maxItems: 50,
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["name", "sets", "reps", "weight_kg", "rpe", "notes"],
+        properties: {
+          name: { type: "string" },
+          sets: { type: ["integer", "null"] },
+          reps: {
+            type: ["string", "null"],
+            description:
+              "Reps per set as the screenshot shows them (e.g. '10' or '8, 8, 6').",
+          },
+          weight_kg: {
+            type: ["number", "null"],
+            description: "Weight per set in kilograms. Convert from lbs if needed.",
+          },
+          rpe: { type: ["number", "null"] },
+          notes: { type: ["string", "null"] },
+        },
+      },
+    },
+    confidence: {
+      type: "number",
+      description:
+        "Self-assessed confidence in the overall extraction, 0 (guessing) to 1 (everything clearly visible).",
+    },
+    notes: {
+      type: "string",
+      description:
+        "Anything else worth surfacing to the coach (e.g. 'screenshot is partially cropped', 'this looks like a meal photo, not a workout', 'weight units were in lbs').",
+    },
+  },
+} as const;
+
+interface OcrPayload {
+  app_detected: string | null;
+  session_type_guess: string | null;
+  duration_min: number | null;
+  avg_heart_rate: number | null;
+  max_heart_rate: number | null;
+  kcal: number | null;
+  hr_zone_minutes: { z1: number; z2: number; z3: number; z4: number; z5: number } | null;
+  exercises: Array<{
+    name: string;
+    sets: number | null;
+    reps: string | null;
+    weight_kg: number | null;
+    rpe: number | null;
+    notes: string | null;
+  }>;
+  confidence: number;
+  notes: string;
+}
+
+const OCR_PROMPT = `You are extracting workout data from a fitness-app screenshot for an Italian sports nutritionist's platform. The screenshot may be in Italian, English, or mixed.
+
+Extract every visible workout field — total duration, heart rate (avg, max, per-zone minutes), kcal, modality, and any per-exercise data (name, sets, reps, weight, RPE, rest, notes). If a field isn't shown, return null — don't guess.
+
+For session_type_guess, infer the closest Italian-canonical label (examples: 'Pesi — Forza', 'Pesi — Ipertrofia', 'Pesi — Circuito', 'Corsa — Facile / Recupero', 'Corsa — Costante', 'Corsa — Intervalli / Tempo', 'Ciclismo', 'Vogatore', 'Nuoto', 'CrossFit / WOD', 'HIIT / Intervalli', 'BJJ — Classe', 'Boxe — Classe', 'MMA — Classe (mista)', 'Calcio — Allenamento', 'Tennis — Singolo', 'Padel', 'Altro'). Pick 'Altro' if nothing fits well; null only if you genuinely can't tell.
+
+Convert weights from lbs to kg (× 0.453592) and round to the nearest 0.5 kg. Preserve the original reps format ("10" or "8, 8, 6").
+
+If the image clearly isn't a workout (e.g. it's a meal photo, an app menu, the device home screen), return empty exercises with confidence 0 and explain what you see in notes.
+
+Calibrate confidence honestly:
+- 0.9–1.0  every field clearly readable
+- 0.6–0.9  most fields readable, some unclear or missing
+- 0.3–0.6  significant uncertainty
+- 0.0–0.3  guessing, or the image isn't a workout`;
+
+interface ExtractedSessionData {
+  durationMin?: number;
+  avgHeartRate?: number;
+  maxHeartRate?: number;
+  kcalEstimated?: number;
+  hrZoneMinutes?: { z1: number; z2: number; z3: number; z4: number; z5: number };
+  appDetected?: string;
+  sessionTypeGuess?: string;
+}
+
+interface OcrResult {
   exercises: z.infer<typeof exerciseEntrySchema>[];
   confidence: number;
   rawText: string;
-} {
-  // Stub — real implementation uses Claude Vision API:
-  // const response = await anthropic.messages.create({
-  //   model: "claude-sonnet-4-20250514",
-  //   messages: [{ role: "user", content: [
-  //     { type: "image", source: { type: "url", url: imageUrl } },
-  //     { type: "text", text: "Extract all exercises..." }
-  //   ]}]
-  // });
-  return {
-    exercises: [],
-    confidence: 0,
-    rawText: "",
-  };
+  sessionData: ExtractedSessionData;
+}
+
+const EMPTY_OCR: OcrResult = {
+  exercises: [],
+  confidence: 0,
+  rawText: "",
+  sessionData: {},
+};
+
+/**
+ * If `pathOrUrl` is already an https:// URL, returns it unchanged.
+ * Otherwise treats it as a Supabase Storage path in the `client-media` bucket
+ * and generates a short-lived signed read URL for Claude to fetch.
+ */
+async function resolveScreenshotUrl(pathOrUrl: string): Promise<string | null> {
+  if (/^https:\/\//i.test(pathOrUrl)) return pathOrUrl;
+  const admin = createSupabaseServiceRole();
+  const { data, error } = await admin.storage
+    .from("client-media")
+    .createSignedUrl(pathOrUrl, 300);
+  if (error || !data?.signedUrl) {
+    console.error("[training-log.ocr] signed URL error:", error);
+    return null;
+  }
+  return data.signedUrl;
+}
+
+/**
+ * Extract structured workout data from a fitness-app screenshot via Claude
+ * Opus 4.7 vision. Generalises across apps — no per-app prompt tuning needed.
+ * Returns an empty result on any failure rather than throwing, so a flaky
+ * vision call never blocks creating the training log.
+ */
+async function extractExercisesFromScreenshot(imageUrl: string): Promise<OcrResult> {
+  if (!process.env.ANTHROPIC_API_KEY) {
+    console.warn("[training-log.ocr] ANTHROPIC_API_KEY missing — skipping vision call");
+    return EMPTY_OCR;
+  }
+
+  try {
+    const response = await getAnthropic().messages.create({
+      model: "claude-opus-4-7",
+      max_tokens: 4000,
+      output_config: {
+        effort: "medium",
+        format: {
+          type: "json_schema",
+          schema: OCR_JSON_SCHEMA,
+        },
+      },
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "image", source: { type: "url", url: imageUrl } },
+            { type: "text", text: OCR_PROMPT },
+          ],
+        },
+      ],
+    });
+
+    const textBlock = response.content.find((b) => b.type === "text");
+    if (!textBlock || textBlock.type !== "text") return EMPTY_OCR;
+    const rawText = textBlock.text;
+
+    let payload: OcrPayload;
+    try {
+      payload = JSON.parse(rawText) as OcrPayload;
+    } catch (err) {
+      console.error("[training-log.ocr] JSON parse failed:", err, rawText.slice(0, 200));
+      return { ...EMPTY_OCR, rawText };
+    }
+
+    // Map the API exercise shape onto our internal schema (snake → camel,
+    // null → undefined so Zod's optional() is happy).
+    const exercises: z.infer<typeof exerciseEntrySchema>[] = payload.exercises
+      .map((e) => ({
+        name: e.name,
+        sets: e.sets ?? undefined,
+        reps: e.reps ?? undefined,
+        weightKg: e.weight_kg ?? undefined,
+        rpe: e.rpe ?? undefined,
+        notes: e.notes ?? undefined,
+      }))
+      .filter((e) => e.name && e.name.trim().length > 0);
+
+    const sessionData: ExtractedSessionData = {
+      durationMin: payload.duration_min ?? undefined,
+      avgHeartRate: payload.avg_heart_rate ?? undefined,
+      maxHeartRate: payload.max_heart_rate ?? undefined,
+      kcalEstimated: payload.kcal ?? undefined,
+      hrZoneMinutes: payload.hr_zone_minutes ?? undefined,
+      appDetected: payload.app_detected ?? undefined,
+      sessionTypeGuess: payload.session_type_guess ?? undefined,
+    };
+
+    return {
+      exercises,
+      confidence: payload.confidence,
+      rawText: payload.notes ?? "",
+      sessionData,
+    };
+  } catch (err) {
+    console.error("[training-log.ocr] vision call failed:", err);
+    return EMPTY_OCR;
+  }
 }
 
 // ── Router ───────────────────────────────────────────────────────────────────
@@ -105,14 +331,26 @@ export const trainingLogRouter = router({
         throw new TRPCError({ code: "NOT_FOUND", message: "Cliente non trovato." });
       }
 
-      // Process screenshots for OCR if provided
+      // Process screenshots for OCR if provided and no manual exercises given.
+      // The vision call resolves the storage path to a short-lived signed URL
+      // before sending to Claude.
       let exercises = input.exercises ?? [];
       let ocrData: { rawText: string; confidence: number } | null = null;
+      let extractedDuration: number | null = null;
+      let extractedAvgHr: number | null = null;
+      let extractedKcal: number | null = null;
 
       if (input.screenshotUrls?.length && !input.exercises?.length) {
-        const result = extractExercisesFromScreenshot(input.screenshotUrls[0]!);
-        exercises = result.exercises;
-        ocrData = { rawText: result.rawText, confidence: result.confidence };
+        const httpsUrl = await resolveScreenshotUrl(input.screenshotUrls[0]!);
+        if (httpsUrl) {
+          const result = await extractExercisesFromScreenshot(httpsUrl);
+          exercises = result.exercises;
+          ocrData = { rawText: result.rawText, confidence: result.confidence };
+          // Fall back to OCR-extracted values when the form didn't include them.
+          extractedDuration = result.sessionData.durationMin ?? null;
+          extractedAvgHr = result.sessionData.avgHeartRate ?? null;
+          extractedKcal = result.sessionData.kcalEstimated ?? null;
+        }
       }
 
       const { data, error } = await ctx.supabase
@@ -122,7 +360,9 @@ export const trainingLogRouter = router({
           partner_id: ctx.partnerId,
           session_date: input.sessionDate,
           session_type: input.sessionType,
-          duration_min: input.durationMinutes ?? null,
+          duration_min: input.durationMinutes ?? extractedDuration,
+          avg_heart_rate: extractedAvgHr,
+          kcal_estimated: extractedKcal,
           exercises: JSON.stringify(exercises),
           screenshot_urls: input.screenshotUrls ?? [],
           ocr_extracted: input.ocrExtracted || ocrData !== null,
@@ -214,18 +454,22 @@ export const trainingLogRouter = router({
     }),
 
   /**
-   * Process a screenshot through OCR (Claude Vision stub).
+   * Process a screenshot through Claude Vision OCR.
+   * Accepts either an https:// URL or a Supabase Storage path
+   * (e.g. "training-screenshots/<pid>/<cid>/<file>"); paths are resolved to a
+   * short-lived signed URL before being sent to Claude.
    */
   processScreenshot: protectedProcedure
-    .input(
-      z.object({
-        // Restrict to https:// — passed to Claude Vision API.
-        imageUrl: z.string().url().startsWith("https://"),
-      })
-    )
+    .input(z.object({ imageUrl: z.string().min(1).max(500) }))
     .mutation(async ({ input }) => {
-      const result = extractExercisesFromScreenshot(input.imageUrl);
-      return result;
+      const httpsUrl = await resolveScreenshotUrl(input.imageUrl);
+      if (!httpsUrl) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Impossibile generare il link allo screenshot. Riprova.",
+        });
+      }
+      return await extractExercisesFromScreenshot(httpsUrl);
     }),
 
   /**
