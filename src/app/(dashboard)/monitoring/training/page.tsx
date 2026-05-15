@@ -17,10 +17,21 @@ import {
   ScreenshotUploader,
   type UploadedScreenshot,
 } from "@/components/screenshot-uploader";
+import {
+  groupedSportOptions,
+  SPORT_TAXONOMY,
+} from "@/engine/sport-taxonomy";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type SessionType =
+/**
+ * Filter values for the type-filter chip row. `"all"` shows everything;
+ * the other values are legacy short codes used by rows written before
+ * migration 004. New rows use the canonical Appendix D modality string
+ * directly (e.g. "Pesi — Ipertrofia") and don't appear here — they fall
+ * under "all" or can be filtered via the search functionality.
+ */
+type SessionTypeFilter =
   | "all"
   | "strength"
   | "hypertrophy"
@@ -46,7 +57,8 @@ interface TrainingLogItem {
 interface NewSessionForm {
   clientId: string;
   sessionDate: string;
-  sessionType: SessionType;
+  // Free-form: canonical Appendix D Italian display name (e.g. "Pesi — Forza").
+  sessionType: string;
   durationMinutes: string;
   perceivedEffort: number;
   notes: string;
@@ -128,7 +140,9 @@ function EffortDots({ effort }: { effort: number | null }) {
 
 // ── Filter Tabs ───────────────────────────────────────────────────────────────
 
-const SESSION_TABS: Array<{ value: SessionType; label: string }> = [
+// Filter chip row — covers legacy short codes only. New rows with canonical
+// modality strings appear under "Tutti".
+const SESSION_TABS: Array<{ value: SessionTypeFilter; label: string }> = [
   { value: "all", label: "Tutti" },
   { value: "strength", label: "Forza" },
   { value: "hypertrophy", label: "Ipertrofia" },
@@ -138,18 +152,21 @@ const SESSION_TABS: Array<{ value: SessionType; label: string }> = [
   { value: "deload", label: "Deload" },
 ];
 
+/** First sport entry, used as the default modality for a new session. */
+const DEFAULT_MODALITY = SPORT_TAXONOMY[0]?.displayIt ?? "Pesi — Ipertrofia";
+
 // ── Page Component ────────────────────────────────────────────────────────────
 
 export default function TrainingLogPage() {
   const queryClient = useQueryClient();
-  const [activeType, setActiveType] = useState<SessionType>("all");
+  const [activeType, setActiveType] = useState<SessionTypeFilter>("all");
   const [showForm, setShowForm] = useState(false);
   const [selectedClientId, setSelectedClientId] = useState<string>("");
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [form, setForm] = useState<NewSessionForm>({
     clientId: "",
     sessionDate: new Date().toISOString().split("T")[0]!,
-    sessionType: "strength",
+    sessionType: "Pesi — Ipertrofia",
     durationMinutes: "",
     perceivedEffort: 7,
     notes: "",
@@ -209,7 +226,7 @@ export default function TrainingLogPage() {
       setForm({
         clientId: "",
         sessionDate: new Date().toISOString().split("T")[0]!,
-        sessionType: "strength",
+        sessionType: DEFAULT_MODALITY,
         durationMinutes: "",
         perceivedEffort: 7,
         notes: "",
@@ -232,7 +249,7 @@ export default function TrainingLogPage() {
     createMutation.mutate({
       clientId: effectiveClientId,
       sessionDate: form.sessionDate,
-      sessionType: form.sessionType as "strength" | "hypertrophy" | "cardio" | "hiit" | "flexibility" | "deload" | "other",
+      sessionType: form.sessionType,
       durationMinutes: form.durationMinutes ? parseInt(form.durationMinutes, 10) : undefined,
       perceivedEffort: form.perceivedEffort,
       notes: form.notes || undefined,
@@ -385,7 +402,7 @@ export default function TrainingLogPage() {
                 </label>
                 <select
                   value={form.sessionType}
-                  onChange={(e) => setForm((f) => ({ ...f, sessionType: e.target.value as SessionType }))}
+                  onChange={(e) => setForm((f) => ({ ...f, sessionType: e.target.value }))}
                   style={{
                     width: "100%",
                     padding: "10px 12px",
@@ -393,10 +410,17 @@ export default function TrainingLogPage() {
                     borderRadius: "8px",
                     fontSize: "14px",
                     boxSizing: "border-box",
+                    backgroundColor: "#ffffff",
                   }}
                 >
-                  {Object.entries(SESSION_TYPE_LABELS).map(([k, v]) => (
-                    <option key={k} value={k}>{v}</option>
+                  {groupedSportOptions().map((g) => (
+                    <optgroup key={g.group} label={g.group}>
+                      {g.entries.map((entry) => (
+                        <option key={entry.displayIt} value={entry.displayIt}>
+                          {entry.displayIt}
+                        </option>
+                      ))}
+                    </optgroup>
                   ))}
                 </select>
               </div>

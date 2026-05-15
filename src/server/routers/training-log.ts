@@ -33,15 +33,12 @@ const exerciseEntrySchema = z.object({
 const createTrainingLogSchema = z.object({
   clientId: z.string().uuid(),
   sessionDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Formato data: YYYY-MM-DD"), // ISO date
-  sessionType: z.enum([
-    "strength",
-    "hypertrophy",
-    "cardio",
-    "hiit",
-    "flexibility",
-    "deload",
-    "other",
-  ]),
+  // Free-form modality string. New entries use the canonical Appendix D
+  // Italian display names (e.g. "Pesi — Ipertrofia", "BJJ — Sparring",
+  // "Corsa — Costante"). Legacy short codes ('strength', 'cardio', …) still
+  // accepted for backward compatibility with rows written before
+  // migration 004.
+  sessionType: z.string().min(1).max(200),
   durationMinutes: z.number().int().min(1).max(480).optional(),
   exercises: z.array(exerciseEntrySchema).max(50).optional(),
   // Accept either an https:// URL or a Supabase Storage path
@@ -391,9 +388,7 @@ export const trainingLogRouter = router({
     .input(
       z.object({
         clientId: z.string().uuid(),
-        sessionType: z
-          .enum(["strength", "hypertrophy", "cardio", "hiit", "flexibility", "deload", "other"])
-          .optional(),
+        sessionType: z.string().min(1).max(200).optional(),
         limit: z.number().int().min(1).max(200).default(50),
         offset: z.number().int().min(0).default(0),
       })
