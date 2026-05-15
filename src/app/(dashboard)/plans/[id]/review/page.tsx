@@ -26,6 +26,7 @@ import type {
   DayTypePlanSummary,
 } from "../../../../../pdf/types";
 import type { SerializedPlanResult } from "../../../../../services/plan-generator";
+import { checkSupplementInteractions } from "../../../../../services/supplements";
 
 // ── Review State ─────────────────────────────────────────────────────────────
 
@@ -1410,8 +1411,56 @@ function SupplementsTab({
     boxSizing: "border-box",
   };
 
+  // Live interaction / synergy notes based on the current protocol.
+  const interactions = checkSupplementInteractions(supplements);
+  const INTERACTION_COLORS: Record<string, { bg: string; border: string; text: string; label: string }> = {
+    warning: { bg: "#fef9c3", border: "#fde047", text: "#854d0e", label: "Attenzione" },
+    info: { bg: "#eff6ff", border: "#bfdbfe", text: "#1d4ed8", label: "Timing" },
+    synergy: { bg: "#f0fdf4", border: "#bbf7d0", text: "#15803d", label: "Sinergia" },
+  };
+
   return (
     <div>
+      {interactions.length > 0 && (
+        <div style={{ marginBottom: "16px", display: "grid", gap: "8px" }}>
+          {interactions.map((note, i) => {
+            const c = INTERACTION_COLORS[note.severity] ?? INTERACTION_COLORS.info!;
+            return (
+              <div
+                key={i}
+                style={{
+                  padding: "10px 14px",
+                  background: c.bg,
+                  border: `1px solid ${c.border}`,
+                  borderRadius: "10px",
+                  color: c.text,
+                  fontSize: "13px",
+                  lineHeight: 1.5,
+                }}
+              >
+                <span
+                  style={{
+                    display: "inline-block",
+                    padding: "1px 8px",
+                    borderRadius: "10px",
+                    background: "#ffffff",
+                    fontSize: "11px",
+                    fontWeight: 700,
+                    marginRight: "8px",
+                  }}
+                >
+                  {c.label}
+                </span>
+                <span style={{ fontWeight: 600 }}>
+                  {note.supplements.join(" + ")}:
+                </span>{" "}
+                {note.message}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {supplements.length === 0 && (
         <div style={{ ...cardStyle, color: "#71717a", fontSize: "14px" }}>
           Nessun integratore nel protocollo. Aggiungine uno con il pulsante qui sotto.
