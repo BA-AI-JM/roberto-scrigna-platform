@@ -201,6 +201,46 @@ function collectAssumptions(input: PlanGenerationInput): string[] {
     }
   }
 
+  // Per-day training override (Struttura del piano wizard) — provenance so
+  // the review page shows the activity wasn't the intake average.
+  const perDay = input.engineOptions?.perDayTrainingSession;
+  if (perDay && perDay.some((s) => s != null)) {
+    const n = perDay.filter((s) => s != null).length;
+    assumptions.push(
+      `L'attività è stata impostata manualmente per ${n} ${
+        n === 1 ? "giorno" : "giorni"
+      } della settimana (anziché usare la media delle sessioni di intake).`
+    );
+  }
+
+  // Absolute macro overrides (Macro per giorno wizard) — make manual pins
+  // visible on the review page rather than passing silently.
+  const macroOv = input.engineOptions?.macroOptions?.absoluteOverrides;
+  if (macroOv) {
+    const dayTypeIt: Record<string, string> = {
+      training: "allenamento",
+      rest: "riposo",
+      refeed: "ricarica",
+      deload: "scarico",
+    };
+    const pinned: string[] = [];
+    for (const [dt, ov] of Object.entries(macroOv)) {
+      if (!ov) continue;
+      const parts: string[] = [];
+      if (ov.proteinG != null) parts.push(`P ${ov.proteinG}g`);
+      if (ov.fatG != null) parts.push(`G ${ov.fatG}g`);
+      if (ov.carbG != null) parts.push(`C ${ov.carbG}g`);
+      if (parts.length > 0) {
+        pinned.push(`${dayTypeIt[dt] ?? dt} (${parts.join(" · ")})`);
+      }
+    }
+    if (pinned.length > 0) {
+      assumptions.push(
+        `Macro impostate manualmente su: ${pinned.join("; ")} — gli altri valori seguono le formule automatiche.`
+      );
+    }
+  }
+
   return assumptions;
 }
 
