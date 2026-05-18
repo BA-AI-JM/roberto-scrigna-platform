@@ -501,3 +501,81 @@ describe("Full Plan Generation", () => {
     );
   });
 });
+
+// ── Edge cases: the runtime scenarios tsc can't catch ─────────────────────────
+// These mirror the inputs the previewWeek / generate procedures can produce
+// from the Phase A–C wizard (all-OFF weeks, deficit + macro pin combos, etc.).
+
+describe("Wizard edge cases", () => {
+  const allRest: ClientSnapshot = {
+    ...clientWithOverride,
+    weekSchedule: ["rest", "rest", "rest", "rest", "rest", "rest", "rest"],
+  };
+
+  test("all-OFF week produces 7 valid rest days, no crash", () => {
+    const weekly = generateWeeklyPlan(allRest);
+    expect(weekly.days).toHaveLength(7);
+    for (const d of weekly.days) {
+      expect(d.dayType).toBe("rest");
+      expect(d.tdee.exercise.exerciseKcal).toBe(0);
+      expect(d.macros.proteinG).toBeGreaterThan(0);
+      expect(d.macros.carbG).toBeGreaterThanOrEqual(0);
+    }
+    expect(weekly.weeklyAverageKcal).toBeGreaterThan(0);
+  });
+
+  test("perDayTrainingSession on an all-OFF week is ignored (no crash)", () => {
+    const weekly = generateWeeklyPlan(allRest, {
+      perDayTrainingSession: [
+        { method: "met_value", durationMin: 90, metValue: 9 },
+        { method: "met_value", durationMin: 60, metValue: 7 },
+        null,
+        null,
+        null,
+        null,
+        null,
+      ],
+    });
+    expect(weekly.days.every((d) => d.tdee.exercise.exerciseKcal === 0)).toBe(true);
+  });
+
+  test("deficit + full macro pin: macros stay pinned, deficit does NOT move them", () => {
+    const noDeficit = generateWeeklyPlan(clientWithOverride, {
+      macroOptions: { absoluteOverrides: { training: { proteinG: 200, fatG: 80, carbG: 350 } } },
+    });
+    const withDeficit = generateWeeklyPlan(clientWithOverride, {
+      dailyDeficitKcal: 600,
+      macroOptions: { absoluteOverrides: { training: { proteinG: 200, fatG: 80, carbG: 350 } } },
+    });
+    const tA = noDeficit.days.find((d) => d.dayType === "training")!;
+    const tB = withDeficit.days.find((d) => d.dayType === "training")!;
+    // Fully pinned macros are identical regardless of the deficit
+    expect(tB.macros.proteinG).toBe(200);
+    expect(tB.macros.fatG).toBe(80);
+    expect(tB.macros.carbG).toBe(350);
+    expect(tB.macros.totalKcal).toBe(tA.macros.totalKcal);
+  });
+
+  test("deficit + protein-only pin: carbs absorb the deficit", () => {
+    const noDeficit = generateWeeklyPlan(clientWithOverride, {
+      macroOptions: { absoluteOverrides: { training: { proteinG: 200 } } },
+    });
+    const withDeficit = generateWeeklyPlan(clientWithOverride, {
+      dailyDeficitKcal: 500,
+      macroOptions: { absoluteOverrides: { training: { proteinG: 200 } } },
+    });
+    const tA = noDeficit.days.find((d) => d.dayType === "training")!;
+    const tB = withDeficit.days.find((d) => d.dayType === "training")!;
+    expect(tB.macros.proteinG).toBe(200); // pin holds
+    expect(tB.macros.carbG).toBeLessThan(tA.macros.carbG); // deficit lands on carbs
+  });
+
+  test("extreme deficit can't drive carbs negative", () => {
+    const weekly = generateWeeklyPlan(clientWithOverride, {
+      dailyDeficitKcal: 1500, // larger than most of the day's intake
+    });
+    for (const d of weekly.days) {
+      expect(d.macros.carbG).toBeGreaterThanOrEqual(0);
+    }
+  });
+});
