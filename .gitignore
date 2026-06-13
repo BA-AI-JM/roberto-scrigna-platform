@@ -57,3 +57,5 @@ __pycache__/
 supabase/.branches/
 supabase/.temp/
 supabase/snippets/
+
+.serena/
