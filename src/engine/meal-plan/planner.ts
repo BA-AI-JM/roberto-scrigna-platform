@@ -30,6 +30,7 @@ import { selectMeals, type SelectionFilter } from "./selector";
 import { scaleMealToTarget } from "./scaler";
 import { generateSubstitutions } from "./substitution";
 import { applyFatCompensation } from "./fat-compensation";
+import { reconcilePlan } from "./reconcile";
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -211,7 +212,15 @@ export function createMealPlan(
     allocateSlotMacros(config.macroTargets, slot)
   );
 
-  // 3. Select primary meals for each slot
+  // Valid meal types per slot index — needed by both substitution generation
+  // and the reconciliation pass, neither of which can recover it from MealSlot.
+  const slotValidTypes: MealType[][] = distribution.slots.map(
+    (s) => s.validTypes
+  );
+
+  // 3. Select primary meals for each slot. Substitutions are generated later,
+  //    after fat-compensation / tighten / reconcile have settled the primaries,
+  //    so the alternatives match the FINAL primary and target (not a stale one).
   const usedIds: string[] = [];
   const initialSlots: MealSlot[] = distribution.slots.map((distSlot, idx) => {
     const target = slotTargets[idx]!;
@@ -243,26 +252,15 @@ export function createMealPlan(
     // 4. Scale to match target
     const primary = scaleMealToTarget(bestTemplate, target);
 
-    // 5. Generate substitutions
-    const substitutions = generateSubstitutions({
-      templates,
-      primaryId: bestTemplate.id,
-      target,
-      validTypes: distSlot.validTypes,
-      excludeAllergens,
-      preferTags,
-      count: subsCount,
-    });
-
     return {
       slot: distSlot.slot,
       targetMacros: target,
       primary,
-      substitutions,
+      substitutions: [],
     };
   });
 
-  // 6. Apply fat compensation
+  // 5. Apply fat compensation
   const { adjustedTargets } = applyFatCompensation(initialSlots);
   const compensatedSlots = initialSlots.map((slot, idx) => {
     const newTarget = adjustedTargets[idx]!;
@@ -280,7 +278,7 @@ export function createMealPlan(
     return slot;
   });
 
-  // 7. Tighten to tolerance bands
+  // 6. Tighten the last slot to tolerance bands (cheap local correction)
   const baseFilter: Omit<SelectionFilter, "validTypes" | "excludeIds"> = {
     excludeAllergens,
     preferTags,
@@ -293,15 +291,39 @@ export function createMealPlan(
     tolerances
   );
 
-  // Calculate final totals
-  const actualMacros = sumActualMacros(tightenedSlots);
+  // 7. Reconcile the whole plan so the SUM of delivered macros matches the
+  //    prescription within tolerance (#21). Re-selects template + scale factor
+  //    per slot, staying inside SCALE_BOUNDS.
+  const reconciledSlots = reconcilePlan(tightenedSlots, config.macroTargets, {
+    templates,
+    validTypesPerSlot: slotValidTypes,
+    excludeAllergens,
+    preferTags,
+  });
+
+  // 8. Generate substitutions against the FINAL primaries.
+  const finalSlots: MealSlot[] = reconciledSlots.map((slot, idx) => ({
+    ...slot,
+    substitutions: generateSubstitutions({
+      templates,
+      primaryId: slot.primary.template.id,
+      target: slot.targetMacros,
+      validTypes: slotValidTypes[idx] ?? [slot.primary.template.mealType],
+      excludeAllergens,
+      preferTags,
+      count: subsCount,
+    }),
+  }));
+
+  // 9. Calculate final totals
+  const actualMacros = sumActualMacros(finalSlots);
   const deviation = calculateDeviation(actualMacros, config.macroTargets);
   const withinTolerance = isWithinTolerance(deviation, tolerances);
 
   return {
     dayType: config.dayType,
     targetMacros: config.macroTargets,
-    slots: tightenedSlots,
+    slots: finalSlots,
     actualMacros,
     deviation,
     withinTolerance,
