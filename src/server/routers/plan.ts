@@ -23,6 +23,8 @@ import type { PlanGenerationInput } from "../../services/plan-generator";
 import type { ClientSnapshot, DayType } from "../../engine/types";
 import type { PdfClientInfo } from "../../pdf/types";
 import { getResend, FROM_EMAIL } from "../../lib/resend/client";
+import { createSupabaseServiceRole } from "../../lib/supabase/service";
+import { ensurePortalAuthUser } from "../../services/portal-auth";
 import { DEFAULT_TOLERANCES } from "../../engine/meal-plan/types";
 import {
   buildTrainingSessionFromIntake,
@@ -1360,6 +1362,21 @@ export const planRouter = router({
         });
       }
 
+      // 2b. Provision the client's portal auth account before emailing the link
+      //     (#1) — otherwise a sent-but-never-invited client cannot sign in.
+      try {
+        await ensurePortalAuthUser(createSupabaseServiceRole(), {
+          clientId: plan.client_id,
+          email: recipientEmail,
+        });
+      } catch (err) {
+        console.error("[router/plan.shareWithClient] provisioning:", err);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Errore nella preparazione dell'accesso cliente. Riprova.",
+        });
+      }
+
       // 3. Extract macro summary from the stored bundle
       const dailyTargets = plan.daily_targets as Record<string, unknown> | null;
       const macroPayload = (dailyTargets?.macro_payload as Record<string, unknown>) ?? {};
@@ -1419,7 +1436,7 @@ export const planRouter = router({
   Strategia: <strong style="color:#1a1a2e;">${energyLabel}</strong>
 </p>
 ${macroTable}
-${btnHtml(portalUrl("/dashboard"), "Visualizza il piano")}
+${btnHtml(portalUrl("/login"), "Visualizza il piano")}
 <p style="margin:20px 0 0;font-size:12px;color:#9ca3af;line-height:1.5;">
   Hai domande? Rispondi a questa email o contatta direttamente il tuo coach.
 </p>`

@@ -8,6 +8,7 @@ import { router, protectedProcedure } from "../trpc";
 import { TRPCError } from "@trpc/server";
 import { createSupabaseServiceRole } from "../../lib/supabase/service";
 import { getResend, FROM_EMAIL } from "../../lib/resend/client";
+import { ensurePortalAuthUser } from "../../services/portal-auth";
 
 /** Client status filter values */
 const clientStatusSchema = z.enum(["active", "paused", "archived"]);
@@ -639,63 +640,23 @@ export const clientRouter = router({
       }
 
       const email = client.email.trim().toLowerCase();
-      const admin = createSupabaseServiceRole();
 
-      // 2. Ensure an auth user exists for this email.
-      let authUserId = client.auth_user_id as string | null;
-      const created = await admin.auth.admin.createUser({
-        email,
-        email_confirm: true,
-      });
-      if (created.data?.user?.id) {
-        authUserId = created.data.user.id;
-      } else if (created.error) {
-        const msg = created.error.message ?? "";
-        const alreadyExists =
-          /already|registered|exists/i.test(msg) || created.error.status === 422;
-        if (!alreadyExists) {
-          console.error("[router/client.sendPortalInvite] createUser:", created.error);
-          throw new TRPCError({
-            code: "INTERNAL_SERVER_ERROR",
-            message: "Errore nella creazione dell'accesso cliente. Riprova.",
-          });
-        }
-        // User already exists — resolve its id via a (non-emailed) magic link.
-        if (!authUserId) {
-          const linkRes = await admin.auth.admin.generateLink({
-            type: "magiclink",
-            email,
-          });
-          authUserId = linkRes.data?.user?.id ?? null;
-          if (!authUserId) {
-            console.error(
-              "[router/client.sendPortalInvite] could not resolve existing user id:",
-              linkRes.error
-            );
-            throw new TRPCError({
-              code: "INTERNAL_SERVER_ERROR",
-              message: "Errore nel collegamento dell'account cliente. Riprova.",
-            });
-          }
-        }
+      // 2. Ensure an auth user exists for this email and is linked to the
+      //    client row (idempotent). Shared with the plan-send paths (#1).
+      try {
+        await ensurePortalAuthUser(createSupabaseServiceRole(), {
+          clientId: input.clientId,
+          email,
+        });
+      } catch (err) {
+        console.error("[router/client.sendPortalInvite] provisioning:", err);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Errore nella creazione dell'accesso cliente. Riprova.",
+        });
       }
 
-      // 3. Link the client row to the auth user (using the service role to bypass RLS).
-      if (authUserId && client.auth_user_id !== authUserId) {
-        const { error: linkErr } = await admin
-          .from("client")
-          .update({ auth_user_id: authUserId })
-          .eq("id", input.clientId);
-        if (linkErr) {
-          console.error("[router/client.sendPortalInvite] link auth_user_id:", linkErr);
-          throw new TRPCError({
-            code: "INTERNAL_SERVER_ERROR",
-            message: "Errore nel collegamento dell'account cliente. Riprova.",
-          });
-        }
-      }
-
-      // 4. Email the portal login link.
+      // 3. Email the portal login link.
       const loginUrl = `${appBaseUrl()}/portal/login`;
       const firstName = client.full_name?.split(" ")[0] ?? "";
       const html = `<!DOCTYPE html>

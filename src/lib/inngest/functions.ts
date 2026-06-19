@@ -18,6 +18,8 @@
 
 import { inngest } from "./client";
 import { createClient } from "@supabase/supabase-js";
+import { createSupabaseServiceRole } from "../supabase/service";
+import { ensurePortalAuthUser } from "../../services/portal-auth";
 import { getResend, FROM_EMAIL } from "../resend/client";
 
 // ── Supabase service-role client for background jobs ────────────────────────
@@ -197,6 +199,12 @@ export const onPlanDelivered = inngest.createFunction(
     await step.run("email-plan-delivered", async () => {
       const email = await getClientEmail(clientId);
       if (email) {
+        // Provision the portal auth account before emailing the link (#1) so
+        // the client can actually sign in from the access link.
+        await ensurePortalAuthUser(createSupabaseServiceRole(), {
+          clientId,
+          email,
+        });
         const html = emailWrapper(
           "Il tuo piano nutrizionale è pronto",
           `<h2 style="margin:0 0 12px;font-size:20px;color:#1a1a2e;">Il tuo piano nutrizionale è pronto!</h2>
@@ -207,7 +215,7 @@ export const onPlanDelivered = inngest.createFunction(
 <p style="margin:0;font-size:14px;color:#374151;line-height:1.6;">
   Accedi all'area clienti per visualizzare i tuoi pasti, gli obiettivi giornalieri e il protocollo integratori.
 </p>
-${btnHtml(portalUrl("/dashboard"), "Visualizza il piano")}`
+${btnHtml(portalUrl("/login"), "Visualizza il piano")}`
         );
         await sendEmail(email, "Il tuo piano nutrizionale è pronto!", html);
       }
