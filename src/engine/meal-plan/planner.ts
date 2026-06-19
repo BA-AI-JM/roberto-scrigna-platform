@@ -204,6 +204,17 @@ export function createMealPlan(
     Math.min(SUBSTITUTION_BOUNDS.max, config.substitutionsPerSlot ?? 3)
   );
 
+  // #18: on non-training day-types (rest / refeed / deload) drop post-workout-
+  // tagged meals from the pool, so a "post-workout" item (e.g. the protein
+  // shake) never lands on a rest day. Every selection path below — primary,
+  // tighten, reconcile, substitutions — draws from `pool`, so the dedicated
+  // post_workout slot (6-meal distribution) fills with a normal snack instead.
+  // Training days are unaffected.
+  const pool =
+    config.dayType === "training"
+      ? templates
+      : templates.filter((t) => !t.tags.includes("post_workout"));
+
   // 1. Get distribution template
   const distribution = config.distribution ?? getDistribution(mealCount);
 
@@ -232,12 +243,12 @@ export function createMealPlan(
       excludeIds: [...usedIds],
     };
 
-    const selected = selectMeals(templates, target, filter, 1);
+    const selected = selectMeals(pool, target, filter, 1);
 
     // Fallback: if no candidates, use the first active template of valid type
     const bestTemplate =
       selected[0]?.template ??
-      templates.find(
+      pool.find(
         (t) => t.isActive && distSlot.validTypes.includes(t.mealType)
       );
 
@@ -286,7 +297,7 @@ export function createMealPlan(
   const tightenedSlots = tightenPlan(
     compensatedSlots,
     config.macroTargets,
-    templates,
+    pool,
     baseFilter,
     tolerances
   );
@@ -295,7 +306,7 @@ export function createMealPlan(
   //    prescription within tolerance (#21). Re-selects template + scale factor
   //    per slot, staying inside SCALE_BOUNDS.
   const reconciledSlots = reconcilePlan(tightenedSlots, config.macroTargets, {
-    templates,
+    templates: pool,
     validTypesPerSlot: slotValidTypes,
     excludeAllergens,
     preferTags,
@@ -305,7 +316,7 @@ export function createMealPlan(
   const finalSlots: MealSlot[] = reconciledSlots.map((slot, idx) => ({
     ...slot,
     substitutions: generateSubstitutions({
-      templates,
+      templates: pool,
       primaryId: slot.primary.template.id,
       target: slot.targetMacros,
       validTypes: slotValidTypes[idx] ?? [slot.primary.template.mealType],
