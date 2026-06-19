@@ -14,6 +14,7 @@ import type {
   SupplementEntry,
 } from "./types";
 import { generateCSS, DAY_TYPE_COLOURS } from "./styles";
+import { formatIngredientQuantity } from "../lib/ingredient-display";
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -328,7 +329,7 @@ function renderMealSlots(slots: MealSlot[]): string {
     .map((slot) => {
       const m = slot.primary;
       const ingredients = m.scaledIngredients
-        .map((i) => `<li>${esc(i.name)} — ${fmtNum(i.grams, 0)}g</li>`)
+        .map((i) => `<li>${esc(i.name)} — ${esc(formatIngredientQuantity(i.foodId, i.grams))}</li>`)
         .join("\n");
 
       return `

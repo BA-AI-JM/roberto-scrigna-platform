@@ -12,6 +12,7 @@
 
 import Link from "next/link";
 import { trpc } from "@/lib/trpc/client";
+import { formatIngredientQuantity } from "@/lib/ingredient-display";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -98,7 +99,7 @@ type MealSlot = {
   slot: string;
   primary: {
     template: { name: string };
-    scaledIngredients: Array<{ name: string; grams: number }>;
+    scaledIngredients: Array<{ name: string; grams: number; foodId?: string }>;
     actualMacros: { kcal: number; proteinG: number; carbsG: number; fatG: number };
   };
 };
@@ -367,7 +368,7 @@ function MealPlanSection({ dayTypePlans }: { dayTypePlans: DayTypeMealPlan[] }) 
                         >
                           <span style={{ fontSize: "13px", color: "#374151" }}>{ing.name}</span>
                           <span style={{ fontSize: "13px", fontWeight: 600, color: "#1a1a2e", whiteSpace: "nowrap" as const }}>
-                            {ing.grams}g
+                            {formatIngredientQuantity(ing.foodId, ing.grams)}
                           </span>
                         </div>
                       ))}

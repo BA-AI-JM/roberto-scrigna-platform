@@ -27,6 +27,7 @@ import type {
 } from "../../../../../pdf/types";
 import type { SerializedPlanResult } from "../../../../../services/plan-generator";
 import { checkSupplementInteractions } from "../../../../../services/supplements";
+import { formatIngredientQuantity } from "../../../../../lib/ingredient-display";
 
 // ── Review State ─────────────────────────────────────────────────────────────
 
@@ -1227,7 +1228,7 @@ function MealsTab({
                     >
                       <span>{ing.name}</span>
                       <span style={{ fontWeight: 600, color: "#18181b" }}>
-                        {Math.round(ing.grams)}g
+                        {formatIngredientQuantity(ing.foodId, ing.grams)}
                       </span>
                     </li>
                   ))}
@@ -1365,7 +1366,7 @@ function MealsTab({
                                     <span
                                       style={{ fontWeight: 600, color: "#3f3f46" }}
                                     >
-                                      {Math.round(ing.grams)}g
+                                      {formatIngredientQuantity(ing.foodId, ing.grams)}
                                     </span>
                                   </li>
                                 ))}
