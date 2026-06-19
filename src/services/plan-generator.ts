@@ -132,10 +132,10 @@ function determineEnergyBalance(
   weeklyAverageKcal: number,
   maintenanceEstimate: number
 ): "deficit" | "surplus" | "maintenance" {
-  const ratio = weeklyAverageKcal / maintenanceEstimate;
-  if (ratio < 0.95) return "deficit";
-  if (ratio > 1.05) return "surplus";
-  return "maintenance";
+  const diff = weeklyAverageKcal - maintenanceEstimate;
+  if (Math.abs(diff) <= 50) return "maintenance";
+  if (diff < 0) return "deficit";
+  return "surplus";
 }
 
 /**
@@ -171,14 +171,74 @@ function collectAssumptions(input: PlanGenerationInput): string[] {
     );
   }
 
-  // Exercise method (if no HR data available)
-  if (
-    !input.engineOptions?.trainingSession?.avgHeartRate &&
-    input.engineOptions?.trainingSession?.method !== "heart_rate"
-  ) {
+  // Exercise method
+  const ts = input.engineOptions?.trainingSession;
+  if (ts?.method === "met_value" && ts.metValue != null) {
     assumptions.push(
-      "Il dispendio calorico dell'esercizio è stimato senza dati di frequenza cardiaca — l'uso di un cardiofrequenzimetro migliorerebbe la precisione."
+      `Il dispendio dell'esercizio dei giorni di allenamento è stimato con i valori MET delle sessioni inserite (durata media ~${Math.round(
+        ts.durationMin
+      )} min, MET medio ~${ts.metValue}). I dati di frequenza cardiaca o a zone (Sport Correction Protocol) ne migliorerebbero la precisione.`
     );
+  } else if (ts?.method === "heart_rate" || ts?.avgHeartRate != null || ts?.scpData != null) {
+    // HR / SCP path — no extra caveat needed here.
+  } else {
+    assumptions.push(
+      "Il dispendio dell'esercizio dei giorni di allenamento usa una stima predefinita (nessuna sessione di allenamento inserita per il cliente). Inserire le sessioni nel profilo migliorerebbe la precisione."
+    );
+  }
+
+  // Deficit / surplus override from the goal-rate calculator
+  const deficit = input.engineOptions?.dailyDeficitKcal;
+  if (deficit != null && deficit !== 0) {
+    if (deficit > 0) {
+      assumptions.push(
+        `L'apporto pianificato è impostato con un deficit di ${Math.round(deficit)} kcal/giorno rispetto al TDEE — derivato dall'obiettivo di peso e dalla data target.`
+      );
+    } else {
+      assumptions.push(
+        `L'apporto pianificato è impostato con un surplus di ${Math.abs(Math.round(deficit))} kcal/giorno rispetto al TDEE — derivato dall'obiettivo di peso e dalla data target.`
+      );
+    }
+  }
+
+  // Per-day training override (Struttura del piano wizard) — provenance so
+  // the review page shows the activity wasn't the intake average.
+  const perDay = input.engineOptions?.perDayTrainingSession;
+  if (perDay && perDay.some((s) => s != null)) {
+    const n = perDay.filter((s) => s != null).length;
+    assumptions.push(
+      `L'attività è stata impostata manualmente per ${n} ${
+        n === 1 ? "giorno" : "giorni"
+      } della settimana (anziché usare la media delle sessioni di intake).`
+    );
+  }
+
+  // Absolute macro overrides (Macro per giorno wizard) — make manual pins
+  // visible on the review page rather than passing silently.
+  const macroOv = input.engineOptions?.macroOptions?.absoluteOverrides;
+  if (macroOv) {
+    const dayTypeIt: Record<string, string> = {
+      training: "allenamento",
+      rest: "riposo",
+      refeed: "ricarica",
+      deload: "scarico",
+    };
+    const pinned: string[] = [];
+    for (const [dt, ov] of Object.entries(macroOv)) {
+      if (!ov) continue;
+      const parts: string[] = [];
+      if (ov.proteinG != null) parts.push(`P ${ov.proteinG}g`);
+      if (ov.fatG != null) parts.push(`G ${ov.fatG}g`);
+      if (ov.carbG != null) parts.push(`C ${ov.carbG}g`);
+      if (parts.length > 0) {
+        pinned.push(`${dayTypeIt[dt] ?? dt} (${parts.join(" · ")})`);
+      }
+    }
+    if (pinned.length > 0) {
+      assumptions.push(
+        `Macro impostate manualmente su: ${pinned.join("; ")} — gli altri valori seguono le formule automatiche.`
+      );
+    }
   }
 
   return assumptions;
@@ -227,11 +287,9 @@ export function generatePlan(
   }
 
   // ── Step 4: Energy balance ─────────────────────────────────────────────
-  // Use rest-day TDEE as the maintenance baseline.
-  // If client explicitly provides maintenanceKcalEstimate, use that instead.
-  const restDayTdee = weeklyPlan.days.find((d) => d.dayType === "rest")?.tdee.totalTdeeKcal;
-  const maintenanceEstimate =
-    input.maintenanceKcalEstimate ?? restDayTdee ?? weeklyPlan.weeklyAverageKcal;
+  // Use weighted weekly average TDEE as maintenance baseline (not just rest-day TDEE)
+  const avgTdee = weeklyPlan.days.reduce((sum, d) => sum + d.tdee.totalTdeeKcal, 0) / weeklyPlan.days.length;
+  const maintenanceEstimate = input.maintenanceKcalEstimate ?? avgTdee;
   const energyBalance = determineEnergyBalance(weeklyPlan.weeklyAverageKcal, maintenanceEstimate);
 
   // ── Step 5: Supplement protocol ────────────────────────────────────────

@@ -63,13 +63,36 @@ export { calculateHydration } from "./hydration";
 
 // ── Convenience: Full Daily Plan ──────────────────────────────────────────────
 
-import type { ClientSnapshot, DayType, DailyPlan, WeeklyPlan } from "./types";
+import type {
+  ClientSnapshot,
+  DayType,
+  DailyPlan,
+  WeeklyPlan,
+  ExerciseSession,
+} from "./types";
 import { calculateTdee, calculateWeeklyTdee, type TdeeOptions } from "./tdee";
 import { calculateMacros, type MacroOptions } from "./macros";
 import { calculateHydration } from "./hydration";
 
 export interface PlanOptions extends TdeeOptions {
   macroOptions?: MacroOptions;
+  /**
+   * Daily kcal deficit (positive) or surplus (negative) to apply to each
+   * day's TDEE before macros are calculated. When set, the macro engine
+   * targets `tdee.totalTdeeKcal − dailyDeficitKcal` per day; the weekly
+   * average naturally shifts too. Comes from the target-date deficit
+   * calculator (engine/goal-rate.ts) or a direct practitioner override.
+   */
+  dailyDeficitKcal?: number;
+  /**
+   * Per-day-of-week exercise session override (length-7 array, Mon-Sun).
+   * When the entry at index `i` is set AND the day's DayType is "training",
+   * that session is used in place of `options.trainingSession`. Entries set
+   * to `null`/`undefined` (or any non-training day) fall back to the global
+   * `trainingSession` or the engine default. Lets the practitioner schedule
+   * different sports on different days (BJJ Mon, lifting Tue, MMA Wed…).
+   */
+  perDayTrainingSession?: (ExerciseSession | null | undefined)[];
 }
 
 /**
@@ -81,8 +104,9 @@ export function generateDailyPlan(
   options: PlanOptions = {}
 ): DailyPlan {
   const tdee = calculateTdee(snapshot, dayType, options);
+  const targetKcal = tdee.totalTdeeKcal - (options.dailyDeficitKcal ?? 0);
   const macros = calculateMacros(
-    tdee.totalTdeeKcal,
+    targetKcal,
     tdee.bmr.bodyComposition,
     snapshot.weightKg,
     dayType,
@@ -100,9 +124,17 @@ export function generateWeeklyPlan(
   snapshot: ClientSnapshot,
   options: PlanOptions = {}
 ): WeeklyPlan {
-  const days = snapshot.weekSchedule.map((dayType) =>
-    generateDailyPlan(snapshot, dayType, options)
-  ) as WeeklyPlan["days"];
+  const perDay = options.perDayTrainingSession;
+  const days = snapshot.weekSchedule.map((dayType, i) => {
+    const override = perDay?.[i];
+    if (override && dayType === "training") {
+      return generateDailyPlan(snapshot, dayType, {
+        ...options,
+        trainingSession: override,
+      });
+    }
+    return generateDailyPlan(snapshot, dayType, options);
+  }) as WeeklyPlan["days"];
 
   const weeklyAverageKcal = Math.round(
     days.reduce((sum, d) => sum + d.macros.totalKcal, 0) / 7

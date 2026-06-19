@@ -18,6 +18,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { trpc } from "../../../../../lib/trpc/client";
 import type { DayType, MacroTargets } from "../../../../../engine/types";
+import { computeSlotDeviation as slotDeviation } from "../../../../../engine/meal-plan/types";
 import type {
   SupplementEntry,
   GuidanceSection,
@@ -25,6 +26,8 @@ import type {
   DayTypePlanSummary,
 } from "../../../../../pdf/types";
 import type { SerializedPlanResult } from "../../../../../services/plan-generator";
+import { checkSupplementInteractions } from "../../../../../services/supplements";
+import { formatIngredientQuantity } from "../../../../../lib/ingredient-display";
 
 // ── Review State ─────────────────────────────────────────────────────────────
 
@@ -78,7 +81,15 @@ const MEAL_LABELS: Record<string, string> = {
   snack_2: "Spuntino 2",
   snack_3: "Spuntino 3",
   pre_workout: "Pre-Allenamento",
-  post_workout: "Post-Allenamento",
+  post_workout: "Spuntino proteico",
+};
+
+const EXERCISE_METHOD_LABELS: Record<string, string> = {
+  sport_correction_protocol: "Sport Correction Protocol (zone FC)",
+  heart_rate: "Frequenza cardiaca (Keytel)",
+  met_value: "METs (da sessioni inserite)",
+  session_estimate: "Stima per sessione",
+  default_estimate: "Stima predefinita (300 kcal)",
 };
 
 const METRIC_LABELS: Record<string, string> = {
@@ -158,6 +169,18 @@ export default function PlanReviewPage({
       setApproveSuccess(true);
       setReview((prev) => ({ ...prev, status: "active" }));
     },
+  });
+
+  // Save edits mutation (persists supplement + guidance changes)
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [saveError, setSaveError] = useState("");
+  const saveEditsMutation = trpc.plan.saveEdits.useMutation({
+    onSuccess: () => {
+      setSaveSuccess(true);
+      setSaveError("");
+      setTimeout(() => setSaveSuccess(false), 2500);
+    },
+    onError: (err) => setSaveError(err.message ?? "Errore nel salvataggio."),
   });
 
   // Share mutation
@@ -253,6 +276,21 @@ export default function PlanReviewPage({
       setIsApproving(false);
     }
   }, [planId, approveMutation]);
+
+  const handleSaveEdits = useCallback(async () => {
+    if (!planId) return;
+    setSaveError("");
+    await saveEditsMutation.mutateAsync({
+      planId,
+      supplements: review.supplements.map((s) => ({
+        name: s.name,
+        dosage: s.dosage,
+        timing: s.timing,
+        rationale: s.rationale ?? "",
+      })),
+      guidance: review.guidance,
+    });
+  }, [planId, review.supplements, review.guidance, saveEditsMutation]);
 
   const handleDownloadPdf = useCallback(() => {
     if (!planId) return;
@@ -407,6 +445,38 @@ export default function PlanReviewPage({
             </span>
           )}
 
+          {(saveSuccess || saveError) && (
+            <span
+              style={{
+                padding: "8px 16px",
+                fontSize: "13px",
+                color: saveError ? "#dc2626" : "#16a34a",
+                fontWeight: 600,
+                alignSelf: "center",
+              }}
+            >
+              {saveError ? saveError : "Modifiche salvate"}
+            </span>
+          )}
+
+          <button
+            onClick={handleSaveEdits}
+            disabled={saveEditsMutation.isPending}
+            title="Salva le modifiche a integratori e testi guida"
+            style={{
+              padding: "8px 20px",
+              border: "1px solid #e4e4e7",
+              borderRadius: "8px",
+              backgroundColor: saveEditsMutation.isPending ? "#f4f4f5" : "#ffffff",
+              color: saveEditsMutation.isPending ? "#a1a1aa" : "#3f3f46",
+              cursor: saveEditsMutation.isPending ? "not-allowed" : "pointer",
+              fontSize: "13px",
+              fontWeight: 600,
+            }}
+          >
+            {saveEditsMutation.isPending ? "Salvataggio…" : "Salva modifiche"}
+          </button>
+
           <button
             onClick={handleDownloadPdf}
             style={{
@@ -482,6 +552,34 @@ export default function PlanReviewPage({
           )}
         </div>
       </div>
+
+      {/* Post-approval: how the client receives the plan */}
+      {(review.status === "active" || approveSuccess) && (
+        <div
+          style={{
+            marginBottom: "20px",
+            padding: "14px 18px",
+            background: "#f0fdf4",
+            border: "1px solid #bbf7d0",
+            borderRadius: "10px",
+            fontSize: "13px",
+            color: "#166534",
+            lineHeight: "1.6",
+          }}
+        >
+          <strong>Piano attivo.</strong> Il cliente lo vede nel suo portale all'indirizzo{" "}
+          <a
+            href={`${typeof window !== "undefined" ? window.location.origin : ""}/portal/login`}
+            target="_blank"
+            rel="noreferrer"
+            style={{ color: "#15803d", fontWeight: 600 }}
+          >
+            {(typeof window !== "undefined" ? window.location.origin : "")}/portal/login
+          </a>
+          . Usa <em>“Condividi con Cliente”</em> per inviargli un'email con il riepilogo e il link.
+          Se il cliente non ha ancora accesso, invitalo dalla sua scheda (pulsante <em>“Invita al portale”</em>).
+        </div>
+      )}
 
       {/* Share modal */}
       {showShareModal && (
@@ -626,7 +724,7 @@ export default function PlanReviewPage({
         <MacrosTab dayTypePlans={review.dayTypePlans} cardStyle={cardStyle} />
       )}
       {activeTab === "meals" && (
-        <MealsTab dayTypePlans={review.dayTypePlans} cardStyle={cardStyle} />
+        <MealsTab dayTypePlans={review.dayTypePlans} cardStyle={cardStyle} planId={planId} />
       )}
       {activeTab === "supplements" && (
         <SupplementsTab
@@ -678,7 +776,7 @@ function OverviewTab({
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(3, 1fr)",
+            gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
             gap: "16px",
           }}
         >
@@ -774,7 +872,7 @@ function MacrosTab({
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(4, 1fr)",
+              gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))",
               gap: "12px",
               marginBottom: "12px",
             }}
@@ -804,6 +902,109 @@ function MacrosTab({
               accentColour="#10b981"
             />
           </div>
+          {/* Per-day energy-expenditure breakdown (BMR + NEAT + Exercise + TEF) */}
+          <div
+            style={{
+              fontSize: "12px",
+              color: "#52525b",
+              padding: "10px 12px",
+              backgroundColor: "#fafafa",
+              borderRadius: "6px",
+              marginBottom: "8px",
+            }}
+          >
+            <div style={{ fontWeight: 600, color: "#3f3f46", marginBottom: "6px" }}>
+              Composizione del fabbisogno (TDEE)
+            </div>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))",
+                gap: "8px",
+                textAlign: "center",
+              }}
+            >
+              {[
+                { k: "Metabolismo basale", v: plan.tdee.bmr.bmrKcal },
+                { k: "NEAT (passi + lavoro)", v: plan.tdee.neat.totalNeatKcal },
+                { k: "Esercizio", v: plan.tdee.exercise.exerciseKcal },
+                { k: "Termogenesi (TEF)", v: plan.tdee.tef.tefKcal },
+                { k: "TDEE totale", v: plan.tdee.totalTdeeKcal, strong: true },
+              ].map((c) => (
+                <div key={c.k}>
+                  <div style={{ fontSize: "10px", color: "#a1a1aa", marginBottom: "2px" }}>
+                    {c.k}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: c.strong ? "15px" : "13px",
+                      fontWeight: c.strong ? 700 : 600,
+                      color: c.strong ? "#18181b" : "#3f3f46",
+                    }}
+                  >
+                    {Math.round(c.v)}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div style={{ marginTop: "6px", fontSize: "11px", color: "#a1a1aa" }}>
+              Esercizio stimato con:{" "}
+              {EXERCISE_METHOD_LABELS[plan.tdee.exercise.methodUsed] ??
+                plan.tdee.exercise.methodUsed}
+            </div>
+          </div>
+
+          {/* Energy Availability — per v4.4 spec §Step 9 */}
+          {(() => {
+            const ffm = plan.tdee.bmr.bodyComposition.leanMassKg;
+            const exercise = plan.tdee.exercise.exerciseKcal;
+            const intake = plan.macros.totalKcal;
+            if (!ffm || ffm <= 0) return null;
+            const ea = Math.round(((intake - exercise) / ffm) * 10) / 10;
+            const band =
+              ea >= 45
+                ? { label: "Ottimale", colour: "#15803d", bg: "#f0fdf4" }
+                : ea >= 30
+                ? { label: "Adeguata", colour: "#2563eb", bg: "#eff6ff" }
+                : ea >= 20
+                ? { label: "Bassa", colour: "#b45309", bg: "#fffbeb" }
+                : { label: "Critica", colour: "#b91c1c", bg: "#fef2f2" };
+            return (
+              <div
+                style={{
+                  marginBottom: "8px",
+                  padding: "8px 12px",
+                  backgroundColor: band.bg,
+                  borderRadius: "6px",
+                  fontSize: "12px",
+                  color: band.colour,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "10px",
+                  flexWrap: "wrap",
+                }}
+              >
+                <span style={{ fontWeight: 700 }}>
+                  Energy Availability: {ea} kcal/kg massa magra
+                </span>
+                <span
+                  style={{
+                    padding: "1px 8px",
+                    borderRadius: "10px",
+                    background: "#ffffff",
+                    fontWeight: 600,
+                    fontSize: "11px",
+                  }}
+                >
+                  {band.label}
+                </span>
+                <span style={{ fontSize: "11px", opacity: 0.8 }}>
+                  (intake {Math.round(intake)} − esercizio {exercise} ÷ FFM {ffm.toFixed(1)} kg)
+                </span>
+              </div>
+            );
+          })()}
+
           <div
             style={{
               fontSize: "12px",
@@ -813,7 +1014,7 @@ function MacrosTab({
               borderRadius: "6px",
             }}
           >
-            Target Calorico: {Math.round(plan.tdee.totalTdeeKcal)} kcal &nbsp;|&nbsp;
+            Apporto pianificato: {Math.round(plan.macros.totalKcal)} kcal &nbsp;|&nbsp;
             Acqua: {plan.hydration.waterMl} ml &nbsp;|&nbsp;
             Sale: {plan.hydration.saltG.toFixed(1)} g
           </div>
@@ -826,10 +1027,32 @@ function MacrosTab({
 function MealsTab({
   dayTypePlans,
   cardStyle,
+  planId,
 }: {
   dayTypePlans: DayTypePlanSummary[];
   cardStyle: React.CSSProperties;
+  planId: string;
 }) {
+  const adjustMutation = trpc.plan.adjustPortions.useMutation({
+    onSuccess: (result) => {
+      alert(`Porzioni aggiustate: ${result.previousKcal} \u2192 ${result.newKcal} kcal (\xd7${result.scaleFactor.toFixed(2)})`);
+      window.location.reload();
+    },
+    onError: (err) => {
+      alert(`Errore: ${err.message}`);
+    },
+  });
+
+  // Which slot currently has its "Alternative" panel expanded (one at a time per page).
+  const [expandedSlot, setExpandedSlot] = useState<string | null>(null);
+  const [swappingId, setSwappingId] = useState<string | null>(null);
+
+  const swapMutation = trpc.plan.swapMealSelection.useMutation({
+    onSettled: () => setSwappingId(null),
+    onSuccess: () => window.location.reload(),
+    onError: (err) => alert(`Errore: ${err.message}`),
+  });
+
   const plansWithMeals = dayTypePlans.filter((p) => p.mealPlan);
 
   if (plansWithMeals.length === 0) {
@@ -858,6 +1081,7 @@ function MealsTab({
               {plan.label}
             </h3>
             {plan.mealPlan && (
+              <>
               <span
                 style={{
                   fontSize: "12px",
@@ -880,10 +1104,39 @@ function MealsTab({
                   </span>
                 )}
               </span>
+              {!plan.mealPlan.withinTolerance && (
+                <button
+                  onClick={() => adjustMutation.mutate({ planId, dayType: plan.dayType })}
+                  disabled={adjustMutation.isPending}
+                  title="Riscala automaticamente le porzioni di questo giorno per centrare il target calorico"
+                  style={{
+                    marginLeft: "8px",
+                    padding: "3px 10px",
+                    borderRadius: "12px",
+                    backgroundColor: adjustMutation.isPending ? "#e5e7eb" : "#dbeafe",
+                    color: adjustMutation.isPending ? "#9ca3af" : "#1d4ed8",
+                    border: "none",
+                    cursor: adjustMutation.isPending ? "not-allowed" : "pointer",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                  }}
+                >
+                  {adjustMutation.isPending ? "Aggiustando…" : "Aggiusta Porzioni"}
+                </button>
+              )}
+              </>
             )}
           </div>
 
-          {plan.mealPlan?.slots.map((slot) => (
+          {plan.mealPlan?.slots.map((slot) => {
+            // Per-meal tolerance check (spec §10.8.3: ±5 g P, ±5 g F, ±10 g C, ±50 kcal)
+            const dev = slotDeviation(slot.primary.actualMacros, slot.targetMacros);
+            const slotOOT =
+              Math.abs(dev.proteinG) > 5 ||
+              Math.abs(dev.fatG) > 5 ||
+              Math.abs(dev.carbsG) > 10 ||
+              Math.abs(dev.kcal) > 50;
+            return (
             <div
               key={slot.slot}
               style={{
@@ -891,7 +1144,7 @@ function MealsTab({
                 borderRadius: "8px",
                 backgroundColor: "#fafafa",
                 marginBottom: "8px",
-                border: "1px solid #f4f4f5",
+                border: slotOOT ? "1px solid #fde68a" : "1px solid #f4f4f5",
               }}
             >
               <div
@@ -899,6 +1152,9 @@ function MealsTab({
                   display: "flex",
                   justifyContent: "space-between",
                   marginBottom: "4px",
+                  alignItems: "center",
+                  gap: "8px",
+                  flexWrap: "wrap",
                 }}
               >
                 <span
@@ -909,6 +1165,26 @@ function MealsTab({
                   }}
                 >
                   {MEAL_LABELS[slot.slot] ?? slot.slot.replace(/_/g, " ")}
+                  {slotOOT && (
+                    <span
+                      title={`Deviazione vs target: ${dev.kcal > 0 ? "+" : ""}${dev.kcal} kcal · P ${
+                        dev.proteinG > 0 ? "+" : ""
+                      }${dev.proteinG}g · C ${dev.carbsG > 0 ? "+" : ""}${
+                        dev.carbsG
+                      }g · F ${dev.fatG > 0 ? "+" : ""}${dev.fatG}g`}
+                      style={{
+                        marginLeft: "8px",
+                        padding: "1px 8px",
+                        borderRadius: "10px",
+                        backgroundColor: "#fef9c3",
+                        color: "#854d0e",
+                        fontSize: "10px",
+                        fontWeight: 600,
+                      }}
+                    >
+                      Fuori tolleranza pasto
+                    </span>
+                  )}
                 </span>
                 <span style={{ fontSize: "12px", color: "#71717a" }}>
                   {Math.round(slot.primary.actualMacros.kcal)} kcal &middot; P{" "}
@@ -952,20 +1228,160 @@ function MealsTab({
                     >
                       <span>{ing.name}</span>
                       <span style={{ fontWeight: 600, color: "#18181b" }}>
-                        {Math.round(ing.grams)}g
+                        {formatIngredientQuantity(ing.foodId, ing.grams)}
                       </span>
                     </li>
                   ))}
                 </ul>
               )}
-              {slot.substitutions.length > 0 && (
-                <p style={{ fontSize: "12px", color: "#a1a1aa", margin: 0 }}>
-                  Alternative:{" "}
-                  {slot.substitutions.map((s) => s.template.name).join(", ")}
-                </p>
-              )}
+              {slot.substitutions.length > 0 && (() => {
+                const expandedKey = `${plan.dayType}::${slot.slot}`;
+                const isExpanded = expandedSlot === expandedKey;
+                return (
+                  <div style={{ marginTop: "6px" }}>
+                    <button
+                      type="button"
+                      onClick={() => setExpandedSlot(isExpanded ? null : expandedKey)}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        padding: 0,
+                        margin: 0,
+                        fontSize: "12px",
+                        fontWeight: 600,
+                        color: "#3b82f6",
+                        cursor: "pointer",
+                      }}
+                    >
+                      {isExpanded ? "▾" : "▸"} {slot.substitutions.length} alternativ
+                      {slot.substitutions.length === 1 ? "a" : "e"}{" "}
+                      {!isExpanded && (
+                        <span style={{ color: "#a1a1aa", fontWeight: 400 }}>
+                          ({slot.substitutions
+                            .map((s) => s.template.name)
+                            .slice(0, 3)
+                            .join(", ")}
+                          {slot.substitutions.length > 3 ? ", …" : ""})
+                        </span>
+                      )}
+                    </button>
+                    {isExpanded && (
+                      <div style={{ marginTop: "8px", display: "grid", gap: "8px" }}>
+                        {slot.substitutions.map((sub) => (
+                          <div
+                            key={sub.template.id}
+                            style={{
+                              padding: "10px 12px",
+                              borderRadius: "8px",
+                              backgroundColor: "#ffffff",
+                              border: "1px solid #e4e4e7",
+                            }}
+                          >
+                            <div
+                              style={{
+                                display: "flex",
+                                justifyContent: "space-between",
+                                gap: "8px",
+                                alignItems: "flex-start",
+                                marginBottom: "4px",
+                              }}
+                            >
+                              <div>
+                                <div
+                                  style={{
+                                    fontSize: "13px",
+                                    fontWeight: 600,
+                                    color: "#18181b",
+                                  }}
+                                >
+                                  {sub.template.name}
+                                </div>
+                                <div style={{ fontSize: "11px", color: "#71717a" }}>
+                                  {Math.round(sub.actualMacros.kcal)} kcal · P{" "}
+                                  {Math.round(sub.actualMacros.proteinG)}g · C{" "}
+                                  {Math.round(sub.actualMacros.carbsG)}g · F{" "}
+                                  {Math.round(sub.actualMacros.fatG)}g
+                                </div>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSwappingId(sub.template.id);
+                                  swapMutation.mutate({
+                                    planId,
+                                    dayType: plan.dayType,
+                                    slot: slot.slot,
+                                    substitutionTemplateId: sub.template.id,
+                                  });
+                                }}
+                                disabled={
+                                  swapMutation.isPending && swappingId === sub.template.id
+                                }
+                                style={{
+                                  padding: "5px 12px",
+                                  borderRadius: "6px",
+                                  backgroundColor:
+                                    swapMutation.isPending && swappingId === sub.template.id
+                                      ? "#e5e7eb"
+                                      : "#1a1a2e",
+                                  color:
+                                    swapMutation.isPending && swappingId === sub.template.id
+                                      ? "#9ca3af"
+                                      : "#ffffff",
+                                  border: "none",
+                                  fontSize: "11px",
+                                  fontWeight: 600,
+                                  cursor:
+                                    swapMutation.isPending && swappingId === sub.template.id
+                                      ? "not-allowed"
+                                      : "pointer",
+                                  flexShrink: 0,
+                                }}
+                              >
+                                {swapMutation.isPending && swappingId === sub.template.id
+                                  ? "Cambio…"
+                                  : "Usa come principale"}
+                              </button>
+                            </div>
+                            {sub.scaledIngredients.length > 0 && (
+                              <ul
+                                style={{
+                                  margin: "6px 0 0 0",
+                                  padding: 0,
+                                  listStyle: "none",
+                                }}
+                              >
+                                {sub.scaledIngredients.map((ing, idx) => (
+                                  <li
+                                    key={idx}
+                                    style={{
+                                      fontSize: "12px",
+                                      color: "#52525b",
+                                      padding: "1px 0",
+                                      display: "flex",
+                                      justifyContent: "space-between",
+                                    }}
+                                  >
+                                    <span>{ing.name}</span>
+                                    <span
+                                      style={{ fontWeight: 600, color: "#3f3f46" }}
+                                    >
+                                      {formatIngredientQuantity(ing.foodId, ing.grams)}
+                                    </span>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
-          ))}
+            );
+          })}
         </div>
       ))}
     </div>
@@ -996,8 +1412,56 @@ function SupplementsTab({
     boxSizing: "border-box",
   };
 
+  // Live interaction / synergy notes based on the current protocol.
+  const interactions = checkSupplementInteractions(supplements);
+  const INTERACTION_COLORS: Record<string, { bg: string; border: string; text: string; label: string }> = {
+    warning: { bg: "#fef9c3", border: "#fde047", text: "#854d0e", label: "Attenzione" },
+    info: { bg: "#eff6ff", border: "#bfdbfe", text: "#1d4ed8", label: "Timing" },
+    synergy: { bg: "#f0fdf4", border: "#bbf7d0", text: "#15803d", label: "Sinergia" },
+  };
+
   return (
     <div>
+      {interactions.length > 0 && (
+        <div style={{ marginBottom: "16px", display: "grid", gap: "8px" }}>
+          {interactions.map((note, i) => {
+            const c = INTERACTION_COLORS[note.severity] ?? INTERACTION_COLORS.info!;
+            return (
+              <div
+                key={i}
+                style={{
+                  padding: "10px 14px",
+                  background: c.bg,
+                  border: `1px solid ${c.border}`,
+                  borderRadius: "10px",
+                  color: c.text,
+                  fontSize: "13px",
+                  lineHeight: 1.5,
+                }}
+              >
+                <span
+                  style={{
+                    display: "inline-block",
+                    padding: "1px 8px",
+                    borderRadius: "10px",
+                    background: "#ffffff",
+                    fontSize: "11px",
+                    fontWeight: 700,
+                    marginRight: "8px",
+                  }}
+                >
+                  {c.label}
+                </span>
+                <span style={{ fontWeight: 600 }}>
+                  {note.supplements.join(" + ")}:
+                </span>{" "}
+                {note.message}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {supplements.length === 0 && (
         <div style={{ ...cardStyle, color: "#71717a", fontSize: "14px" }}>
           Nessun integratore nel protocollo. Aggiungine uno con il pulsante qui sotto.
@@ -1032,7 +1496,7 @@ function SupplementsTab({
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "1fr 1fr",
+              gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
               gap: "12px",
               marginBottom: "10px",
             }}
@@ -1057,7 +1521,7 @@ function SupplementsTab({
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "1fr 1fr",
+              gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
               gap: "12px",
             }}
           >

@@ -30,6 +30,7 @@ import { selectMeals, type SelectionFilter } from "./selector";
 import { scaleMealToTarget } from "./scaler";
 import { generateSubstitutions } from "./substitution";
 import { applyFatCompensation } from "./fat-compensation";
+import { reconcilePlan } from "./reconcile";
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -203,6 +204,17 @@ export function createMealPlan(
     Math.min(SUBSTITUTION_BOUNDS.max, config.substitutionsPerSlot ?? 3)
   );
 
+  // #18: on non-training day-types (rest / refeed / deload) drop post-workout-
+  // tagged meals from the pool, so a "post-workout" item (e.g. the protein
+  // shake) never lands on a rest day. Every selection path below — primary,
+  // tighten, reconcile, substitutions — draws from `pool`, so the dedicated
+  // post_workout slot (6-meal distribution) fills with a normal snack instead.
+  // Training days are unaffected.
+  const pool =
+    config.dayType === "training"
+      ? templates
+      : templates.filter((t) => !t.tags.includes("post_workout"));
+
   // 1. Get distribution template
   const distribution = config.distribution ?? getDistribution(mealCount);
 
@@ -211,7 +223,15 @@ export function createMealPlan(
     allocateSlotMacros(config.macroTargets, slot)
   );
 
-  // 3. Select primary meals for each slot
+  // Valid meal types per slot index — needed by both substitution generation
+  // and the reconciliation pass, neither of which can recover it from MealSlot.
+  const slotValidTypes: MealType[][] = distribution.slots.map(
+    (s) => s.validTypes
+  );
+
+  // 3. Select primary meals for each slot. Substitutions are generated later,
+  //    after fat-compensation / tighten / reconcile have settled the primaries,
+  //    so the alternatives match the FINAL primary and target (not a stale one).
   const usedIds: string[] = [];
   const initialSlots: MealSlot[] = distribution.slots.map((distSlot, idx) => {
     const target = slotTargets[idx]!;
@@ -223,12 +243,12 @@ export function createMealPlan(
       excludeIds: [...usedIds],
     };
 
-    const selected = selectMeals(templates, target, filter, 1);
+    const selected = selectMeals(pool, target, filter, 1);
 
     // Fallback: if no candidates, use the first active template of valid type
     const bestTemplate =
       selected[0]?.template ??
-      templates.find(
+      pool.find(
         (t) => t.isActive && distSlot.validTypes.includes(t.mealType)
       );
 
@@ -243,26 +263,15 @@ export function createMealPlan(
     // 4. Scale to match target
     const primary = scaleMealToTarget(bestTemplate, target);
 
-    // 5. Generate substitutions
-    const substitutions = generateSubstitutions({
-      templates,
-      primaryId: bestTemplate.id,
-      target,
-      validTypes: distSlot.validTypes,
-      excludeAllergens,
-      preferTags,
-      count: subsCount,
-    });
-
     return {
       slot: distSlot.slot,
       targetMacros: target,
       primary,
-      substitutions,
+      substitutions: [],
     };
   });
 
-  // 6. Apply fat compensation
+  // 5. Apply fat compensation
   const { adjustedTargets } = applyFatCompensation(initialSlots);
   const compensatedSlots = initialSlots.map((slot, idx) => {
     const newTarget = adjustedTargets[idx]!;
@@ -280,7 +289,7 @@ export function createMealPlan(
     return slot;
   });
 
-  // 7. Tighten to tolerance bands
+  // 6. Tighten the last slot to tolerance bands (cheap local correction)
   const baseFilter: Omit<SelectionFilter, "validTypes" | "excludeIds"> = {
     excludeAllergens,
     preferTags,
@@ -288,20 +297,44 @@ export function createMealPlan(
   const tightenedSlots = tightenPlan(
     compensatedSlots,
     config.macroTargets,
-    templates,
+    pool,
     baseFilter,
     tolerances
   );
 
-  // Calculate final totals
-  const actualMacros = sumActualMacros(tightenedSlots);
+  // 7. Reconcile the whole plan so the SUM of delivered macros matches the
+  //    prescription within tolerance (#21). Re-selects template + scale factor
+  //    per slot, staying inside SCALE_BOUNDS.
+  const reconciledSlots = reconcilePlan(tightenedSlots, config.macroTargets, {
+    templates: pool,
+    validTypesPerSlot: slotValidTypes,
+    excludeAllergens,
+    preferTags,
+  });
+
+  // 8. Generate substitutions against the FINAL primaries.
+  const finalSlots: MealSlot[] = reconciledSlots.map((slot, idx) => ({
+    ...slot,
+    substitutions: generateSubstitutions({
+      templates: pool,
+      primaryId: slot.primary.template.id,
+      target: slot.targetMacros,
+      validTypes: slotValidTypes[idx] ?? [slot.primary.template.mealType],
+      excludeAllergens,
+      preferTags,
+      count: subsCount,
+    }),
+  }));
+
+  // 9. Calculate final totals
+  const actualMacros = sumActualMacros(finalSlots);
   const deviation = calculateDeviation(actualMacros, config.macroTargets);
   const withinTolerance = isWithinTolerance(deviation, tolerances);
 
   return {
     dayType: config.dayType,
     targetMacros: config.macroTargets,
-    slots: tightenedSlots,
+    slots: finalSlots,
     actualMacros,
     deviation,
     withinTolerance,

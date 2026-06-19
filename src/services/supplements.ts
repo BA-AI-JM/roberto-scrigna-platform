@@ -78,10 +78,11 @@ export const MASTER_SUPPLEMENTS: readonly MasterSupplement[] = [
   {
     id: "whey_protein",
     name: "Proteine Whey Isolate",
-    dosage: "25-30g per porzione",
-    timing: "Post-allenamento o tra i pasti per raggiungere il target proteico",
+    dosage: "20-30g per porzione, secondo necessità",
+    timing:
+      "Liberamente nell'arco della giornata — come spuntino, nel pre/post allenamento o per colmare il fabbisogno proteico giornaliero",
     rationale:
-      "Fonte proteica ad alto valore biologico per supportare la sintesi proteica muscolare e raggiungere il fabbisogno giornaliero.",
+      "Comoda fonte proteica di supporto quando è difficile raggiungere il target proteico con i soli alimenti. Opzionale — adattare il timing o rimuovere in base alle preferenze del cliente.",
     category: "foundation",
     priority: 1,
     condition: () => true,
@@ -296,6 +297,111 @@ export const MASTER_SUPPLEMENTS: readonly MasterSupplement[] = [
       (ctx.stileVita?.stressLevel ?? 0) >= 6 &&
       ctx.trainingDaysPerWeek >= 3,
   },
+
+  // ── Extended library (May 2026) ──────────────────────────────────────────
+  // Added to broaden the practitioner's options without disrupting the
+  // foundation set. Per-plan add/edit/remove on the review page persists via
+  // plan.saveEdits, so the coach can always override.
+
+  {
+    id: "curcumin",
+    name: "Curcumina (con piperina)",
+    dosage: "500-1000mg/die",
+    timing: "Con i pasti principali, lontano da farmaci anticoagulanti",
+    rationale:
+      "Effetto anti-infiammatorio sistemico utile in fasi ad alto volume di allenamento o quando l'infiammazione cronica può rallentare il recupero articolare e muscolare.",
+    category: "recovery",
+    priority: 2,
+    condition: (ctx) => ctx.trainingDaysPerWeek >= 4,
+  },
+  {
+    id: "vitamin_b_complex",
+    name: "Complesso Vitaminico B (B1, B2, B3, B5, B6, B9, B12)",
+    dosage: "1 compressa/die",
+    timing: "A colazione con il pasto",
+    rationale:
+      "Cofattori del metabolismo energetico e della sintesi proteica. Particolarmente utili in periodi di alto stress, allenamento intenso o regimi ipocalorici dove l'apporto di alcuni B (B1, B6, B12) può essere subottimale.",
+    category: "performance",
+    priority: 2,
+    condition: () => true,
+  },
+  {
+    id: "iodine_selenium",
+    name: "Iodio + Selenio",
+    dosage: "Iodio 150mcg + Selenio 100-200mcg/die",
+    timing: "Con la colazione",
+    rationale:
+      "Supporto della funzione tiroidea durante fasi ipocaloriche prolungate, quando T3 e T4 tendono a ridursi adattivamente. Il selenio è cofattore della deiodinasi che converte T4 in T3 attivo.",
+    category: "health",
+    priority: 2,
+    condition: (ctx) => ctx.isDeficit,
+  },
+  {
+    id: "msm",
+    name: "MSM (Metilsulfonilmetano)",
+    dosage: "2-3g/die",
+    timing: "Diviso in 2 dosi ai pasti",
+    rationale:
+      "Donatore di zolfo organico, supporta la sintesi di collagene e cheratina e riduce la percezione di dolore articolare in atleti con elevato volume di allenamento meccanicamente impegnativo.",
+    category: "recovery",
+    priority: 3,
+    condition: (ctx) => ctx.trainingDaysPerWeek >= 5,
+  },
+  {
+    id: "myo_inositol",
+    name: "Mio-inositolo",
+    dosage: "2g due volte/die (totale 4g)",
+    timing: "Una dose al mattino, una alla sera",
+    rationale:
+      "Supporto della sensibilità insulinica e dell'asse ormonale nelle donne, con evidenza specifica per sindrome dell'ovaio policistico (PCOS). Utile anche per gestione dell'umore e qualità del sonno.",
+    category: "health",
+    priority: 2,
+    condition: (ctx) => ctx.snapshot.sex === "female",
+  },
+  {
+    id: "spirulina",
+    name: "Spirulina",
+    dosage: "3-5g/die",
+    timing: "30-60 min prima dei pasti principali",
+    rationale:
+      "Fonte densa di micronutrienti (ferro biodisponibile, vitamina K, beta-carotene) e di ficocianina antiossidante. Utile come integratore generale per atleti e regimi ipocalorici.",
+    category: "health",
+    priority: 3,
+    condition: () => true,
+  },
+  {
+    id: "glycine",
+    name: "Glicina",
+    dosage: "3g prima di dormire",
+    timing: "30 min prima di coricarsi",
+    rationale:
+      "Amminoacido inibitorio che migliora la qualità del sonno profondo e la temperatura corporea periferica notturna. Sinergico con magnesio bisglicinato.",
+    category: "sleep",
+    priority: 3,
+    condition: () => true,
+  },
+  {
+    id: "l_tyrosine",
+    name: "L-Tirosina",
+    dosage: "500-2000mg/die",
+    timing: "Pre-allenamento o al mattino a digiuno",
+    rationale:
+      "Precursore di dopamina e catecolamine. Supporta concentrazione e umore in fasi ipocaloriche prolungate quando la sintesi neurotrasmettitoriale può risentire della restrizione.",
+    category: "performance",
+    priority: 3,
+    condition: (ctx) => ctx.isDeficit,
+  },
+  {
+    id: "coq10",
+    name: "Coenzima Q10 (ubiquinolo)",
+    dosage: "100-200mg/die",
+    timing: "Con un pasto grasso (favorisce l'assorbimento)",
+    rationale:
+      "Cofattore della catena respiratoria mitocondriale. Particolarmente indicato in atleti master (≥40 anni) e in chi assume statine, dove la sintesi endogena di CoQ10 si riduce.",
+    category: "health",
+    priority: 2,
+    condition: (ctx) => ctx.snapshot.ageYears >= 40,
+  },
 ] as const;
 
 // ── Protocol Generation ─────────────────────────────────────────────────────
@@ -372,4 +478,88 @@ export function generateSupplementProtocol(
  */
 export function getMasterSupplements(): readonly MasterSupplement[] {
   return MASTER_SUPPLEMENTS;
+}
+
+// ── Interaction Warnings ─────────────────────────────────────────────────────
+
+/** Severity for a supplement interaction note. */
+export type InteractionSeverity = "warning" | "info" | "synergy";
+
+export interface SupplementInteraction {
+  severity: InteractionSeverity;
+  supplements: string[];
+  message: string;
+}
+
+/** Loose name-contains match (lowercased, accent-insensitive enough for our library). */
+function hasName(protocol: SupplementEntry[], needle: string): SupplementEntry | undefined {
+  const n = needle.toLowerCase();
+  return protocol.find((s) => s.name.toLowerCase().includes(n));
+}
+
+/**
+ * Scan a generated / edited supplement protocol for known interactions and
+ * synergies and return user-facing notes. Pure — no side effects.
+ *
+ * Currently detects (per Roberto's May 2026 feedback):
+ *   - Iron + Calcium (timing — calcium inhibits iron absorption)
+ *   - Caffeine + Magnesium (timing — caffeine in the morning, magnesium evening)
+ *   - Omega-3 dosage above 3 g/day (antiplatelet effect — clinical oversight)
+ *   - Vitamin D without Vitamin K2 (synergy suggestion)
+ */
+export function checkSupplementInteractions(
+  protocol: SupplementEntry[]
+): SupplementInteraction[] {
+  const out: SupplementInteraction[] = [];
+
+  const ferro = hasName(protocol, "ferro");
+  const calcio = hasName(protocol, "calcio");
+  if (ferro && calcio) {
+    out.push({
+      severity: "warning",
+      supplements: [ferro.name, calcio.name],
+      message:
+        "Assumere ferro e calcio a distanza di almeno 2 ore l'uno dall'altro — il calcio riduce significativamente l'assorbimento del ferro.",
+    });
+  }
+
+  const caffeina = hasName(protocol, "caffeina");
+  const magnesio = hasName(protocol, "magnesio");
+  if (caffeina && magnesio) {
+    out.push({
+      severity: "info",
+      supplements: [caffeina.name, magnesio.name],
+      message:
+        "Caffeina al mattino o nel pre-workout; magnesio alla sera, lontano dalla caffeina, per non interferire con il sonno.",
+    });
+  }
+
+  const omega = hasName(protocol, "omega");
+  if (omega) {
+    // Parse the dose; flag if the upper bound is above 3 g/day.
+    const match = omega.dosage.match(/(\d+(?:[.,]\d+)?)\s*(?:-\s*(\d+(?:[.,]\d+)?))?\s*g/i);
+    if (match) {
+      const upper = parseFloat((match[2] ?? match[1]!).replace(",", "."));
+      if (!Number.isNaN(upper) && upper > 3) {
+        out.push({
+          severity: "warning",
+          supplements: [omega.name],
+          message: `Dose elevata (${omega.dosage}). Sopra i 3 g/die l'Omega-3 può avere effetto anti-aggregante piastrinico — monitorare con il medico, specialmente se in terapia anticoagulante o pre-intervento.`,
+        });
+      }
+    }
+  }
+
+  const vitD = hasName(protocol, "vitamina d");
+  const vitK = hasName(protocol, "vitamina k");
+  if (vitD && !vitK) {
+    out.push({
+      severity: "synergy",
+      supplements: [vitD.name],
+      message:
+        "Considerare l'aggiunta di Vitamina K2 MK-7 (100-200 mcg) — sinergica con la Vitamina D nel dirigere il calcio verso il tessuto osseo e non a livello vascolare.",
+    });
+  }
+
+  return out;
 }

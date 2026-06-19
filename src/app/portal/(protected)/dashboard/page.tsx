@@ -12,6 +12,7 @@
 
 import Link from "next/link";
 import { trpc } from "@/lib/trpc/client";
+import { formatIngredientQuantity } from "@/lib/ingredient-display";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -46,7 +47,7 @@ const MEAL_LABELS: Record<string, string> = {
   dinner: "Cena",
   snack: "Spuntino",
   pre_workout: "Pre-allenamento",
-  post_workout: "Post-allenamento",
+  post_workout: "Spuntino proteico",
 };
 
 // ── Shared Styles ─────────────────────────────────────────────────────────────
@@ -98,7 +99,7 @@ type MealSlot = {
   slot: string;
   primary: {
     template: { name: string };
-    scaledIngredients: Array<{ name: string; grams: number }>;
+    scaledIngredients: Array<{ name: string; grams: number; foodId?: string }>;
     actualMacros: { kcal: number; proteinG: number; carbsG: number; fatG: number };
   };
 };
@@ -367,7 +368,7 @@ function MealPlanSection({ dayTypePlans }: { dayTypePlans: DayTypeMealPlan[] }) 
                         >
                           <span style={{ fontSize: "13px", color: "#374151" }}>{ing.name}</span>
                           <span style={{ fontSize: "13px", fontWeight: 600, color: "#1a1a2e", whiteSpace: "nowrap" as const }}>
-                            {ing.grams}g
+                            {formatIngredientQuantity(ing.foodId, ing.grams)}
                           </span>
                         </div>
                       ))}
@@ -874,6 +875,28 @@ export default function PortalDashboardPage() {
         planStartDate={plan?.start_date}
         loading={dashboardQuery.isLoading}
       />
+
+      {/* ── Training log shortcut ── */}
+      <Link
+        href="/portal/training"
+        style={{
+          display: "block",
+          padding: "16px 20px",
+          background: "#ffffff",
+          border: "1px solid #e2e8f0",
+          borderRadius: "14px",
+          marginBottom: "24px",
+          textDecoration: "none",
+          color: "#1a1a2e",
+        }}
+      >
+        <div style={{ fontSize: "15px", fontWeight: 700, marginBottom: "4px" }}>
+          🏋️ I miei allenamenti
+        </div>
+        <div style={{ fontSize: "13px", color: "#6b7280" }}>
+          Registra un nuovo allenamento o consulta lo storico.
+        </div>
+      </Link>
 
       {/* ── Footer ── */}
       <div

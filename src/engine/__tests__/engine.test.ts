@@ -353,6 +353,45 @@ describe("Macros", () => {
     expect(macros.proteinG).toBeCloseTo(181, 0); // 2.5 * 72.25
     expect(macros.fatG).toBe(68); // 0.8 * 85
   });
+
+  test("absolute gram override pins protein; fat formula; carbs fills", () => {
+    const bodyFat = estimateBodyFat(clientWithOverride);
+    const macros = calculateMacros(2500, bodyFat.bodyComposition, 85, "training", {
+      absoluteOverrides: { training: { proteinG: 220 } },
+    });
+    expect(macros.proteinG).toBe(220);
+    // Fat formula = 0.9 * 85 = 76.5 → 77
+    expect(macros.fatG).toBe(77);
+    // Carbs absorb the remainder
+    const totalFromMacros =
+      macros.proteinG * 4 + macros.fatG * 9 + macros.carbG * 4;
+    expect(Math.abs(totalFromMacros - 2500)).toBeLessThan(15);
+  });
+
+  test("full absolute override pins all three macros", () => {
+    const bodyFat = estimateBodyFat(clientWithOverride);
+    const macros = calculateMacros(2500, bodyFat.bodyComposition, 85, "training", {
+      absoluteOverrides: { training: { proteinG: 200, fatG: 80, carbG: 350 } },
+    });
+    expect(macros.proteinG).toBe(200);
+    expect(macros.fatG).toBe(80);
+    expect(macros.carbG).toBe(350);
+    // totalKcal is recomputed from the explicit grams, not the input TDEE
+    expect(macros.totalKcal).toBe(200 * 4 + 80 * 9 + 350 * 4);
+  });
+
+  test("absolute override scoped to one day-type doesn't leak", () => {
+    const bodyFat = estimateBodyFat(clientWithOverride);
+    const trainingMacros = calculateMacros(2500, bodyFat.bodyComposition, 85, "training", {
+      absoluteOverrides: { training: { proteinG: 250 } },
+    });
+    const restMacros = calculateMacros(2200, bodyFat.bodyComposition, 85, "rest", {
+      absoluteOverrides: { training: { proteinG: 250 } },
+    });
+    expect(trainingMacros.proteinG).toBe(250);
+    // Rest day should fall back to its own formula
+    expect(restMacros.proteinG).not.toBe(250);
+  });
 });
 
 // ── Hydration Tests ───────────────────────────────────────────────────────────
@@ -410,5 +449,133 @@ describe("Full Plan Generation", () => {
     expect(plan.macros.proteinG).toBeGreaterThan(0);
     expect(plan.macros.totalKcal).toBeGreaterThan(1000);
     expect(plan.macros.totalKcal).toBeLessThan(4000);
+  });
+
+  test("perDayTrainingSession swaps the session on the matching index", () => {
+    // Mon (index 0) gets a high-MET session; Wed (index 2) gets a low-MET session.
+    // Both are training days in clientWithOverride's schedule.
+    const weekly = generateWeeklyPlan(clientWithOverride, {
+      perDayTrainingSession: [
+        { method: "met_value", durationMin: 90, metValue: 9.0 },
+        null,
+        { method: "met_value", durationMin: 45, metValue: 4.0 },
+      ],
+    });
+    expect(weekly.days[0].dayType).toBe("training");
+    expect(weekly.days[2].dayType).toBe("training");
+    expect(weekly.days[0].tdee.exercise.exerciseKcal).toBeGreaterThan(
+      weekly.days[2].tdee.exercise.exerciseKcal
+    );
+  });
+
+  test("perDayTrainingSession is ignored on non-training days", () => {
+    // Index 1 = rest day in clientWithOverride. Setting a session there must NOT
+    // increase the day's TDEE — rest days zero out exercise.
+    const weekly = generateWeeklyPlan(clientWithOverride, {
+      perDayTrainingSession: [
+        undefined,
+        { method: "met_value", durationMin: 60, metValue: 8.0 },
+      ],
+    });
+    expect(weekly.days[1].dayType).toBe("rest");
+    expect(weekly.days[1].tdee.exercise.exerciseKcal).toBe(0);
+  });
+
+  test("perDayTrainingSession falls back to global trainingSession when entry is null", () => {
+    const globalSession = {
+      method: "met_value" as const,
+      durationMin: 60,
+      metValue: 6.0,
+    };
+    const weekly = generateWeeklyPlan(clientWithOverride, {
+      trainingSession: globalSession,
+      perDayTrainingSession: [
+        null,
+        null,
+        { method: "met_value", durationMin: 60, metValue: 6.0 }, // same as fallback
+      ],
+    });
+    // Mon (null override) and Wed (explicit equal) should have ~equal exercise kcal
+    expect(weekly.days[0].tdee.exercise.exerciseKcal).toBe(
+      weekly.days[2].tdee.exercise.exerciseKcal
+    );
+  });
+});
+
+// ── Edge cases: the runtime scenarios tsc can't catch ─────────────────────────
+// These mirror the inputs the previewWeek / generate procedures can produce
+// from the Phase A–C wizard (all-OFF weeks, deficit + macro pin combos, etc.).
+
+describe("Wizard edge cases", () => {
+  const allRest: ClientSnapshot = {
+    ...clientWithOverride,
+    weekSchedule: ["rest", "rest", "rest", "rest", "rest", "rest", "rest"],
+  };
+
+  test("all-OFF week produces 7 valid rest days, no crash", () => {
+    const weekly = generateWeeklyPlan(allRest);
+    expect(weekly.days).toHaveLength(7);
+    for (const d of weekly.days) {
+      expect(d.dayType).toBe("rest");
+      expect(d.tdee.exercise.exerciseKcal).toBe(0);
+      expect(d.macros.proteinG).toBeGreaterThan(0);
+      expect(d.macros.carbG).toBeGreaterThanOrEqual(0);
+    }
+    expect(weekly.weeklyAverageKcal).toBeGreaterThan(0);
+  });
+
+  test("perDayTrainingSession on an all-OFF week is ignored (no crash)", () => {
+    const weekly = generateWeeklyPlan(allRest, {
+      perDayTrainingSession: [
+        { method: "met_value", durationMin: 90, metValue: 9 },
+        { method: "met_value", durationMin: 60, metValue: 7 },
+        null,
+        null,
+        null,
+        null,
+        null,
+      ],
+    });
+    expect(weekly.days.every((d) => d.tdee.exercise.exerciseKcal === 0)).toBe(true);
+  });
+
+  test("deficit + full macro pin: macros stay pinned, deficit does NOT move them", () => {
+    const noDeficit = generateWeeklyPlan(clientWithOverride, {
+      macroOptions: { absoluteOverrides: { training: { proteinG: 200, fatG: 80, carbG: 350 } } },
+    });
+    const withDeficit = generateWeeklyPlan(clientWithOverride, {
+      dailyDeficitKcal: 600,
+      macroOptions: { absoluteOverrides: { training: { proteinG: 200, fatG: 80, carbG: 350 } } },
+    });
+    const tA = noDeficit.days.find((d) => d.dayType === "training")!;
+    const tB = withDeficit.days.find((d) => d.dayType === "training")!;
+    // Fully pinned macros are identical regardless of the deficit
+    expect(tB.macros.proteinG).toBe(200);
+    expect(tB.macros.fatG).toBe(80);
+    expect(tB.macros.carbG).toBe(350);
+    expect(tB.macros.totalKcal).toBe(tA.macros.totalKcal);
+  });
+
+  test("deficit + protein-only pin: carbs absorb the deficit", () => {
+    const noDeficit = generateWeeklyPlan(clientWithOverride, {
+      macroOptions: { absoluteOverrides: { training: { proteinG: 200 } } },
+    });
+    const withDeficit = generateWeeklyPlan(clientWithOverride, {
+      dailyDeficitKcal: 500,
+      macroOptions: { absoluteOverrides: { training: { proteinG: 200 } } },
+    });
+    const tA = noDeficit.days.find((d) => d.dayType === "training")!;
+    const tB = withDeficit.days.find((d) => d.dayType === "training")!;
+    expect(tB.macros.proteinG).toBe(200); // pin holds
+    expect(tB.macros.carbG).toBeLessThan(tA.macros.carbG); // deficit lands on carbs
+  });
+
+  test("extreme deficit can't drive carbs negative", () => {
+    const weekly = generateWeeklyPlan(clientWithOverride, {
+      dailyDeficitKcal: 1500, // larger than most of the day's intake
+    });
+    for (const d of weekly.days) {
+      expect(d.macros.carbG).toBeGreaterThanOrEqual(0);
+    }
   });
 });

@@ -13,10 +13,25 @@
 import { useState } from "react";
 import { trpc } from "@/lib/trpc/client";
 import { useQueryClient } from "@tanstack/react-query";
+import {
+  ScreenshotUploader,
+  type UploadedScreenshot,
+} from "@/components/screenshot-uploader";
+import {
+  groupedSportOptions,
+  SPORT_TAXONOMY,
+} from "@/engine/sport-taxonomy";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type SessionType =
+/**
+ * Filter values for the type-filter chip row. `"all"` shows everything;
+ * the other values are legacy short codes used by rows written before
+ * migration 004. New rows use the canonical Appendix D modality string
+ * directly (e.g. "Pesi — Ipertrofia") and don't appear here — they fall
+ * under "all" or can be filtered via the search functionality.
+ */
+type SessionTypeFilter =
   | "all"
   | "strength"
   | "hypertrophy"
@@ -36,12 +51,14 @@ interface TrainingLogItem {
   ocrExtracted: boolean;
   notes: string | null;
   clientName: string;
+  screenshotCount: number;
 }
 
 interface NewSessionForm {
   clientId: string;
   sessionDate: string;
-  sessionType: SessionType;
+  // Free-form: canonical Appendix D Italian display name (e.g. "Pesi — Forza").
+  sessionType: string;
   durationMinutes: string;
   perceivedEffort: number;
   notes: string;
@@ -123,7 +140,9 @@ function EffortDots({ effort }: { effort: number | null }) {
 
 // ── Filter Tabs ───────────────────────────────────────────────────────────────
 
-const SESSION_TABS: Array<{ value: SessionType; label: string }> = [
+// Filter chip row — covers legacy short codes only. New rows with canonical
+// modality strings appear under "Tutti".
+const SESSION_TABS: Array<{ value: SessionTypeFilter; label: string }> = [
   { value: "all", label: "Tutti" },
   { value: "strength", label: "Forza" },
   { value: "hypertrophy", label: "Ipertrofia" },
@@ -133,26 +152,32 @@ const SESSION_TABS: Array<{ value: SessionType; label: string }> = [
   { value: "deload", label: "Deload" },
 ];
 
+/** First sport entry, used as the default modality for a new session. */
+const DEFAULT_MODALITY = SPORT_TAXONOMY[0]?.displayIt ?? "Pesi — Ipertrofia";
+
 // ── Page Component ────────────────────────────────────────────────────────────
 
 export default function TrainingLogPage() {
   const queryClient = useQueryClient();
-  const [activeType, setActiveType] = useState<SessionType>("all");
+  const [activeType, setActiveType] = useState<SessionTypeFilter>("all");
   const [showForm, setShowForm] = useState(false);
   const [selectedClientId, setSelectedClientId] = useState<string>("");
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [form, setForm] = useState<NewSessionForm>({
     clientId: "",
     sessionDate: new Date().toISOString().split("T")[0]!,
-    sessionType: "strength",
+    sessionType: "Pesi — Ipertrofia",
     durationMinutes: "",
     perceivedEffort: 7,
     notes: "",
   });
+  const [screenshots, setScreenshots] = useState<UploadedScreenshot[]>([]);
 
-  // Fetch clients for the selector
+  // Fetch clients + the partner id (needed for the screenshot upload path).
   const { data: clientsData } = trpc.client.list.useQuery({ limit: 100, status: "active" });
   const clients = clientsData?.clients ?? [];
+  const { data: session } = trpc.auth.getSession.useQuery();
+  const partnerId = (session as { id?: string } | null | undefined)?.id ?? "";
 
   // Active client driving the log list (form selection takes priority over filter)
   const activeClientId = selectedClientId;
@@ -185,6 +210,9 @@ export default function TrainingLogPage() {
       ocrExtracted: Boolean(l.ocr_extracted),
       notes: l.notes as string | null,
       clientName: client?.full_name ?? "",
+      screenshotCount: Array.isArray((l as { screenshot_urls?: unknown }).screenshot_urls)
+        ? ((l as { screenshot_urls?: string[] }).screenshot_urls!.length)
+        : 0,
     };
   });
 
@@ -198,11 +226,12 @@ export default function TrainingLogPage() {
       setForm({
         clientId: "",
         sessionDate: new Date().toISOString().split("T")[0]!,
-        sessionType: "strength",
+        sessionType: DEFAULT_MODALITY,
         durationMinutes: "",
         perceivedEffort: 7,
         notes: "",
       });
+      setScreenshots([]);
     },
     onError: (err) => {
       setSubmitError(err.message ?? "Errore nel salvataggio della sessione. Riprova.");
@@ -220,10 +249,11 @@ export default function TrainingLogPage() {
     createMutation.mutate({
       clientId: effectiveClientId,
       sessionDate: form.sessionDate,
-      sessionType: form.sessionType as "strength" | "hypertrophy" | "cardio" | "hiit" | "flexibility" | "deload" | "other",
+      sessionType: form.sessionType,
       durationMinutes: form.durationMinutes ? parseInt(form.durationMinutes, 10) : undefined,
       perceivedEffort: form.perceivedEffort,
       notes: form.notes || undefined,
+      screenshotUrls: screenshots.length > 0 ? screenshots.map((s) => s.storagePath) : undefined,
     });
   };
 
@@ -347,7 +377,7 @@ export default function TrainingLogPage() {
                 ))}
               </select>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "16px", marginBottom: "16px" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "16px", marginBottom: "16px" }}>
               <div>
                 <label style={{ fontSize: "13px", fontWeight: 600, color: "#374151", display: "block", marginBottom: "6px" }}>
                   Data
@@ -372,7 +402,7 @@ export default function TrainingLogPage() {
                 </label>
                 <select
                   value={form.sessionType}
-                  onChange={(e) => setForm((f) => ({ ...f, sessionType: e.target.value as SessionType }))}
+                  onChange={(e) => setForm((f) => ({ ...f, sessionType: e.target.value }))}
                   style={{
                     width: "100%",
                     padding: "10px 12px",
@@ -380,10 +410,17 @@ export default function TrainingLogPage() {
                     borderRadius: "8px",
                     fontSize: "14px",
                     boxSizing: "border-box",
+                    backgroundColor: "#ffffff",
                   }}
                 >
-                  {Object.entries(SESSION_TYPE_LABELS).map(([k, v]) => (
-                    <option key={k} value={k}>{v}</option>
+                  {groupedSportOptions().map((g) => (
+                    <optgroup key={g.group} label={g.group}>
+                      {g.entries.map((entry) => (
+                        <option key={entry.displayIt} value={entry.displayIt}>
+                          {entry.displayIt}
+                        </option>
+                      ))}
+                    </optgroup>
                   ))}
                 </select>
               </div>
@@ -409,23 +446,13 @@ export default function TrainingLogPage() {
             </div>
 
             {/* Screenshot upload area */}
-            <div
-              style={{
-                border: "2px dashed #e2e8f0",
-                borderRadius: "12px",
-                padding: "32px",
-                textAlign: "center",
-                marginBottom: "16px",
-                cursor: "pointer",
-              }}
-            >
-              <div style={{ fontSize: "32px", marginBottom: "8px" }}>📸</div>
-              <p style={{ fontSize: "14px", color: "#6b7280", margin: 0 }}>
-                Trascina uno screenshot del workout o clicca per caricare
-              </p>
-              <p style={{ fontSize: "12px", color: "#9ca3af", marginTop: "4px" }}>
-                L&apos;OCR (Claude Vision) estrarrà automaticamente gli esercizi
-              </p>
+            <div style={{ marginBottom: "16px" }}>
+              <ScreenshotUploader
+                partnerId={partnerId}
+                clientId={form.clientId || selectedClientId}
+                value={screenshots}
+                onChange={setScreenshots}
+              />
             </div>
 
             <div style={{ marginBottom: "16px" }}>
@@ -624,6 +651,25 @@ export default function TrainingLogPage() {
                       whiteSpace: "nowrap",
                     }}
                   >
+                    {log.screenshotCount > 0 && (
+                      <span
+                        title={`${log.screenshotCount} screenshot caricat${
+                          log.screenshotCount === 1 ? "o" : "i"
+                        }`}
+                        style={{
+                          display: "inline-block",
+                          marginRight: "6px",
+                          padding: "1px 8px",
+                          borderRadius: "10px",
+                          background: "#eff6ff",
+                          color: "#1d4ed8",
+                          fontSize: "11px",
+                          fontWeight: 600,
+                        }}
+                      >
+                        📸 {log.screenshotCount}
+                      </span>
+                    )}
                     {log.notes ?? "—"}
                   </td>
                   <td style={{ padding: "14px 16px", textAlign: "right" }}>

@@ -9,10 +9,11 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter, useParams } from "next/navigation";
 import { trpc } from "@/lib/trpc/client";
+import { ClientPhotoGallery } from "@/components/client-photo-gallery";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -162,13 +163,290 @@ function WeightTrend({ snapshots }: { snapshots: SnapshotRow[] }) {
   );
 }
 
+// ── Extended-intake rendering (medical / lifestyle / goal / training) ───────────
+//
+// The same data is stored in two shapes depending on how the client was created:
+//   • Edit path (createSnapshot)   → structured in snapshot.skinfold_data._intake
+//     with the "pathologies"-string schema.
+//   • Intake form (submitIntakeForm, the primary path) → JSON-stringified into
+//     client.notes with the "conditions[]"-array schema.
+// We prefer the structured _intake blob and fall back to parsing client.notes,
+// normalising both schemas onto one render path. Read-only, presentational only.
+
+type InfoRow = { label: string; value: string };
+
+const GOAL_LABELS: Record<string, string> = {
+  fat_loss: "Perdita di grasso",
+  weight_loss: "Perdita di peso",
+  muscle_gain: "Aumento massa muscolare",
+  recomposition: "Ricomposizione corporea",
+  maintenance: "Mantenimento",
+  performance: "Performance",
+};
+
+const ALCOHOL_LABELS: Record<string, string> = {
+  never: "Mai",
+  rare: "Raramente",
+  weekly: "Settimanale",
+  daily: "Quotidiano",
+};
+
+const COOKING_LABELS: Record<string, string> = {
+  none: "Nessuna",
+  basic: "Base",
+  intermediate: "Intermedia",
+  advanced: "Avanzata",
+};
+
+const DAYTYPE_LABELS: Record<string, string> = {
+  training: "Allenamento",
+  rest: "Riposo",
+  refeed: "Refeed",
+  deload: "Scarico",
+};
+
+const WEEKDAY_LABELS = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"];
+
+/** Coerce a string / number / string[] value to display text, else undefined. */
+function asText(v: unknown): string | undefined {
+  if (v == null) return undefined;
+  if (Array.isArray(v)) {
+    const joined = v.map((x) => String(x).trim()).filter(Boolean).join(", ");
+    return joined.length > 0 ? joined : undefined;
+  }
+  if (typeof v === "number") return Number.isFinite(v) ? String(v) : undefined;
+  const s = String(v).trim();
+  return s.length > 0 ? s : undefined;
+}
+
+/**
+ * Parse the intake-form blob embedded in client.notes. submitIntakeForm writes
+ * "Anamnesi: {json}\n\nStile di vita: {json}\n\nObiettivo: {json}" (JSON is
+ * single-line, so splitting on the blank line is safe). Never throws.
+ */
+function parseIntakeNotes(notes: unknown): {
+  medical?: Record<string, unknown>;
+  lifestyle?: Record<string, unknown>;
+  goal?: Record<string, unknown>;
+} {
+  const out: {
+    medical?: Record<string, unknown>;
+    lifestyle?: Record<string, unknown>;
+    goal?: Record<string, unknown>;
+  } = {};
+  if (typeof notes !== "string" || notes.length === 0) return out;
+
+  const tryParse = (segment: string, label: string): Record<string, unknown> | undefined => {
+    if (!segment.startsWith(label)) return undefined;
+    try {
+      const parsed = JSON.parse(segment.slice(label.length));
+      return parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : undefined;
+    } catch {
+      return undefined;
+    }
+  };
+
+  for (const segment of notes.split("\n\n")) {
+    out.medical ??= tryParse(segment, "Anamnesi: ");
+    out.lifestyle ??= tryParse(segment, "Stile di vita: ");
+    out.goal ??= tryParse(segment, "Obiettivo: ");
+  }
+  return out;
+}
+
+function buildMedicalRows(m: Record<string, unknown> | undefined): InfoRow[] {
+  if (!m) return [];
+  const rows: InfoRow[] = [];
+  const push = (label: string, v: unknown) => {
+    const t = asText(v);
+    if (t) rows.push({ label, value: t });
+  };
+  push("Patologie", m.pathologies ?? m.conditions);
+  push("Storia familiare", m.family_history ?? m.familyHistory);
+  push("Allergie", m.allergies);
+  push("Intolleranze", m.intolerances);
+  push("Farmaci", m.medications);
+  push("Integratori", m.supplements);
+  push("Digestione", m.digestion_issues);
+  push("Intestino", m.intestine_issues);
+  push("Sonno", m.sleep);
+  push("Storia nutrizionale", m.nutritional_history);
+  return rows;
+}
+
+function buildLifestyleRows(l: Record<string, unknown> | undefined): InfoRow[] {
+  if (!l) return [];
+  const rows: InfoRow[] = [];
+  const push = (label: string, v: unknown) => {
+    const t = asText(v);
+    if (t) rows.push({ label, value: t });
+  };
+  // Edit-path shape
+  push("Occupazione", l.occupation);
+  push("Passi al giorno", l.daily_steps);
+  push("Numero pasti", l.meal_count);
+  push("Orari di fame", l.hunger_timing);
+  push("Orario allenamento preferito", l.preferred_training_time);
+  // Intake-form shape
+  if (l.sleepHours != null) push("Ore di sonno", `${asText(l.sleepHours)} h`);
+  if (l.stressLevel != null) push("Livello di stress", `${asText(l.stressLevel)}/10`);
+  if (l.waterIntakeMl != null) push("Acqua", `${asText(l.waterIntakeMl)} ml`);
+  push("Alcol", ALCOHOL_LABELS[String(l.alcoholFrequency)] ?? l.alcoholFrequency);
+  push("Preferenze alimentari", l.mealPreferences);
+  push("Capacità in cucina", COOKING_LABELS[String(l.cookingAbility)] ?? l.cookingAbility);
+  return rows;
+}
+
+function buildGoalRows(g: Record<string, unknown> | undefined): InfoRow[] {
+  if (!g) return [];
+  const rows: InfoRow[] = [];
+  const push = (label: string, v: unknown) => {
+    const t = asText(v);
+    if (t) rows.push({ label, value: t });
+  };
+  const goalKey = (g.goal ?? g.primaryGoal) as string | undefined;
+  if (goalKey) push("Obiettivo", GOAL_LABELS[goalKey] ?? goalKey);
+  const targetW = g.target_weight_kg ?? g.targetWeightKg;
+  if (targetW != null) push("Peso target", `${asText(targetW)} kg`);
+  push("Evento target", g.target_event);
+  if (g.target_event_date != null) push("Data evento", formatDate(g.target_event_date as string));
+  push("Tempistica", g.timeline);
+  push("Motivazione", g.motivation);
+  push("Diete precedenti", g.previousDiets);
+  return rows;
+}
+
+/** Card matching the "Ultima misurazione" pattern. */
+function OverviewCard({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <div
+      style={{
+        marginTop: "20px",
+        background: "#ffffff",
+        border: "1px solid #e2e8f0",
+        borderRadius: "12px",
+        overflow: "hidden",
+      }}
+    >
+      <div style={{ padding: "20px 24px", borderBottom: "1px solid #f1f5f9" }}>
+        <h3 style={{ fontSize: "15px", fontWeight: 700, color: "#1a1a2e", margin: 0 }}>{title}</h3>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function InfoGrid({ rows }: { rows: InfoRow[] }) {
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "0" }}>
+      {rows.map(({ label, value }, i) => (
+        <div
+          key={label}
+          style={{
+            padding: "16px 24px",
+            borderBottom: i < rows.length - 1 ? "1px solid #f1f5f9" : "none",
+            borderRight: (i + 1) % 3 !== 0 ? "1px solid #f1f5f9" : "none",
+          }}
+        >
+          <div style={{ fontSize: "12px", color: "#9ca3af", marginBottom: "4px" }}>{label}</div>
+          <div style={{ fontSize: "15px", fontWeight: 600, color: "#1a1a2e", whiteSpace: "pre-wrap" }}>
+            {value}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function EmptySection() {
+  return (
+    <div style={{ padding: "16px 24px", fontSize: "13px", color: "#9ca3af" }}>Non disponibile</div>
+  );
+}
+
+/** Weekly training schedule + (edit-path only) per-day sessions. */
+function TrainingSection({
+  weekSchedule,
+  sessions,
+}: {
+  weekSchedule: string[] | undefined;
+  sessions: Record<string, Array<{ modality?: string; duration_min?: number; rpe?: number }>> | undefined;
+}) {
+  const hasSchedule = Array.isArray(weekSchedule) && weekSchedule.length > 0;
+  const sessionEntries = sessions
+    ? Object.entries(sessions).filter(([, v]) => Array.isArray(v) && v.length > 0)
+    : [];
+
+  if (!hasSchedule && sessionEntries.length === 0) return <EmptySection />;
+
+  return (
+    <div style={{ padding: "20px 24px" }}>
+      {hasSchedule && (
+        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: sessionEntries.length > 0 ? "20px" : "0" }}>
+          {weekSchedule!.slice(0, 7).map((dt, i) => {
+            const isTraining = dt === "training";
+            return (
+              <div
+                key={i}
+                style={{
+                  flex: "1 1 90px",
+                  minWidth: "80px",
+                  textAlign: "center",
+                  padding: "10px 6px",
+                  borderRadius: "8px",
+                  border: "1px solid #e2e8f0",
+                  background: isTraining ? "#1a1a2e" : "#f8fafc",
+                }}
+              >
+                <div style={{ fontSize: "11px", fontWeight: 600, color: isTraining ? "#cbd5e1" : "#9ca3af", marginBottom: "4px" }}>
+                  {WEEKDAY_LABELS[i] ?? `G${i + 1}`}
+                </div>
+                <div style={{ fontSize: "12px", fontWeight: 600, color: isTraining ? "#ffffff" : "#374151" }}>
+                  {DAYTYPE_LABELS[dt] ?? dt}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {sessionEntries.length > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+          {sessionEntries
+            .sort((a, b) => Number(a[0]) - Number(b[0]))
+            .map(([dayIdx, list]) => (
+              <div key={dayIdx} style={{ fontSize: "13px", color: "#374151" }}>
+                <span style={{ fontWeight: 600, color: "#1a1a2e" }}>
+                  {WEEKDAY_LABELS[Number(dayIdx)] ?? `Giorno ${Number(dayIdx) + 1}`}:{" "}
+                </span>
+                {list
+                  .map((s) => {
+                    const parts = [
+                      asText(s.modality),
+                      s.duration_min != null ? `${s.duration_min} min` : undefined,
+                      s.rpe != null ? `RPE ${s.rpe}` : undefined,
+                    ].filter(Boolean);
+                    return parts.join(" · ");
+                  })
+                  .filter(Boolean)
+                  .join("  |  ")}
+              </div>
+            ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── PanoramicaTab ──────────────────────────────────────────────────────────────
 
 function PanoramicaTab({
   snapshot,
+  client,
   clientId,
 }: {
   snapshot: Record<string, unknown> | null;
+  client: Record<string, unknown> | null;
   clientId: string;
 }) {
   const { data: snapshots = [] } = trpc.client.listSnapshots.useQuery(
@@ -219,6 +497,25 @@ function PanoramicaTab({
   if (snapshot.taken_at != null)
     rows.push({ label: "Data misurazione", value: formatDateTime(snapshot.taken_at as string) });
 
+  // Extended intake — prefer the structured _intake blob (edit path); fall back
+  // to the JSON embedded in client.notes (intake-form path). Both schemas are
+  // normalised onto one render path; missing data degrades to "Non disponibile".
+  const intake = (skinfoldData?._intake as Record<string, unknown> | undefined) ?? undefined;
+  const notesIntake = parseIntakeNotes(client?.notes);
+  const medical =
+    (intake?.medical_history as Record<string, unknown> | undefined) ?? notesIntake.medical;
+  const lifestyle =
+    (intake?.lifestyle as Record<string, unknown> | undefined) ?? notesIntake.lifestyle;
+  const goal = (intake?.goal as Record<string, unknown> | undefined) ?? notesIntake.goal;
+  const trainingSessions = intake?.training_sessions as
+    | Record<string, Array<{ modality?: string; duration_min?: number; rpe?: number }>>
+    | undefined;
+  const weekSchedule = snapshot.week_schedule as string[] | undefined;
+
+  const medicalRows = buildMedicalRows(medical);
+  const lifestyleRows = buildLifestyleRows(lifestyle);
+  const goalRows = buildGoalRows(goal);
+
   return (
     <div>
       <div
@@ -234,7 +531,7 @@ function PanoramicaTab({
             Ultima misurazione
           </h3>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "0" }}>
           {rows.map(({ label, value }, i) => (
             <div
               key={label}
@@ -264,7 +561,51 @@ function PanoramicaTab({
         )}
       </div>
 
+      <OverviewCard title="Anamnesi">
+        {medicalRows.length > 0 ? <InfoGrid rows={medicalRows} /> : <EmptySection />}
+      </OverviewCard>
+
+      <OverviewCard title="Stile di vita">
+        {lifestyleRows.length > 0 ? <InfoGrid rows={lifestyleRows} /> : <EmptySection />}
+      </OverviewCard>
+
+      <OverviewCard title="Obiettivo">
+        {goalRows.length > 0 ? <InfoGrid rows={goalRows} /> : <EmptySection />}
+      </OverviewCard>
+
+      <OverviewCard title="Programma di allenamento">
+        <TrainingSection weekSchedule={weekSchedule} sessions={trainingSessions} />
+      </OverviewCard>
+
       <WeightTrend snapshots={snapshots as SnapshotRow[]} />
+
+      <PhotoSection clientId={clientId} />
+    </div>
+  );
+}
+
+function PhotoSection({ clientId }: { clientId: string }) {
+  const { data: session } = trpc.auth.getSession.useQuery();
+  const partnerId = (session as { id?: string } | null | undefined)?.id;
+  if (!partnerId) return null;
+  return (
+    <div
+      style={{
+        marginTop: "20px",
+        background: "#ffffff",
+        border: "1px solid #e2e8f0",
+        borderRadius: "12px",
+        overflow: "hidden",
+      }}
+    >
+      <div style={{ padding: "20px 24px", borderBottom: "1px solid #f1f5f9" }}>
+        <h3 style={{ fontSize: "15px", fontWeight: 700, color: "#1a1a2e", margin: 0 }}>
+          Foto cliente
+        </h3>
+      </div>
+      <div style={{ padding: "20px 24px" }}>
+        <ClientPhotoGallery clientId={clientId} partnerId={partnerId} />
+      </div>
     </div>
   );
 }
@@ -399,7 +740,7 @@ function PianiTab({ clientId }: { clientId: string }) {
                 </td>
                 <td style={{ padding: "14px 16px", textAlign: "right" }}>
                   <Link
-                    href={`/plans/${plan.id}`}
+                    href={`/plans/${plan.id}/review`}
                     style={{
                       fontSize: "13px",
                       color: "#1a1a2e",
@@ -662,6 +1003,7 @@ export default function ClientDetailPage() {
   }
   const [activeTab, setActiveTab] = useState<ActiveTab>("panoramica");
   const [archiving, setArchiving] = useState(false);
+  const [inviteMsg, setInviteMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   const { data, isLoading, isError } = trpc.client.getById.useQuery({ id: clientId });
   const archiveMutation = trpc.client.archive.useMutation({
@@ -673,10 +1015,24 @@ export default function ClientDetailPage() {
     },
   });
 
+  const inviteMutation = trpc.client.sendPortalInvite.useMutation({
+    onSuccess: (res) => {
+      setInviteMsg({ ok: true, text: `Invito inviato a ${res.sentTo}.` });
+    },
+    onError: (err) => {
+      setInviteMsg({ ok: false, text: err.message ?? "Errore nell'invio dell'invito." });
+    },
+  });
+
   const handleArchive = async () => {
     if (!confirm("Sei sicuro di voler archiviare questo cliente?")) return;
     setArchiving(true);
     archiveMutation.mutate({ id: clientId });
+  };
+
+  const handleInvite = () => {
+    setInviteMsg(null);
+    inviteMutation.mutate({ clientId });
   };
 
   if (isLoading) {
@@ -825,6 +1181,30 @@ export default function ClientDetailPage() {
           </Link>
           {client.status !== "archived" && (
             <button
+              onClick={handleInvite}
+              disabled={inviteMutation.isPending || !client.email}
+              title={
+                client.email
+                  ? "Invia al cliente un'email con l'accesso al portale"
+                  : "Aggiungi un'email al cliente per poterlo invitare"
+              }
+              style={{
+                padding: "9px 18px",
+                backgroundColor: "#ffffff",
+                color: client.email ? "#1a1a2e" : "#9ca3af",
+                border: "1px solid #e2e8f0",
+                borderRadius: "8px",
+                fontSize: "14px",
+                fontWeight: 600,
+                cursor:
+                  inviteMutation.isPending || !client.email ? "not-allowed" : "pointer",
+              }}
+            >
+              {inviteMutation.isPending ? "Invio…" : "Invita al portale"}
+            </button>
+          )}
+          {client.status !== "archived" && (
+            <button
               onClick={handleArchive}
               disabled={archiving}
               style={{
@@ -844,6 +1224,23 @@ export default function ClientDetailPage() {
           )}
         </div>
       </div>
+
+      {/* Portal invite result */}
+      {inviteMsg && (
+        <div
+          style={{
+            marginBottom: "20px",
+            padding: "12px 16px",
+            background: inviteMsg.ok ? "#f0fdf4" : "#fef2f2",
+            border: `1px solid ${inviteMsg.ok ? "#bbf7d0" : "#fecaca"}`,
+            borderRadius: "8px",
+            fontSize: "13px",
+            color: inviteMsg.ok ? "#166534" : "#991b1b",
+          }}
+        >
+          {inviteMsg.text}
+        </div>
+      )}
 
       {/* Notes strip if present */}
       {client.notes && (
@@ -920,6 +1317,7 @@ export default function ClientDetailPage() {
       {activeTab === "panoramica" && (
         <PanoramicaTab
           snapshot={latestSnapshot as Record<string, unknown> | null}
+          client={client as Record<string, unknown> | null}
           clientId={clientId}
         />
       )}

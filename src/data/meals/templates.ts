@@ -197,9 +197,9 @@ const SNACK_02: MealTemplate = {
 
 const SNACK_03: MealTemplate = {
   id: "SNACK_03",
-  name: "Shake Proteico Post-Allenamento",
+  name: "Frullato Proteico",
   mealType: "snack",
-  description: "Post-workout protein shake with banana and oats",
+  description: "Protein shake with banana and oats",
   kcalPerServing: 305,
   proteinG: 35,
   carbsG: 30,

@@ -39,11 +39,28 @@ const DAY_TYPE_MULTIPLIERS: Record<DayType, MacroMultipliers> = {
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
+/**
+ * Per-day-type absolute macro override (grams). Any subset of the three
+ * may be set — values left undefined fall back to the formula
+ * (proteinPerKgLbm × LBM / fatPerKgBw × BW / remaining kcal as carbs).
+ */
+export interface MacroOverrideGrams {
+  proteinG?: number;
+  fatG?: number;
+  carbG?: number;
+}
+
 export interface MacroOptions {
   /** Override protein g/kg LBM */
   proteinPerKgLbm?: number;
   /** Override fat g/kg BW */
   fatPerKgBw?: number;
+  /**
+   * Absolute-gram overrides per day-type. The wizard exposes this as
+   * "Macro per giorno" so the practitioner can pin P/F/C grams without
+   * going through the deficit math.
+   */
+  absoluteOverrides?: Partial<Record<DayType, MacroOverrideGrams>>;
 }
 
 /**
@@ -64,20 +81,29 @@ export function calculateMacros(
   options: MacroOptions = {}
 ): MacroTargets {
   const multipliers = DAY_TYPE_MULTIPLIERS[dayType];
+  const dayOverride = options.absoluteOverrides?.[dayType];
 
-  // Protein
+  // Protein — absolute override wins; else formula
   const proteinPerKgLbm = options.proteinPerKgLbm ?? multipliers.proteinPerKgLbm;
-  const proteinG = Math.round(proteinPerKgLbm * bodyComp.leanMassKg);
+  const proteinG =
+    dayOverride?.proteinG != null
+      ? Math.max(0, Math.round(dayOverride.proteinG))
+      : Math.round(proteinPerKgLbm * bodyComp.leanMassKg);
 
-  // Fat
+  // Fat — absolute override wins; else formula
   const fatPerKgBw = options.fatPerKgBw ?? multipliers.fatPerKgBw;
-  const fatG = Math.round(fatPerKgBw * totalWeightKg);
+  const fatG =
+    dayOverride?.fatG != null
+      ? Math.max(0, Math.round(dayOverride.fatG))
+      : Math.round(fatPerKgBw * totalWeightKg);
 
-  // Carbs = remaining kcal
+  // Carbs — explicit override OR remaining kcal after P+F
   const proteinKcal = proteinG * KCAL_PER_G_PROTEIN;
   const fatKcal = fatG * KCAL_PER_G_FAT;
-  const remainingKcal = tdeeKcal - proteinKcal - fatKcal;
-  const carbG = Math.max(0, Math.round(remainingKcal / KCAL_PER_G_CARB));
+  const carbG =
+    dayOverride?.carbG != null
+      ? Math.max(0, Math.round(dayOverride.carbG))
+      : Math.max(0, Math.round((tdeeKcal - proteinKcal - fatKcal) / KCAL_PER_G_CARB));
 
   // Actual total (may differ slightly from tdeeKcal due to rounding)
   const totalKcal =
