@@ -47,7 +47,7 @@ const MEAL_LABELS: Record<string, string> = {
   dinner: "Cena",
   snack: "Spuntino",
   pre_workout: "Pre-allenamento",
-  post_workout: "Post-allenamento",
+  post_workout: "Spuntino proteico",
 };
 
 // ── Shared Styles ─────────────────────────────────────────────────────────────

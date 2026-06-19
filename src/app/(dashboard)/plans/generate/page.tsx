@@ -161,7 +161,7 @@ const TAG_LABELS: Record<MealTag, string> = {
   quick_prep: "Preparazione Rapida",
   meal_prep_friendly: "Meal Prep",
   italian: "Cucina Italiana",
-  post_workout: "Post Allenamento",
+  post_workout: "Spuntino proteico",
   pre_workout: "Pre Allenamento",
 } as const;
 

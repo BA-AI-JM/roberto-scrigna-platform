@@ -81,7 +81,7 @@ const MEAL_LABELS: Record<string, string> = {
   snack_2: "Spuntino 2",
   snack_3: "Spuntino 3",
   pre_workout: "Pre-Allenamento",
-  post_workout: "Post-Allenamento",
+  post_workout: "Spuntino proteico",
 };
 
 const EXERCISE_METHOD_LABELS: Record<string, string> = {
