@@ -7,7 +7,7 @@ import { z } from "zod/v4";
 import { router, protectedProcedure } from "../trpc";
 import { TRPCError } from "@trpc/server";
 import { createSupabaseServiceRole } from "../../lib/supabase/service";
-import { getResend, FROM_EMAIL } from "../../lib/resend/client";
+import { sendEmail } from "../../lib/resend/client";
 import { ensurePortalAuthUser } from "../../services/portal-auth";
 
 /** Client status filter values */
@@ -684,8 +684,7 @@ export const clientRouter = router({
 </body></html>`;
 
       try {
-        await getResend().emails.send({
-          from: FROM_EMAIL,
+        await sendEmail({
           to: email,
           subject: "Accesso al tuo portale nutrizionale — Roberto Scrigna",
           html,
