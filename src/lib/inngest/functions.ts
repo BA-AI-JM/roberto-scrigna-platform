@@ -20,7 +20,7 @@ import { inngest } from "./client";
 import { createClient } from "@supabase/supabase-js";
 import { createSupabaseServiceRole } from "../supabase/service";
 import { ensurePortalAuthUser } from "../../services/portal-auth";
-import { getResend, FROM_EMAIL } from "../resend/client";
+import { sendEmail as sendResendEmail } from "../resend/client";
 
 // ── Supabase service-role client for background jobs ────────────────────────
 
@@ -34,16 +34,9 @@ function getServiceDb() {
 // ── Helper: send email via Resend ───────────────────────────────────────────
 
 async function sendEmail(to: string, subject: string, html: string): Promise<void> {
-  try {
-    await getResend().emails.send({
-      from: FROM_EMAIL,
-      to,
-      subject,
-      html,
-    });
-  } catch (err) {
-    console.error("[inngest/sendEmail] Failed to send email:", { to, subject, err });
-  }
+  // Delegate to the hardened wrapper and let failures THROW so the Inngest step
+  // fails (retries / shows a failed run) instead of silently succeeding (#1).
+  await sendResendEmail({ to, subject, html });
 }
 
 // ── Helper: fetch client email from DB ─────────────────────────────────────

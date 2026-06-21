@@ -22,7 +22,7 @@ import {
 import type { PlanGenerationInput } from "../../services/plan-generator";
 import type { ClientSnapshot, DayType } from "../../engine/types";
 import type { PdfClientInfo } from "../../pdf/types";
-import { getResend, FROM_EMAIL } from "../../lib/resend/client";
+import { sendEmail } from "../../lib/resend/client";
 import { createSupabaseServiceRole } from "../../lib/supabase/service";
 import { ensurePortalAuthUser } from "../../services/portal-auth";
 import { DEFAULT_TOLERANCES } from "../../engine/meal-plan/types";
@@ -1444,8 +1444,7 @@ ${btnHtml(portalUrl("/login"), "Visualizza il piano")}
 
       // 5. Send via Resend
       try {
-        await getResend().emails.send({
-          from: FROM_EMAIL,
+        await sendEmail({
           to: recipientEmail,
           subject: `Il tuo piano nutrizionale è pronto — ${plan.name}`,
           html,
