@@ -72,6 +72,23 @@ const DAY_TYPE_LABELS: Record<DayType, string> = {
   deload: "Giorno di Deload",
 };
 
+// Compact day-type names for the scannable daily-totals summary (Item #16).
+const DAY_TYPE_SHORT_LABELS: Record<DayType, string> = {
+  training: "Allenamento",
+  rest: "Riposo",
+  refeed: "Refeed",
+  deload: "Deload",
+};
+
+// Macro accent colours — mirror the per-day-type MacroCard palette below so the
+// summary reads as native to the rest of the review UI.
+const MACRO_ACCENTS = {
+  kcal: "#f59e0b",
+  protein: "#3b82f6",
+  carb: "#8b5cf6",
+  fat: "#10b981",
+} as const;
+
 const MEAL_LABELS: Record<string, string> = {
   breakfast: "Colazione",
   lunch: "Pranzo",
@@ -762,6 +779,7 @@ function OverviewTab({
 }) {
   return (
     <div>
+      <DailyTotalsTable dayTypePlans={review.dayTypePlans} cardStyle={cardStyle} />
       <div style={cardStyle}>
         <h3
           style={{
@@ -857,6 +875,7 @@ function MacrosTab({
 
   return (
     <div>
+      <DailyTotalsTable dayTypePlans={dayTypePlans} cardStyle={cardStyle} />
       {dayTypePlans.map((plan) => (
         <div key={plan.dayType} style={cardStyle}>
           <h3
@@ -1797,5 +1816,154 @@ function MacroCard({
         </span>
       </p>
     </div>
+  );
+}
+
+/**
+ * Daily targets summary (Item #16).
+ *
+ * A compact, scannable comparison of per-day-type calorie + macro targets:
+ * rows = the day types present in the plan, columns = Kcal · Proteine ·
+ * Carboidrati · Grassi. Under each macro gram value we show its share of total
+ * kcal (protein/carb at 4 kcal·g⁻¹, fat at 9 kcal·g⁻¹) as a muted sub-value.
+ *
+ * Reads only `review.dayTypePlans[].macros` / `.dayType` / `.label` — no new
+ * data or query. Renders cleanly for a single day type (weekly-average mode)
+ * through to all four; horizontal scroll keeps it intact on narrow screens.
+ */
+function DailyTotalsTable({
+  dayTypePlans,
+  cardStyle,
+}: {
+  dayTypePlans: DayTypePlanSummary[];
+  cardStyle: React.CSSProperties;
+}) {
+  if (dayTypePlans.length === 0) return null;
+
+  const headerCellStyle: React.CSSProperties = {
+    fontSize: "11px",
+    color: "#71717a",
+    textTransform: "uppercase",
+    letterSpacing: "0.05em",
+    fontWeight: 600,
+    padding: "0 12px 8px 12px",
+    textAlign: "right",
+  };
+
+  const pctOfKcal = (macroKcal: number, totalKcal: number) =>
+    totalKcal > 0 ? Math.round((macroKcal / totalKcal) * 100) : null;
+
+  return (
+    <div style={cardStyle}>
+      <h3
+        style={{
+          fontSize: "16px",
+          fontWeight: 600,
+          marginBottom: "14px",
+          marginTop: 0,
+        }}
+      >
+        Target Giornalieri
+      </h3>
+      <div style={{ overflowX: "auto" }}>
+        <table
+          style={{
+            width: "100%",
+            borderCollapse: "collapse",
+            minWidth: "440px",
+          }}
+        >
+          <thead>
+            <tr>
+              <th style={{ ...headerCellStyle, textAlign: "left" }}>Giorno</th>
+              <th style={headerCellStyle}>Kcal</th>
+              <th style={headerCellStyle}>Proteine</th>
+              <th style={headerCellStyle}>Carboidrati</th>
+              <th style={headerCellStyle}>Grassi</th>
+            </tr>
+          </thead>
+          <tbody>
+            {dayTypePlans.map((plan) => {
+              const m = plan.macros;
+              return (
+                <tr key={plan.dayType} style={{ borderTop: "1px solid #f4f4f5" }}>
+                  <td
+                    style={{
+                      padding: "10px 12px",
+                      fontSize: "14px",
+                      fontWeight: 600,
+                      color: "#18181b",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {DAY_TYPE_SHORT_LABELS[plan.dayType] ?? plan.label}
+                  </td>
+                  <MacroValueCell
+                    value={Math.round(m.totalKcal)}
+                    unit="kcal"
+                    colour={MACRO_ACCENTS.kcal}
+                  />
+                  <MacroValueCell
+                    value={Math.round(m.proteinG)}
+                    unit="g"
+                    colour={MACRO_ACCENTS.protein}
+                    pct={pctOfKcal(m.proteinG * 4, m.totalKcal)}
+                  />
+                  <MacroValueCell
+                    value={Math.round(m.carbG)}
+                    unit="g"
+                    colour={MACRO_ACCENTS.carb}
+                    pct={pctOfKcal(m.carbG * 4, m.totalKcal)}
+                  />
+                  <MacroValueCell
+                    value={Math.round(m.fatG)}
+                    unit="g"
+                    colour={MACRO_ACCENTS.fat}
+                    pct={pctOfKcal(m.fatG * 9, m.totalKcal)}
+                  />
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function MacroValueCell({
+  value,
+  unit,
+  colour,
+  pct,
+}: {
+  value: number;
+  unit: string;
+  colour: string;
+  pct?: number | null;
+}) {
+  return (
+    <td style={{ padding: "10px 12px", textAlign: "right", verticalAlign: "top" }}>
+      <div style={{ whiteSpace: "nowrap" }}>
+        <span style={{ fontSize: "18px", fontWeight: 700, color: colour }}>
+          {value}
+        </span>
+        <span
+          style={{
+            fontSize: "11px",
+            fontWeight: 400,
+            color: "#a1a1aa",
+            marginLeft: "2px",
+          }}
+        >
+          {unit}
+        </span>
+      </div>
+      {pct != null && (
+        <div style={{ fontSize: "11px", color: "#a1a1aa", marginTop: "2px" }}>
+          {pct}%
+        </div>
+      )}
+    </td>
   );
 }
