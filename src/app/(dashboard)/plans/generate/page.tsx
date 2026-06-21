@@ -50,6 +50,9 @@ const DAY_TYPE_COLORS: Record<DayType, { bg: string; text: string; border: strin
 };
 
 const WEEK_PRESETS: Record<string, DayType[]> = {
+  // Mode 1 — uniform week (every day the same type): no training/rest
+  // differentiation, so the plan resolves to a single weekly target.
+  "Media settimanale": ["training", "training", "training", "training", "training", "training", "training"],
   "3/sett": ["training", "rest",     "training", "rest",     "training", "rest", "rest"],
   "4/sett": ["training", "training", "rest",     "training", "training", "rest", "rest"],
   "5/sett": ["training", "training", "rest",     "training", "training", "training", "rest"],
@@ -1039,6 +1042,36 @@ function WeekStructureCard({
         Imposta i giorni ON / OFF / refeed / deload e l&apos;attività di ogni giorno ON. Il dispendio
         e le kcal target si aggiornano in tempo reale.
       </p>
+
+      {/* Periodization explainer (Item #19) — names the choice the calendar makes */}
+      <div
+        style={{
+          fontSize: "12px",
+          color: "#52525b",
+          padding: "10px 12px",
+          backgroundColor: "#fafafa",
+          border: "1px solid #f4f4f5",
+          borderRadius: "8px",
+          marginBottom: "16px",
+          lineHeight: "1.5",
+        }}
+      >
+        <div style={{ fontWeight: 600, color: "#3f3f46", marginBottom: "6px" }}>
+          Come scegliere la periodizzazione
+        </div>
+        <div style={{ marginBottom: "4px" }}>
+          <strong style={{ color: "#18181b" }}>Media settimanale</strong> — stesso
+          apporto calorico ogni giorno, senza differenziare allenamento e riposo
+          (imposta tutti i giorni sullo stesso tipo, o usa il preset omonimo).
+        </div>
+        <div>
+          <strong style={{ color: "#18181b" }}>
+            Differenzia allenamento / riposo
+          </strong>{" "}
+          — apporto più alto nei giorni di allenamento, più basso nei giorni di
+          riposo (giorni ON/OFF diversi nel calendario qui sotto).
+        </div>
+      </div>
 
       {/* Presets */}
       <div style={{ marginBottom: "16px" }}>
