@@ -16,7 +16,18 @@ export interface FoodItem {
   carbsPer100g: number;
   /** Fat in grams per 100g */
   fatPer100g: number;
-  /** Optional category tag */
+  /**
+   * Dietary fibre in grams per 100g. Optional because the dormant v2 parser
+   * (parseFoodCsv) does not populate it; the v3 parser (parseFoodV3Csv) always
+   * sets it. Per-100g.
+   */
+  fibreG?: number;
+  /**
+   * Sodium in mg per 100g. Optional for the same reason as fibreG — only the
+   * v3 parser sets it. Per-100g.
+   */
+  sodiumMg?: number;
+  /** Optional category tag (v3 stores the source Category verbatim) */
   category?: string;
   /** Source row number in original CSV (for traceability) */
   sourceRow?: number;
