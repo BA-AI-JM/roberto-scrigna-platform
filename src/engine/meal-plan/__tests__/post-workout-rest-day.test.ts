@@ -1,15 +1,18 @@
 /**
- * Guardrail for #18: post-workout meals must not appear on non-training days.
+ * Intent guard for #18 (revised): a protein shake may appear on ANY day type.
  *
- * SNACK_03 ("Frullato Proteico") keeps an internal `post_workout` tag. The
- * planner drops post_workout-tagged meals from the pool whenever the day-type
- * is not "training" (rest / refeed / deload), so the dedicated post_workout
- * slot in the 6-meal distribution fills with a normal snack instead. On
- * training days the meal remains available.
+ * Roberto clarified the problem was NAMING, not inclusion — a shake on a
+ * no-workout day is fine, it just must not be *labelled* "post-workout". The
+ * generic rename (SNACK_03 → "Frullato Proteico") + neutralised slot labels
+ * handle that. The earlier rest-day EXCLUSION over-corrected and was reverted,
+ * so post_workout-tagged meals are eligible on training, rest, refeed and
+ * deload alike.
  *
- * The 6-meal distribution has three snack-type slots and the pool has four
- * snack templates, so every snack slot's primary + substitutions covers all
- * available snacks — making the appear/not-appear assertions deterministic.
+ * This test replaces the previous exclusion guard: it asserts the post_workout-
+ * tagged meal (SNACK_03) IS eligible on non-training days, so the exclusion
+ * doesn't get reintroduced by accident. The 6-meal distribution has three
+ * snack-type slots and the pool has four snack templates, so every snack slot's
+ * primary + substitutions covers all snacks — making the assertion deterministic.
  */
 
 import { describe, test, expect } from "vitest";
@@ -39,24 +42,18 @@ function build(dayType: DayType) {
   const config: MealPlanConfig = {
     dayType,
     macroTargets: macros(dayType),
-    mealCount: 6, // the only distribution with a dedicated post_workout slot
+    mealCount: 6, // distribution with the most snack slots
     substitutionsPerSlot: 4,
   };
   return shownTemplates(createMealPlan(ALL_TEMPLATES, config).slots);
 }
 
-describe("#18 — post-workout meals excluded on non-training days", () => {
-  for (const dayType of ["rest", "refeed", "deload"] as DayType[]) {
-    test(`no post_workout-tagged meal appears on a ${dayType} day`, () => {
+describe("#18 — post-workout meals are eligible on all day types (exclusion reverted)", () => {
+  for (const dayType of ["training", "rest", "refeed", "deload"] as DayType[]) {
+    test(`post_workout-tagged meal can appear on a ${dayType} day`, () => {
       const shown = build(dayType);
-      expect(shown.some((t) => t.tags.includes("post_workout"))).toBe(false);
-      expect(shown.some((t) => t.id === "SNACK_03")).toBe(false);
+      expect(shown.some((t) => t.id === "SNACK_03")).toBe(true);
+      expect(shown.some((t) => t.tags.includes("post_workout"))).toBe(true);
     });
   }
-
-  test("post-workout meal can still appear on a training day", () => {
-    const shown = build("training");
-    expect(shown.some((t) => t.tags.includes("post_workout"))).toBe(true);
-    expect(shown.some((t) => t.id === "SNACK_03")).toBe(true);
-  });
 });
