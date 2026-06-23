@@ -9,6 +9,7 @@ import { TRPCError } from "@trpc/server";
 import { createSupabaseServiceRole } from "../../lib/supabase/service";
 import { sendEmail } from "../../lib/resend/client";
 import { ensurePortalAuthUser } from "../../services/portal-auth";
+import { computeSnapshotBodyComp } from "../body-comp";
 
 /** Client status filter values */
 const clientStatusSchema = z.enum(["active", "paused", "archived"]);
@@ -380,7 +381,7 @@ export const clientRouter = router({
       // Verify the client belongs to this partner
       const { data: clientCheck, error: checkError } = await ctx.supabase
         .from("client")
-        .select("id, date_of_birth")
+        .select("id, date_of_birth, sex")
         .eq("id", input.clientId)
         .eq("partner_id", ctx.partnerId)
         .is("deleted_at", null)
@@ -453,6 +454,52 @@ export const clientRouter = router({
         }
       }
 
+      // Compute + persist body composition (#6). Build the sex-appropriate
+      // skinfold set only when the required sites are present; the helper leaves
+      // the fields null when only a BMI heuristic would be possible.
+      const clientSex = (clientCheck.sex as "male" | "female" | null) ?? null;
+      const sf = input.skinfolds;
+      const has7 =
+        sf != null &&
+        sf.chest != null &&
+        sf.midaxillary != null &&
+        sf.triceps != null &&
+        sf.subscapular != null &&
+        sf.abdomen != null &&
+        sf.suprailiac != null &&
+        sf.thigh != null;
+      const hasMaleTrio =
+        sf != null && sf.chest != null && sf.abdomen != null && sf.thigh != null;
+      const hasFemaleTrio =
+        sf != null && sf.triceps != null && sf.suprailiac != null && sf.thigh != null;
+
+      const bodyComp = computeSnapshotBodyComp({
+        sex: clientSex,
+        ageYears,
+        weightKg: input.weightKg,
+        heightCm: input.heightCm,
+        skinfold7:
+          has7 && sf
+            ? {
+                chest: sf.chest!,
+                midaxillary: sf.midaxillary!,
+                tricep: sf.triceps!,
+                subscapular: sf.subscapular!,
+                abdominal: sf.abdomen!,
+                suprailiac: sf.suprailiac!,
+                thigh: sf.thigh!,
+              }
+            : undefined,
+        skinfold3:
+          has7 || sf == null
+            ? undefined
+            : clientSex === "male" && hasMaleTrio
+            ? { chest: sf.chest!, abdominal: sf.abdomen!, thigh: sf.thigh! }
+            : clientSex === "female" && hasFemaleTrio
+            ? { tricep: sf.triceps!, suprailiac: sf.suprailiac!, thigh: sf.thigh! }
+            : undefined,
+      });
+
       // Pack ALL extended intake data into skinfold_data JSONB so nothing is lost.
       // The engine reads top-level "method" + measurement keys; other keys are ignored.
       const skinfoldDataPayload: Record<string, unknown> = {
@@ -502,6 +549,10 @@ export const clientRouter = router({
           week_schedule: weekSchedule,
           skinfold_data: skinfoldDataPayload,
           body_fat_method: bodyFatMethod,
+          body_fat_pct: bodyComp?.body_fat_pct ?? null,
+          lean_mass_kg: bodyComp?.lean_mass_kg ?? null,
+          fat_mass_kg: bodyComp?.fat_mass_kg ?? null,
+          bmr_kcal: bodyComp?.bmr_kcal ?? null,
           notes: noteLines.length > 0 ? noteLines.join("\n") : null,
         })
         .select("id")
@@ -774,6 +825,53 @@ export const clientRouter = router({
         (Date.now() - birthDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000)
       );
 
+      // Compute body composition for the initial snapshot (#6) — same defensive
+      // rule as createSnapshot (only with a real skinfold set or override).
+      const sd = input.skinfoldData;
+      const sd7 =
+        sd != null &&
+        sd.method === "7site" &&
+        sd.chest != null &&
+        sd.midaxillary != null &&
+        sd.tricep != null &&
+        sd.subscapular != null &&
+        sd.abdominal != null &&
+        sd.suprailiac != null &&
+        sd.thigh != null;
+      const sdMaleTrio =
+        sd != null && sd.chest != null && sd.abdominal != null && sd.thigh != null;
+      const sdFemaleTrio =
+        sd != null && sd.tricep != null && sd.suprailiac != null && sd.thigh != null;
+
+      const intakeBodyComp = computeSnapshotBodyComp({
+        sex: input.sex,
+        ageYears,
+        weightKg: input.weightKg,
+        heightCm: input.heightCm,
+        skinfold7:
+          sd7 && sd
+            ? {
+                chest: sd.chest!,
+                midaxillary: sd.midaxillary!,
+                tricep: sd.tricep!,
+                subscapular: sd.subscapular!,
+                abdominal: sd.abdominal!,
+                suprailiac: sd.suprailiac!,
+                thigh: sd.thigh!,
+              }
+            : undefined,
+        skinfold3:
+          sd == null || sd.method !== "3site"
+            ? undefined
+            : input.sex === "male" && sdMaleTrio
+            ? { chest: sd.chest!, abdominal: sd.abdominal!, thigh: sd.thigh! }
+            : input.sex === "female" && sdFemaleTrio
+            ? { tricep: sd.tricep!, suprailiac: sd.suprailiac!, thigh: sd.thigh! }
+            : undefined,
+        bodyFatPctOverride:
+          sd != null && sd.method === "override" ? sd.bodyFatPctOverride : undefined,
+      });
+
       const { data: snapshot, error: snapshotError } = await ctx.supabase
         .from("client_snapshot")
         .insert({
@@ -783,6 +881,11 @@ export const clientRouter = router({
           age_years: ageYears,
           daily_steps: input.dailySteps,
           occupational_level: input.occupationalLevel,
+          body_fat_method: input.skinfoldData?.method ?? null,
+          body_fat_pct: intakeBodyComp?.body_fat_pct ?? null,
+          lean_mass_kg: intakeBodyComp?.lean_mass_kg ?? null,
+          fat_mass_kg: intakeBodyComp?.fat_mass_kg ?? null,
+          bmr_kcal: intakeBodyComp?.bmr_kcal ?? null,
           skinfold_data: input.skinfoldData
             ? JSON.stringify(input.skinfoldData)
             : null,
