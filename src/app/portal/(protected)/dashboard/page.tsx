@@ -13,6 +13,7 @@
 import Link from "next/link";
 import { trpc } from "@/lib/trpc/client";
 import { formatIngredientQuantity } from "@/lib/ingredient-display";
+import { TrendChart, totalDataPoints, type TrendSeries } from "@/components/charts/TrendChart";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -671,6 +672,62 @@ function WeightHistorySection({ data, planStartDate, loading }: {
           <StatPill label="Aderenza media" value={`${avgAdherence}%`} />
         )}
       </div>
+
+      {/* Interactive trend charts (weight + adherence) — render with ≥2 points */}
+      {(() => {
+        const weightSeries: TrendSeries[] = [
+          {
+            key: "weight",
+            label: "Peso",
+            color: "#1a1a2e",
+            unit: " kg",
+            points: withWeight.map((e) => ({
+              date: e.check_in_date,
+              value: e.weight_kg as number,
+            })),
+          },
+        ];
+        const adherenceSeries: TrendSeries[] = [
+          {
+            key: "nutrition",
+            label: "Aderenza dieta",
+            color: "#16a34a",
+            unit: "%",
+            points: trend
+              .filter((e) => e.nutrition_adherence != null)
+              .map((e) => ({ date: e.check_in_date, value: e.nutrition_adherence as number })),
+          },
+          {
+            key: "training",
+            label: "Aderenza allenamento",
+            color: "#3b82f6",
+            unit: "%",
+            points: trend
+              .filter((e) => e.training_adherence != null)
+              .map((e) => ({ date: e.check_in_date, value: e.training_adherence as number })),
+          },
+        ];
+        return (
+          <>
+            {totalDataPoints(weightSeries) >= 2 && (
+              <div style={{ marginBottom: "16px" }}>
+                <p style={{ fontSize: "13px", fontWeight: 600, color: "#6b7280", marginBottom: "2px" }}>
+                  Andamento peso
+                </p>
+                <TrendChart series={weightSeries} height={200} />
+              </div>
+            )}
+            {totalDataPoints(adherenceSeries) >= 2 && (
+              <div style={{ marginBottom: "16px" }}>
+                <p style={{ fontSize: "13px", fontWeight: 600, color: "#6b7280", marginBottom: "2px" }}>
+                  Andamento aderenza
+                </p>
+                <TrendChart series={adherenceSeries} height={200} />
+              </div>
+            )}
+          </>
+        );
+      })()}
 
       {/* Mini weight history table */}
       <p style={{ fontSize: "13px", fontWeight: 600, color: "#6b7280", marginBottom: "10px" }}>

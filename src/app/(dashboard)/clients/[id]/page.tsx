@@ -13,6 +13,8 @@ import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter, useParams } from "next/navigation";
 import { trpc } from "@/lib/trpc/client";
+import { ChartControls } from "@/components/charts/ChartControls";
+import { totalDataPoints, type TrendSeries } from "@/components/charts/TrendChart";
 import { ClientPhotoGallery } from "@/components/client-photo-gallery";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -1865,6 +1867,35 @@ function BodyCompTrend({ snapshots }: { snapshots: SnapshotRow[] }) {
   );
 }
 
+// Coach body-comp chart series, derived from listSnapshots (x = taken_at).
+const SNAP_SERIES: {
+  key: keyof SnapshotRow;
+  label: string;
+  color: string;
+  unit: string;
+  lowerIsBetter?: boolean;
+}[] = [
+  { key: "weight_kg", label: "Peso", color: "#1a1a2e", unit: " kg" },
+  { key: "body_fat_pct", label: "Grasso", color: "#dc2626", unit: "%", lowerIsBetter: true },
+  { key: "lean_mass_kg", label: "Massa magra", color: "#16a34a", unit: " kg" },
+  { key: "fat_mass_kg", label: "Massa grassa", color: "#f59e0b", unit: " kg", lowerIsBetter: true },
+  { key: "daily_steps", label: "Passi", color: "#3b82f6", unit: "" },
+  { key: "bmr_kcal", label: "BMR", color: "#8b5cf6", unit: " kcal" },
+];
+
+function buildSnapshotSeries(rows: SnapshotRow[]): TrendSeries[] {
+  return SNAP_SERIES.map((def) => ({
+    key: def.key as string,
+    label: def.label,
+    color: def.color,
+    unit: def.unit,
+    lowerIsBetter: def.lowerIsBetter,
+    points: rows
+      .filter((r) => r.taken_at != null && r[def.key] != null)
+      .map((r) => ({ date: r.taken_at as string, value: r[def.key] as number })),
+  })).filter((s) => s.points.length > 0);
+}
+
 function BodyCompTab({ clientId }: { clientId: string }) {
   const { data: snapshots = [], isLoading, isError } =
     trpc.client.listSnapshots.useQuery({ clientId });
@@ -1927,10 +1958,17 @@ function BodyCompTab({ clientId }: { clientId: string }) {
     );
   }
 
+  const chartSeries = buildSnapshotSeries(rows);
+  const showChart = totalDataPoints(chartSeries) >= 2;
+
   return (
     <div>
       <BodyCompositionPanel snapshot={rows[0] ?? null} />
-      <BodyCompTrend snapshots={rows} />
+      {showChart ? (
+        <ChartControls series={chartSeries} />
+      ) : (
+        <BodyCompTrend snapshots={rows} />
+      )}
     </div>
   );
 }
