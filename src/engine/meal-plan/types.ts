@@ -117,17 +117,29 @@ export interface SlotMacroTargets {
   proteinG: number;
   fatG: number;
   carbsG: number;
+  /**
+   * Dietary fibre (g). Optional: slot *targets* don't set it (fibre is a
+   * day-level floor), but `actualMacros` carries it once computed from solved
+   * ingredient grams (Stage 2).
+   */
+  fibreG?: number;
+  /** Sodium (mg). Optional, same as fibreG — computed, not constrained yet. */
+  sodiumMg?: number;
 }
 
-/** A selected meal for a slot, with scaling applied */
+/** A selected meal for a slot, with per-ingredient grams solved (Stage 2). */
 export interface SelectedMeal {
   /** The source template */
   template: MealTemplate;
-  /** Scaling factor applied to ingredients (0.7-1.4) */
-  scaleFactor: number;
-  /** Scaled ingredients */
+  /**
+   * Legacy whole-meal scale factor. OPTIONAL and left UNPOPULATED by the
+   * Stage-2 per-ingredient solver; retained only so old persisted bundles
+   * (which carry it) still type-check and render.
+   */
+  scaleFactor?: number;
+  /** Solved ingredient grams */
   scaledIngredients: MealIngredient[];
-  /** Actual macros after scaling */
+  /** Actual macros computed from the solved ingredient grams (incl fibre/sodium) */
   actualMacros: SlotMacroTargets;
 }
 

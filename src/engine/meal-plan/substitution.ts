@@ -13,7 +13,7 @@ import type {
 } from "./types";
 import { SUBSTITUTION_BOUNDS } from "./types";
 import { filterMeals, scoreMeal, type SelectionFilter } from "./selector";
-import { scaleMealToTarget } from "./scaler";
+import { assembleMeal } from "./solver";
 
 /** Options for generating substitutions */
 export interface SubstitutionOptions {
@@ -62,8 +62,8 @@ export function generateSubstitutions(
     }))
     .sort((a, b) => a.score - b.score);
 
-  // Take top N, scale each to target
+  // Take top N, solve each to target via the per-ingredient solver
   return scored
     .slice(0, count)
-    .map((s) => scaleMealToTarget(s.template, options.target));
+    .map((s) => assembleMeal(s.template, options.target));
 }
