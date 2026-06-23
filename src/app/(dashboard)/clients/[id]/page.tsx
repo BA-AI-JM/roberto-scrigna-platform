@@ -561,6 +561,8 @@ function PanoramicaTab({
         )}
       </div>
 
+      <BodyCompositionPanel snapshot={(snapshots as SnapshotRow[])[0] ?? null} />
+
       <OverviewCard title="Anamnesi">
         {medicalRows.length > 0 ? <InfoGrid rows={medicalRows} /> : <EmptySection />}
       </OverviewCard>
@@ -982,10 +984,11 @@ function CheckinTab({ clientId }: { clientId: string }) {
 
 // ── Page ───────────────────────────────────────────────────────────────────────
 
-type ActiveTab = "panoramica" | "snapshot" | "piani" | "checkin";
+type ActiveTab = "panoramica" | "bodycomp" | "snapshot" | "piani" | "checkin";
 
 const TABS: Array<{ value: ActiveTab; label: string }> = [
   { value: "panoramica", label: "Panoramica" },
+  { value: "bodycomp", label: "Composizione corporea" },
   { value: "snapshot", label: "Cronologia Snapshot" },
   { value: "piani", label: "Piani" },
   { value: "checkin", label: "Check-in" },
@@ -1322,6 +1325,8 @@ export default function ClientDetailPage() {
         />
       )}
 
+      {activeTab === "bodycomp" && <BodyCompTab clientId={clientId} />}
+
       {activeTab === "snapshot" && (
         <SnapshotHistoryTab clientId={clientId} />
       )}
@@ -1407,11 +1412,22 @@ function SnapshotHistoryTab({ clientId }: { clientId: string }) {
     }
   }
 
+  // Body-comp columns are frequently null (computed at plan generation, not on
+  // every measurement save) — used to show an explanatory note under the table.
+  const hasAnyBodyComp = (snapshots as SnapshotRow[]).some(
+    (s) =>
+      s.body_fat_pct != null ||
+      s.lean_mass_kg != null ||
+      s.fat_mass_kg != null ||
+      s.bmr_kcal != null
+  );
+
   const COL_HEADERS = [
     "Data",
     "Peso (kg)",
     "Grasso (%)",
     "Massa magra (kg)",
+    "Massa grassa (kg)",
     "BMR",
     "Passi",
   ];
@@ -1538,6 +1554,11 @@ function SnapshotHistoryTab({ clientId }: { clientId: string }) {
                     {snap.lean_mass_kg != null ? `${snap.lean_mass_kg}` : "—"}
                   </td>
 
+                  {/* Massa grassa */}
+                  <td style={{ padding: "14px 16px", fontSize: "14px", color: "#374151" }}>
+                    {snap.fat_mass_kg != null ? `${snap.fat_mass_kg}` : "—"}
+                  </td>
+
                   {/* BMR */}
                   <td style={{ padding: "14px 16px", fontSize: "14px", color: "#374151" }}>
                     {snap.bmr_kcal != null
@@ -1557,6 +1578,359 @@ function SnapshotHistoryTab({ clientId }: { clientId: string }) {
           </tbody>
         </table>
       </div>
+
+      {!hasAnyBodyComp && (
+        <div
+          style={{
+            marginTop: "12px",
+            padding: "12px 16px",
+            background: "#f8fafc",
+            border: "1px solid #e2e8f0",
+            borderRadius: "8px",
+            fontSize: "12px",
+            color: "#6b7280",
+            lineHeight: 1.5,
+          }}
+        >
+          I valori di grasso corporeo, massa magra/grassa e BMR vengono calcolati
+          dalla plicometria alla generazione del piano e potrebbero non essere
+          ancora disponibili per le misurazioni più recenti.
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Body-composition panel + trend (Items #5 / #7) ──────────────────────────────
+//
+// Presentation only. Every body-comp field is independently nullable (the
+// backend may not have computed them yet — see SnapshotHistoryTab note), so each
+// cell degrades to a muted "non disponibile" and an explanatory hint shows when
+// nothing is populated. No new query: fed by the existing listSnapshots data.
+
+const BODY_FAT_METHOD_LABELS: Record<string, string> = {
+  "7site": "Jackson & Pollock 7 pliche",
+  "3site": "Jackson & Pollock 3 pliche",
+  heuristic: "Stima euristica",
+  manual: "Inserito manualmente",
+};
+
+function BodyCompositionPanel({
+  snapshot,
+}: {
+  snapshot: SnapshotRow | null | undefined;
+}) {
+  const methodLabel =
+    snapshot?.body_fat_pct != null && snapshot?.body_fat_method
+      ? BODY_FAT_METHOD_LABELS[snapshot.body_fat_method] ?? snapshot.body_fat_method
+      : null;
+
+  const cells: Array<{ label: string; value: string | null; sub?: string | null }> = [
+    {
+      label: "Grasso corporeo",
+      value: snapshot?.body_fat_pct != null ? `${snapshot.body_fat_pct}%` : null,
+      sub: methodLabel,
+    },
+    {
+      label: "Massa magra",
+      value: snapshot?.lean_mass_kg != null ? `${snapshot.lean_mass_kg} kg` : null,
+    },
+    {
+      label: "Massa grassa",
+      value: snapshot?.fat_mass_kg != null ? `${snapshot.fat_mass_kg} kg` : null,
+    },
+    {
+      label: "Metabolismo basale",
+      value: snapshot?.bmr_kcal != null ? `${Math.round(snapshot.bmr_kcal)} kcal` : null,
+    },
+  ];
+  const anyData = cells.some((c) => c.value != null);
+
+  return (
+    <div
+      style={{
+        background: "#ffffff",
+        border: "1px solid #e2e8f0",
+        borderRadius: "12px",
+        overflow: "hidden",
+        marginTop: "16px",
+      }}
+    >
+      <div
+        style={{
+          padding: "20px 24px",
+          borderBottom: "1px solid #f1f5f9",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: "12px",
+          flexWrap: "wrap",
+        }}
+      >
+        <h3 style={{ fontSize: "15px", fontWeight: 700, color: "#1a1a2e", margin: 0 }}>
+          Composizione corporea
+        </h3>
+        {!anyData && (
+          <span style={{ fontSize: "12px", color: "#9ca3af" }}>
+            Dati non ancora disponibili
+          </span>
+        )}
+      </div>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+          gap: "0",
+        }}
+      >
+        {cells.map((c, i) => (
+          <div
+            key={c.label}
+            style={{
+              padding: "16px 24px",
+              borderBottom: i < cells.length - 1 ? "1px solid #f1f5f9" : "none",
+              borderRight: (i + 1) % 3 !== 0 ? "1px solid #f1f5f9" : "none",
+            }}
+          >
+            <div style={{ fontSize: "12px", color: "#9ca3af", marginBottom: "4px" }}>
+              {c.label}
+            </div>
+            <div
+              style={{
+                fontSize: "15px",
+                fontWeight: 600,
+                color: c.value != null ? "#1a1a2e" : "#cbd5e1",
+              }}
+            >
+              {c.value ?? "non disponibile"}
+            </div>
+            {c.sub && (
+              <div style={{ fontSize: "11px", color: "#9ca3af", marginTop: "2px" }}>
+                {c.sub}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+      {!anyData && (
+        <div
+          style={{
+            padding: "12px 24px",
+            borderTop: "1px solid #f1f5f9",
+            fontSize: "12px",
+            color: "#9ca3af",
+            lineHeight: 1.5,
+          }}
+        >
+          I valori vengono calcolati dalla plicometria alla generazione del piano e
+          potrebbero non essere ancora disponibili per questa misurazione.
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MetricTrendRow({
+  label,
+  unit,
+  points,
+  lowerIsBetter,
+  round = false,
+}: {
+  label: string;
+  unit: string;
+  points: number[];
+  lowerIsBetter: boolean;
+  round?: boolean;
+}) {
+  const fmt = (v: number) => (round ? Math.round(v) : v);
+  const rowStyle = {
+    fontSize: "13px",
+    color: "#374151",
+    marginBottom: "8px",
+  };
+  const labelEl = (
+    <span style={{ fontWeight: 600, color: "#374151" }}>{label}: </span>
+  );
+
+  if (points.length === 0) {
+    return (
+      <div style={rowStyle}>
+        {labelEl}
+        <span style={{ color: "#9ca3af" }}>dati non disponibili</span>
+      </div>
+    );
+  }
+  if (points.length === 1) {
+    return (
+      <div style={rowStyle}>
+        {labelEl}
+        <span>
+          {fmt(points[0]!)}
+          {unit}
+        </span>
+        <span style={{ color: "#9ca3af", marginLeft: "6px" }}>(prima misurazione)</span>
+      </div>
+    );
+  }
+
+  const first = points[0]!;
+  const last = points[points.length - 1]!;
+  const delta = last - first;
+  const improving = delta !== 0 && (lowerIsBetter ? delta < 0 : delta > 0);
+  const color = delta === 0 ? "#6b7280" : improving ? "#16a34a" : "#dc2626";
+  const arrow = delta < 0 ? "↓" : delta > 0 ? "↑" : "→";
+  const absDelta = round
+    ? String(Math.round(Math.abs(delta)))
+    : Math.abs(delta).toFixed(1);
+
+  return (
+    <div style={rowStyle}>
+      {labelEl}
+      {points.map((p, i) => (
+        <span key={i}>
+          {fmt(p)}
+          {i < points.length - 1 && (
+            <span style={{ color: "#9ca3af", margin: "0 4px" }}>→</span>
+          )}
+        </span>
+      ))}
+      <span style={{ marginLeft: "10px", fontWeight: 700, color }}>
+        {arrow} {absDelta}
+        {unit}
+      </span>
+    </div>
+  );
+}
+
+function BodyCompTrend({ snapshots }: { snapshots: SnapshotRow[] }) {
+  // snapshots arrive DESC (newest first); per metric, take up to 5 populated
+  // points and present them chronologically (oldest → newest).
+  const metrics: Array<{
+    label: string;
+    unit: string;
+    get: (s: SnapshotRow) => number | null;
+    lowerIsBetter: boolean;
+    round?: boolean;
+  }> = [
+    { label: "Grasso corporeo", unit: "%", get: (s) => s.body_fat_pct, lowerIsBetter: true },
+    { label: "Massa magra", unit: " kg", get: (s) => s.lean_mass_kg, lowerIsBetter: false },
+    {
+      label: "Metabolismo basale",
+      unit: " kcal",
+      get: (s) => s.bmr_kcal,
+      lowerIsBetter: false,
+      round: true,
+    },
+  ];
+
+  return (
+    <div
+      style={{
+        marginTop: "16px",
+        padding: "16px 18px",
+        background: "#f8fafc",
+        border: "1px solid #e2e8f0",
+        borderRadius: "10px",
+      }}
+    >
+      <div
+        style={{
+          fontSize: "13px",
+          fontWeight: 700,
+          color: "#374151",
+          marginBottom: "12px",
+        }}
+      >
+        Andamento composizione corporea
+      </div>
+      {metrics.map((m) => {
+        const points = snapshots
+          .filter((s) => m.get(s) != null)
+          .slice(0, 5)
+          .reverse()
+          .map((s) => m.get(s) as number);
+        return (
+          <MetricTrendRow
+            key={m.label}
+            label={m.label}
+            unit={m.unit}
+            points={points}
+            lowerIsBetter={m.lowerIsBetter}
+            round={m.round}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+function BodyCompTab({ clientId }: { clientId: string }) {
+  const { data: snapshots = [], isLoading, isError } =
+    trpc.client.listSnapshots.useQuery({ clientId });
+
+  if (isLoading)
+    return (
+      <div style={{ padding: "24px", color: "#9ca3af", fontSize: "14px" }}>
+        Caricamento composizione corporea...
+      </div>
+    );
+
+  if (isError)
+    return (
+      <div
+        style={{
+          padding: "16px",
+          background: "#fef2f2",
+          borderRadius: "8px",
+          color: "#991b1b",
+          fontSize: "14px",
+        }}
+      >
+        Errore nel caricamento dei dati.
+      </div>
+    );
+
+  const rows = snapshots as SnapshotRow[];
+
+  if (rows.length === 0) {
+    return (
+      <div
+        style={{
+          textAlign: "center",
+          padding: "48px 24px",
+          color: "#9ca3af",
+          background: "#f8fafc",
+          borderRadius: "12px",
+          border: "1px dashed #e2e8f0",
+        }}
+      >
+        <div style={{ fontSize: "36px", marginBottom: "12px" }}>⚖️</div>
+        <p style={{ fontSize: "14px" }}>Nessuna misurazione registrata.</p>
+        <Link
+          href={`/clients/${clientId}/edit`}
+          style={{
+            display: "inline-block",
+            marginTop: "12px",
+            padding: "9px 18px",
+            backgroundColor: "#1a1a2e",
+            color: "#fff",
+            borderRadius: "8px",
+            textDecoration: "none",
+            fontSize: "14px",
+            fontWeight: 600,
+          }}
+        >
+          Nuova misurazione
+        </Link>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <BodyCompositionPanel snapshot={rows[0] ?? null} />
+      <BodyCompTrend snapshots={rows} />
     </div>
   );
 }
