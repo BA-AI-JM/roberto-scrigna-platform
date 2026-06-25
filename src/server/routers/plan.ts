@@ -999,11 +999,11 @@ export const planRouter = router({
         fatG: r1(newActual.fatG - tgtFat),
         carbsG: r1(newActual.carbsG - tgtCarb),
       };
+      // Protected pair only (kcal + protein) — matches the engine (planner.ts).
+      // Carbs/fats are the yielding remainder and do NOT gate withinTolerance.
       const withinTolerance =
         Math.abs(deviation.kcal) <= DEFAULT_TOLERANCES.kcal &&
-        Math.abs(deviation.proteinG) <= DEFAULT_TOLERANCES.proteinG &&
-        Math.abs(deviation.fatG) <= DEFAULT_TOLERANCES.fatG &&
-        Math.abs(deviation.carbsG) <= DEFAULT_TOLERANCES.carbsG;
+        Math.abs(deviation.proteinG) <= DEFAULT_TOLERANCES.proteinG;
 
       const updatedMealPlan = {
         ...mealPlan,
@@ -1163,11 +1163,11 @@ export const planRouter = router({
         fatG: r1(newActual.fatG - tgtFat),
         carbsG: r1(newActual.carbsG - tgtCarb),
       };
+      // Protected pair only (kcal + protein) — matches the engine (planner.ts).
+      // Carbs/fats are the yielding remainder and do NOT gate withinTolerance.
       const withinTolerance =
         Math.abs(deviation.kcal) <= DEFAULT_TOLERANCES.kcal &&
-        Math.abs(deviation.proteinG) <= DEFAULT_TOLERANCES.proteinG &&
-        Math.abs(deviation.fatG) <= DEFAULT_TOLERANCES.fatG &&
-        Math.abs(deviation.carbsG) <= DEFAULT_TOLERANCES.carbsG;
+        Math.abs(deviation.proteinG) <= DEFAULT_TOLERANCES.proteinG;
 
       const updatedMealPlan = {
         ...mealPlan,

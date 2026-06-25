@@ -107,6 +107,56 @@ describe("High-carb ceiling removed (#21/#10)", () => {
   });
 });
 
+// ── Low-carb day: the additive-filler overshoot bug (#21/#10) ────────────────
+// Regression lock for the joint-filler fix. The old additive topUpCarb + fibre
+// floor passes piled +183 kcal / +40 g carbs / +8.4 g protein onto a low-carb
+// day AFTER reconcile with no compensation, breaching the PROTECTED kcal (+7.9%)
+// and protein (+5.6%). Fillers are now sized JOINTLY inside assembleMeal, bounded
+// by each slot's kcal headroom, so the protected pair holds and carbs/fibre yield.
+describe("Low-carb day — protected pair holds, fillers compensated (#21/#10)", () => {
+  // 170P / 90C / 90F → 1850 kcal, rest day, 4 meals (the reported failing case).
+  const macros = rx(170, 90, 90, "rest");
+  const plan = createMealPlan(ALL_TEMPLATES, {
+    dayType: "rest",
+    macroTargets: macros,
+    mealCount: 4,
+    substitutionsPerSlot: 3,
+  });
+  const got = plan.actualMacros;
+  const summary =
+    `\n  delivered → kcal ${got.kcal}(${fmt(pctDiff(got.kcal, macros.totalKcal))}) ` +
+    `P ${got.proteinG}(${fmt(pctDiff(got.proteinG, 170))}) C ${got.carbsG}(${fmt(pctDiff(got.carbsG, 90))}) ` +
+    `F ${got.fatG} fibre ${got.fibreG ?? 0}`;
+
+  test(`kcal within ±${PROTECTED_PCT}% (was +7.9% with additive passes)${""}`, () => {
+    expect(Math.abs(pctDiff(got.kcal, macros.totalKcal)), `KCAL not protected${summary}`).toBeLessThanOrEqual(PROTECTED_PCT);
+  });
+  test(`protein within ±${PROTECTED_PCT}% (was +5.6% with additive passes)`, () => {
+    expect(Math.abs(pctDiff(got.proteinG, 170)), `PROTEIN not protected${summary}`).toBeLessThanOrEqual(PROTECTED_PCT);
+  });
+  test("carbs do NOT overshoot (no rice force-fed to a low-carb day)", () => {
+    // Carbs may fall short (they yield); they must not blow past the remainder band.
+    expect(Math.abs(pctDiff(got.carbsG, 90)), `CARBS overshoot${summary}`).toBeLessThanOrEqual(REMAINDER_PCT);
+  });
+  test("withinTolerance reflects the protected pair (kcal+protein) → true", () => {
+    expect(plan.withinTolerance, `withinTolerance false${summary}`).toBe(true);
+  });
+  test("no zero-gram / out-of-bound ingredient; fillers are removable (>0 or absent)", () => {
+    for (const slot of plan.slots) {
+      for (const ing of slot.primary.scaledIngredients) {
+        expect(ing.grams, `zero/negative gram on ${ing.foodId}`).toBeGreaterThan(0);
+        expect(ing.grams).toBeLessThanOrEqual(600);
+      }
+    }
+  });
+  test("eggs still snap to whole 60 g units (#15)", () => {
+    for (const slot of plan.slots) {
+      const egg = slot.primary.scaledIngredients.find((i) => i.foodId === "uova-intere");
+      if (egg) expect(egg.grams % 60).toBe(0);
+    }
+  });
+});
+
 // ── Solver invariants ───────────────────────────────────────────────────────
 
 describe("Solver invariants (#15/#10)", () => {

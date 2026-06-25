@@ -259,6 +259,13 @@ export interface MealPlanConfig {
   distribution?: DistributionTemplate;
   /** Number of substitutions per slot (2-4, default 3) */
   substitutionsPerSlot?: number;
+  /**
+   * Day fibre target in grams per 1000 kcal. Defaults to 10 (the floor). Solved
+   * jointly (removable veg filler under kcal headroom), never bolted on. Exposed
+   * as a solver input so the upcoming #11 fibre-RESTRICTION protocol can pass a
+   * lower value; #11's cap mode is not built yet.
+   */
+  fibreTargetPer1000?: number;
 }
 
 // ── Output ──────────────────────────────────────────────────────────────────

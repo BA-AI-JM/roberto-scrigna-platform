@@ -228,10 +228,36 @@ export function assembleMeal(template: MealTemplate, target: SlotMacroTargets): 
       }
     }
   }
-  // Final protein correction — protein is protected, so it is solved LAST.
+  // Protein correction — protein is protected, so it is solved before fillers.
   solveProtein();
 
-  // Build solved ingredients (roundGrams, re-clamp to bounds, never zero).
+  // ── Flexible fillers (#10/#21) — solved JOINTLY, never bolted on ─────────────
+  // Removable carb/fibre sources sized to fit ONLY the slot's leftover kcal
+  // HEADROOM (target.kcal × 1.05 − intrinsic kcal). Because they can consume no
+  // more than that headroom, they can NEVER push the meal past the kcal-primary
+  // band — so the day total stays within ±5% by construction. Fibre (the floor)
+  // outranks carbs for the headroom; the carb filler only fires when the slot has
+  // NO intrinsic carb source (so rice is never forced onto a low-carb meal that
+  // already has a carb source). See `sizeFlexibleFillers`.
+  const fillerIngs = sizeFlexibleFillers(work, template, target, carbIngs.length === 0);
+
+  // Re-solve protein with the filler protein treated as incidental, so protein
+  // stays PROTECTED even when a fibre veg (e.g. broccoli) carries protein.
+  if (proteinIngs.length > 0 && target.proteinG > 0) {
+    const base = proteinIngs.reduce((s, w) => s + (w.p * w.base) / 100, 0);
+    if (base > 0) {
+      const fillerProtein = fillerIngs.reduce(
+        (s, i) => s + (resolveFood(i.foodId).proteinG * i.grams) / 100,
+        0
+      );
+      const incidental = sumMacroAt(work.filter((w) => w.cat !== "PROTEIN"), (w) => w.p) + fillerProtein;
+      const [lo, hi] = categoryFactorRange(proteinIngs, "PROTEIN");
+      const fP = clamp((target.proteinG - incidental) / base, lo, hi);
+      proteinIngs.forEach((w) => (w.factor = fP));
+    }
+  }
+
+  // Build solved intrinsic ingredients (roundGrams, re-clamp to bounds, never zero).
   let solved: MealIngredient[] = work.map((w) => {
     if (w.cat === "FIXED") return { ...w.ing }; // unchanged, contributes nothing
     const [bMin, bMax] = ingredientGramBounds(w.ing.foodId, w.base, w.cat);
@@ -239,6 +265,16 @@ export function assembleMeal(template: MealTemplate, target: SlotMacroTargets): 
     const grams = Math.max(1, roundGrams(raw));
     return { ...w.ing, grams };
   });
+
+  // Merge the flexible fillers in by foodId (so a filler whose food already
+  // exists in the meal grows that ingredient instead of creating a duplicate
+  // line item), then apply the egg rule across the COMBINED list so the albume
+  // remainder accounts for filler protein too.
+  for (const filler of fillerIngs) {
+    const existing = solved.find((i) => i.foodId === filler.foodId);
+    if (existing) existing.grams = Math.max(1, roundGrams(existing.grams + filler.grams));
+    else solved.push(filler);
+  }
 
   // #15 — eggs: snap whole eggs to 60 g units, meet residual protein with albume.
   solved = applyEggRule(solved, template, target);
@@ -287,13 +323,15 @@ function applyEggRule(
   return out;
 }
 
-// ── Conditional filler (#10/#21) ────────────────────────────────────────────────
+// ── Flexible fillers (#10/#21) ──────────────────────────────────────────────────
 //
-// When a slot can't reach its carb target (no/insufficient carb source) — or the
-// day can't reach the fibre floor — by flexing intrinsic ingredients, append a
-// meal-type-appropriate filler drawn ONLY from existing FOOD_MAP foodIds (so
-// resolveFood never throws). Fillers are real MealIngredients → they flow to the
-// display/PDF/portal. Added ONLY when needed.
+// Carb/fibre sources drawn ONLY from existing FOOD_MAP foodIds (so resolveFood
+// never throws). They are sized INSIDE the solve (`sizeFlexibleFillers`, called
+// from `assembleMeal`), bounded by the slot's leftover kcal headroom and fully
+// REMOVABLE (size to 0 g when not needed). They are real MealIngredients → they
+// flow to the display/PDF/portal. The old additive `topUpCarb`/`topUpFibre`
+// (added food AFTER reconcile with no compensation) are gone — they breached the
+// kcal/protein guarantees by piling on uncompensated energy.
 
 interface FillerPick { foodId: string; name: string; baseG: number; }
 
@@ -313,79 +351,91 @@ function carbFillerFor(mealType: MealType): FillerPick | null {
   }
 }
 
+// Fibre fillers are chosen by fibre-DENSITY (fibre per carb / per kcal) so the
+// floor is approached at LEAST carbohydrate + calorie cost — never a fruit, whose
+// low fibre-per-carb (~0.17) would over-deliver carbs while chasing fibre.
+// Snack/pre/post slots get no fibre filler (no low-carb veg is meal-appropriate
+// there); the day floor is carried by the veg-capable slots — see planner
+// allocation, which only assigns a fibre target to those slots.
 function fibreFillerFor(mealType: MealType): FillerPick | null {
   switch (mealType) {
     case "lunch":
     case "dinner":
-      return { foodId: "broccoli", name: "Broccoli", baseG: 100 };
+      return { foodId: "broccoli", name: "Broccoli", baseG: 100 }; // fib/carb 0.41
     case "breakfast":
-      return { foodId: "frutti-di-bosco", name: "Frutti di bosco", baseG: 100 };
-    case "snack":
-    case "pre_workout":
-    case "post_workout":
-      return { foodId: "mela", name: "Mela", baseG: 100 };
+      return { foodId: "spinaci", name: "Spinaci", baseG: 80 }; // fib/carb 0.61, 23 kcal/100
     default:
       return null;
   }
 }
 
-function applyFiller(
-  ingredients: MealIngredient[],
-  pick: FillerPick,
-  grams: number
+/** Meal types that can host a low-carb fibre filler (carry the day floor). */
+export function isFibreCapableType(mealType: MealType): boolean {
+  return mealType === "lunch" || mealType === "dinner" || mealType === "breakfast";
+}
+
+/**
+ * Size removable carb/fibre fillers for one meal, JOINTLY with the rest of the
+ * solve. Each filler may consume ONLY the slot's leftover kcal headroom
+ * (target.kcal × (1 + KCAL_TOL) − intrinsic kcal), so it can never push the meal
+ * over the kcal-primary band. Returns the filler ingredients to append (possibly
+ * empty — fillers are fully removable).
+ *
+ * Priority for the shared headroom follows the spec hierarchy: the day FIBRE
+ * floor (via `target.fibreG`) outranks carbs, so fibre is sized first; the carb
+ * filler then takes whatever headroom is left. The carb filler fires ONLY when
+ * the slot has no intrinsic carb source (`carbSourceMissing`) — otherwise the
+ * per-ingredient solver already scales the intrinsic carb source to the target,
+ * and we must not force extra carbs (this is what kept rice off the low-carb day).
+ */
+function sizeFlexibleFillers(
+  work: WorkIng[],
+  template: MealTemplate,
+  target: SlotMacroTargets,
+  carbSourceMissing: boolean
 ): MealIngredient[] {
-  const out = ingredients.map((i) => ({ ...i }));
-  const existing = out.find((i) => i.foodId === pick.foodId);
-  if (existing) existing.grams = Math.max(1, roundGrams(existing.grams + grams));
-  else out.push({ foodId: pick.foodId, name: pick.name, grams: Math.max(1, roundGrams(grams)) });
+  const out: MealIngredient[] = [];
+  const mealType = template.mealType;
+
+  const extra = (pick: (id: string) => number) =>
+    out.reduce((s, i) => s + (pick(i.foodId) * i.grams) / 100, 0);
+  const curKcal = () => sumMacroAt(work, (w) => resolveFood(w.ing.foodId).kcal) + extra((id) => resolveFood(id).kcal);
+  const curCarb = () => sumMacroAt(work, (w) => w.c) + extra((id) => resolveFood(id).carbsG);
+  const curFibre = () => sumMacroAt(work, (w) => resolveFood(w.ing.foodId).fibreG) + extra((id) => resolveFood(id).fibreG);
+  const headroomKcal = () => Math.max(0, target.kcal * (1 + KCAL_TOL) - curKcal());
+
+  const addFiller = (pick: FillerPick, neededG: number) => {
+    const f = resolveFood(pick.foodId);
+    const [, maxG] = ingredientGramBounds(pick.foodId, pick.baseG, classifyFood(pick.foodId));
+    const kcalCapG = f.kcal > 0 ? (headroomKcal() / f.kcal) * 100 : Number.POSITIVE_INFINITY;
+    const grams = Math.min(neededG, kcalCapG, maxG);
+    if (grams <= 0.5) return; // not worth adding / no headroom
+    const rg = roundGrams(grams);
+    if (rg >= 1) out.push({ foodId: pick.foodId, name: pick.name, grams: rg });
+  };
+
+  // 1. FIBRE floor (outranks carbs) — grow a removable veg/fruit toward the slot's
+  //    day-fibre share, capped by kcal headroom.
+  if ((target.fibreG ?? 0) > 0) {
+    const pick = fibreFillerFor(mealType);
+    const fibrePer100 = pick ? resolveFood(pick.foodId).fibreG : 0;
+    if (pick && fibrePer100 > 0) {
+      const neededG = ((target.fibreG! - curFibre()) / fibrePer100) * 100;
+      if (neededG > 0.5) addFiller(pick, neededG);
+    }
+  }
+
+  // 2. CARB filler — ONLY when the slot has no intrinsic carb source, sized toward
+  //    the slot carb target within the REMAINING headroom (so a tight low-carb day
+  //    adds little/none; a day with room reaches its carb target).
+  if (carbSourceMissing && target.carbsG > 0 && curCarb() < target.carbsG * 0.95) {
+    const pick = carbFillerFor(mealType);
+    const carbPer100 = pick ? resolveFood(pick.foodId).carbsG : 0;
+    if (pick && carbPer100 > 0) {
+      const neededG = ((target.carbsG - curCarb()) / carbPer100) * 100;
+      if (neededG > 0.5) addFiller(pick, neededG);
+    }
+  }
+
   return out;
-}
-
-/**
- * Top up a slot's carbs toward `slotCarbTargetG` with a meal-type carb filler,
- * if currently >5% short. Returns possibly-augmented ingredients + whether a
- * filler was added.
- */
-export function topUpCarb(
-  ingredients: MealIngredient[],
-  mealType: MealType,
-  slotCarbTargetG: number
-): { ingredients: MealIngredient[]; added: boolean } {
-  if (slotCarbTargetG <= 0) return { ingredients, added: false };
-  const current = macrosFromIngredients(ingredients).carbsG;
-  if (current >= slotCarbTargetG * 0.95) return { ingredients, added: false };
-  const pick = carbFillerFor(mealType);
-  if (!pick) return { ingredients, added: false };
-  const carbPer100 = resolveFood(pick.foodId).carbsG;
-  if (carbPer100 <= 0) return { ingredients, added: false };
-  const cat = classifyFood(pick.foodId);
-  const [, maxG] = ingredientGramBounds(pick.foodId, pick.baseG, cat);
-  const grams = clamp(((slotCarbTargetG - current) / carbPer100) * 100, 1, maxG);
-  return { ingredients: applyFiller(ingredients, pick, grams), added: true };
-}
-
-/**
- * Add `fibreNeededG` of fibre to a slot via a meal-type fibre filler (veg/fruit).
- * Returns augmented ingredients + whether a filler was added.
- */
-export function topUpFibre(
-  ingredients: MealIngredient[],
-  mealType: MealType,
-  fibreNeededG: number
-): { ingredients: MealIngredient[]; added: boolean } {
-  if (fibreNeededG <= 0) return { ingredients, added: false };
-  const pick = fibreFillerFor(mealType);
-  if (!pick) return { ingredients, added: false };
-  const fibrePer100 = resolveFood(pick.foodId).fibreG;
-  if (fibrePer100 <= 0) return { ingredients, added: false };
-  const cat = classifyFood(pick.foodId);
-  const [, maxG] = ingredientGramBounds(pick.foodId, pick.baseG, cat);
-  const grams = clamp((fibreNeededG / fibrePer100) * 100, 1, maxG);
-  return { ingredients: applyFiller(ingredients, pick, grams), added: true };
-}
-
-/** Recompute a SelectedMeal's actualMacros after its ingredients changed. */
-export function remeasure(meal: SelectedMeal): SelectedMeal {
-  const m = macrosFromIngredients(meal.scaledIngredients);
-  return { ...meal, actualMacros: { kcal: m.kcal, proteinG: m.proteinG, fatG: m.fatG, carbsG: m.carbsG, fibreG: m.fibreG, sodiumMg: m.sodiumMg } };
 }
