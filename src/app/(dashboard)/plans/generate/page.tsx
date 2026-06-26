@@ -46,6 +46,11 @@ const DAY_TYPE_LABELS: Record<DayType, string> = {
   rest: "OFF",
   refeed: "Refeed",
   deload: "Deload",
+  // #17 periodization intensity tiers (modes 3-4)
+  training_light: "Leggero",
+  training_medium: "Medio",
+  training_intense: "Intenso",
+  training_double: "Doppia",
 };
 
 const DAY_TYPE_COLORS: Record<DayType, { bg: string; text: string; border: string }> = {
@@ -53,6 +58,11 @@ const DAY_TYPE_COLORS: Record<DayType, { bg: string; text: string; border: strin
   rest:     { bg: "#f4f4f5", text: "#71717a", border: "#d4d4d8" },
   refeed:   { bg: "#fffbeb", text: "#b45309", border: "#fcd34d" },
   deload:   { bg: "#eff6ff", text: "#1d4ed8", border: "#93c5fd" },
+  // #17 periodization intensity tiers (modes 3-4) — blue family, graded.
+  training_light:   { bg: "#eff6ff", text: "#1d4ed8", border: "#93c5fd" },
+  training_medium:  { bg: "#dbeafe", text: "#1e40af", border: "#60a5fa" },
+  training_intense: { bg: "#bfdbfe", text: "#1e3a8a", border: "#3b82f6" },
+  training_double:  { bg: "#e0e7ff", text: "#3730a3", border: "#818cf8" },
 };
 
 const WEEK_PRESETS: Record<string, DayType[]> = {
@@ -204,6 +214,11 @@ export default function GeneratePlanPage() {
       rest: { ...EMPTY_MACRO_ROW },
       refeed: { ...EMPTY_MACRO_ROW },
       deload: { ...EMPTY_MACRO_ROW },
+      // #17 periodization intensity tiers (modes 3-4)
+      training_light: { ...EMPTY_MACRO_ROW },
+      training_medium: { ...EMPTY_MACRO_ROW },
+      training_intense: { ...EMPTY_MACRO_ROW },
+      training_double: { ...EMPTY_MACRO_ROW },
     },
     sourcePins: { ...EMPTY_SELECTIONS },
   });

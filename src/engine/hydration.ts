@@ -6,6 +6,7 @@
  */
 
 import type { DayType, HydrationTargets } from "./types";
+import { isTrainingLikeDayType } from "./types";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -34,7 +35,8 @@ export function calculateHydration(
   weightKg: number,
   dayType: DayType
 ): HydrationTargets {
-  const isActive = dayType === "training" || dayType === "deload";
+  // #17: training tiers are training-like → get the active-day hydration bonus.
+  const isActive = isTrainingLikeDayType(dayType) || dayType === "deload";
 
   const baseWater = Math.round(BASE_WATER_ML_PER_KG * weightKg);
   const waterMl = isActive ? baseWater + TRAINING_WATER_BONUS_ML : baseWater;

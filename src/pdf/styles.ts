@@ -25,6 +25,11 @@ export const DAY_TYPE_COLOURS = {
   rest: { bg: "#f3e5f5", border: "#7b1fa2", text: "#4a148c", label: "Riposo" },
   refeed: { bg: "#e8f5e9", border: "#2e7d32", text: "#1b5e20", label: "Refeed" },
   deload: { bg: "#fff3e0", border: "#e65100", text: "#bf360c", label: "Deload" },
+  // #17 periodization intensity tiers (modes 3-4) — blue family, graded by intensity.
+  training_light: { bg: "#e8f4fd", border: "#42a5f5", text: "#1565c0", label: "Allenamento Leggero" },
+  training_medium: { bg: "#e3f2fd", border: "#1976d2", text: "#0d47a1", label: "Allenamento Medio" },
+  training_intense: { bg: "#d6e9fb", border: "#1565c0", text: "#0d3c8c", label: "Allenamento Intenso" },
+  training_double: { bg: "#e8eaf6", border: "#283593", text: "#1a237e", label: "Doppia Seduta" },
 } as const;
 
 // ── CSS Template ────────────────────────────────────────────────────────────
@@ -264,6 +269,31 @@ export function generateCSS(): string {
       background: ${DAY_TYPE_COLOURS.deload.bg};
       border-color: ${DAY_TYPE_COLOURS.deload.border};
       color: ${DAY_TYPE_COLOURS.deload.text};
+    }
+
+    /* #17 periodization intensity tiers (modes 3-4) */
+    .day-type-training_light {
+      background: ${DAY_TYPE_COLOURS.training_light.bg};
+      border-color: ${DAY_TYPE_COLOURS.training_light.border};
+      color: ${DAY_TYPE_COLOURS.training_light.text};
+    }
+
+    .day-type-training_medium {
+      background: ${DAY_TYPE_COLOURS.training_medium.bg};
+      border-color: ${DAY_TYPE_COLOURS.training_medium.border};
+      color: ${DAY_TYPE_COLOURS.training_medium.text};
+    }
+
+    .day-type-training_intense {
+      background: ${DAY_TYPE_COLOURS.training_intense.bg};
+      border-color: ${DAY_TYPE_COLOURS.training_intense.border};
+      color: ${DAY_TYPE_COLOURS.training_intense.text};
+    }
+
+    .day-type-training_double {
+      background: ${DAY_TYPE_COLOURS.training_double.bg};
+      border-color: ${DAY_TYPE_COLOURS.training_double.border};
+      color: ${DAY_TYPE_COLOURS.training_double.text};
     }
 
     /* ── Body Comp Analysis ───────────────────────────── */

@@ -14,7 +14,33 @@ export type OccupationalLevel =
   | "heavy"        // manual labour
   | "very_heavy";  // extreme physical work
 
-export type DayType = "training" | "rest" | "refeed" | "deload";
+export type DayType =
+  | "training"
+  | "rest"
+  | "refeed"
+  | "deload"
+  // #17 periodization intensity tiers (modes 3-4). "rest" doubles as OFF.
+  // Training-like day-types graded by session intensity; intensity flows through
+  // TDEE + the carb remainder, NOT through protein/fat ratio changes.
+  | "training_light"
+  | "training_medium"
+  | "training_intense"
+  | "training_double";
+
+/**
+ * #17: is this a training-like day-type — base `training` or any intensity tier?
+ * Tiers inherit training-day behaviour (per-day session override, peri-workout
+ * hydration). `deload` is NOT training-like (it has its own reduced-session path).
+ */
+export function isTrainingLikeDayType(dayType: DayType): boolean {
+  return (
+    dayType === "training" ||
+    dayType === "training_light" ||
+    dayType === "training_medium" ||
+    dayType === "training_intense" ||
+    dayType === "training_double"
+  );
+}
 
 // ── Skinfold & Body Composition ────────────────────────────────────────────────
 

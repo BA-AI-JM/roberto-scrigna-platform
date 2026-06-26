@@ -76,6 +76,11 @@ const DAY_TYPE_LABELS: Record<DayType, string> = {
   rest: "Giorno di Riposo",
   refeed: "Giorno di Refeed",
   deload: "Giorno di Deload",
+  // #17 periodization intensity tiers (modes 3-4)
+  training_light: "Allenamento Leggero",
+  training_medium: "Allenamento Medio",
+  training_intense: "Allenamento Intenso",
+  training_double: "Doppia Seduta",
 };
 
 // Compact day-type names for the scannable daily-totals summary (Item #16).
@@ -84,6 +89,11 @@ const DAY_TYPE_SHORT_LABELS: Record<DayType, string> = {
   rest: "Riposo",
   refeed: "Refeed",
   deload: "Deload",
+  // #17 periodization intensity tiers (modes 3-4)
+  training_light: "All. Leggero",
+  training_medium: "All. Medio",
+  training_intense: "All. Intenso",
+  training_double: "Doppia Seduta",
 };
 
 // Macro accent colours — mirror the per-day-type MacroCard palette below so the

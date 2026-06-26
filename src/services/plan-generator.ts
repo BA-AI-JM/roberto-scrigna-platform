@@ -147,6 +147,11 @@ const DAY_TYPE_LABELS: Record<DayType, string> = {
   rest: "Giorno di Riposo",
   refeed: "Giorno di Refeed",
   deload: "Giorno di Deload",
+  // #17 periodization intensity tiers (modes 3-4)
+  training_light: "Allenamento Leggero",
+  training_medium: "Allenamento Medio",
+  training_intense: "Allenamento Intenso",
+  training_double: "Doppia Seduta",
 } as const;
 
 // ── Pipeline Implementation ─────────────────────────────────────────────────

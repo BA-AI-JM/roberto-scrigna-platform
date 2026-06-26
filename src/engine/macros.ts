@@ -35,6 +35,14 @@ const DAY_TYPE_MULTIPLIERS: Record<DayType, MacroMultipliers> = {
   rest: { proteinPerKgLbm: 2.2, fatPerKgBw: 1.0 },
   refeed: { proteinPerKgLbm: 2.2, fatPerKgBw: 0.7 },
   deload: { proteinPerKgLbm: 2.2, fatPerKgBw: 1.0 },
+  // #17 periodization tiers (modes 3-4) — provisional: clone the training
+  // ratios. Intensity differentiation comes from TDEE (per-day session
+  // expenditure) + the carb remainder, NOT from protein/fat ratio shifts.
+  // provisional — Roberto to calibrate intensity ratios
+  training_light: { proteinPerKgLbm: 2.5, fatPerKgBw: 0.9 },
+  training_medium: { proteinPerKgLbm: 2.5, fatPerKgBw: 0.9 },
+  training_intense: { proteinPerKgLbm: 2.5, fatPerKgBw: 0.9 },
+  training_double: { proteinPerKgLbm: 2.5, fatPerKgBw: 0.9 },
 };
 
 // ── Public API ────────────────────────────────────────────────────────────────
