@@ -28,6 +28,11 @@ import type {
 import type { SerializedPlanResult } from "../../../../../services/plan-generator";
 import { checkSupplementInteractions } from "../../../../../services/supplements";
 import { formatIngredientQuantity } from "../../../../../lib/ingredient-display";
+import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
+import { getQueryKey } from "@trpc/react-query";
+import { VersionsTab } from "@/components/plan/versions-tab";
+import { resolveRootPlanId, buildCreateVersionInput } from "@/components/plan/version-helpers";
 
 // ── Review State ─────────────────────────────────────────────────────────────
 
@@ -52,7 +57,8 @@ type ReviewTab =
   | "meals"
   | "supplements"
   | "guidance"
-  | "monitoring";
+  | "monitoring"
+  | "versions";
 
 const TABS: readonly { key: ReviewTab; label: string }[] = [
   { key: "overview", label: "Panoramica" },
@@ -61,6 +67,7 @@ const TABS: readonly { key: ReviewTab; label: string }[] = [
   { key: "supplements", label: "Integratori" },
   { key: "guidance", label: "Guida" },
   { key: "monitoring", label: "Monitoraggio" },
+  { key: "versions", label: "Versioni" },
 ] as const;
 
 // ── Labels ───────────────────────────────────────────────────────────────────
@@ -212,6 +219,37 @@ export default function PlanReviewPage({
     },
     onError: (err) => {
       setShareError(err.message ?? "Errore nell'invio. Riprova.");
+    },
+  });
+
+  // ── Plan versioning ──────────────────────────────────────────────────────────
+  const router = useRouter();
+  const queryClient = useQueryClient();
+
+  // listVersions needs the chain root. getById doesn't expose clientId/rootPlanId,
+  // so resolve it: query by the current plan as root, and if it turns out to be a
+  // child (parentPlanId set), re-query with the real root.
+  const versionsQ1 = trpc.plan.listVersions.useQuery(
+    { rootPlanId: planId },
+    { enabled: Boolean(planId) }
+  );
+  const versionRoot = resolveRootPlanId(versionsQ1.data?.versions ?? [], planId);
+  const versionsQ2 = trpc.plan.listVersions.useQuery(
+    { rootPlanId: versionRoot ?? "" },
+    { enabled: Boolean(versionRoot) }
+  );
+  const versions = versionRoot
+    ? (versionsQ2.data?.versions ?? [])
+    : (versionsQ1.data?.versions ?? []);
+  const versionsLoading =
+    versionsQ1.isLoading || (Boolean(versionRoot) && versionsQ2.isLoading);
+
+  const createVersionMutation = trpc.plan.createVersion.useMutation({
+    onSuccess: (res) => {
+      void queryClient.invalidateQueries({
+        queryKey: getQueryKey(trpc.plan.listVersions),
+      });
+      router.push(`/plans/${res.planId}/review`);
     },
   });
 
@@ -763,6 +801,19 @@ export default function PlanReviewPage({
       )}
       {activeTab === "monitoring" && (
         <MonitoringTab monitoring={review.monitoring} cardStyle={cardStyle} />
+      )}
+      {activeTab === "versions" && (
+        <VersionsTab
+          versions={versions}
+          loading={versionsLoading}
+          currentPlanId={planId}
+          isRegenerating={createVersionMutation.isPending}
+          regenerateError={createVersionMutation.error?.message ?? null}
+          onRegenerate={(reason) =>
+            createVersionMutation.mutate(buildCreateVersionInput(planId, reason))
+          }
+          onOpenVersion={(id) => router.push(`/plans/${id}/review`)}
+        />
       )}
     </div>
   );

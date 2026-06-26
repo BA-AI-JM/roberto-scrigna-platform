@@ -15,6 +15,7 @@ import { trpc } from "@/lib/trpc/client";
 import { formatIngredientQuantity } from "@/lib/ingredient-display";
 import { TrendChart, totalDataPoints, type TrendSeries } from "@/components/charts/TrendChart";
 import { LogWeightCard } from "@/components/portal/log-weight-card";
+import { PlanHistorySection } from "@/components/portal/plan-history-section";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -946,6 +947,9 @@ export default function PortalDashboardPage() {
 
       {/* ── Active Plan ── */}
       <ActivePlanSection plan={plan} loading={planQuery.isLoading} />
+
+      {/* ── Storico piani (stub — full history needs a portal.getPlanHistory wrapper) ── */}
+      <PlanHistorySection activePlanName={plan?.name} activePlanDate={plan?.start_date} />
 
       {/* ── Check-in ── */}
       <CheckInSection data={checkIn} loading={checkInQuery.isLoading} />
