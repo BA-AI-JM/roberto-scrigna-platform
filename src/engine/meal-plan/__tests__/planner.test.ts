@@ -352,8 +352,11 @@ describe("Meal Plan Creator", () => {
 
     for (const slot of plan.slots) {
       expect(slot.primary).toBeDefined();
-      expect(slot.primary.scaleFactor).toBeGreaterThanOrEqual(SCALE_BOUNDS.min);
-      expect(slot.primary.scaleFactor).toBeLessThanOrEqual(SCALE_BOUNDS.max);
+      // Stage 2: meals are assembled by per-ingredient gram solving; the legacy
+      // whole-meal scaleFactor is no longer populated. Validate solved output.
+      expect(slot.primary.scaledIngredients.length).toBeGreaterThan(0);
+      expect(slot.primary.scaledIngredients.every((i) => i.grams > 0)).toBe(true);
+      expect(slot.primary.actualMacros.kcal).toBeGreaterThan(0);
       expect(slot.substitutions.length).toBeGreaterThanOrEqual(2);
     }
   });

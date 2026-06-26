@@ -154,8 +154,11 @@ describe("Meal Swap — Full Plan Creation (Marco Training)", () => {
     mealPlan.slots.forEach((slot) => {
       expect(slot.primary).toBeDefined();
       expect(slot.primary.template).toBeDefined();
-      expect(slot.primary.scaleFactor).toBeGreaterThanOrEqual(SCALE_BOUNDS.min);
-      expect(slot.primary.scaleFactor).toBeLessThanOrEqual(SCALE_BOUNDS.max);
+      // Stage 2: per-ingredient gram solving — no whole-meal scaleFactor.
+      // Validate the solved output instead.
+      expect(slot.primary.scaledIngredients.length).toBeGreaterThan(0);
+      expect(slot.primary.scaledIngredients.every((i) => i.grams > 0)).toBe(true);
+      expect(slot.primary.actualMacros.kcal).toBeGreaterThan(0);
       expect(slot.substitutions.length).toBeGreaterThanOrEqual(SUBSTITUTION_BOUNDS.min);
       expect(slot.substitutions.length).toBeLessThanOrEqual(SUBSTITUTION_BOUNDS.max);
     });
@@ -188,9 +191,9 @@ describe("Meal Swap — Substitution Recalculation Within Tolerance", () => {
   test("substitution meals are scaled to slot macro targets", () => {
     mealPlan.slots.forEach((slot) => {
       slot.substitutions.forEach((sub) => {
-        // Each sub should have been scaled with a valid factor
-        expect(sub.scaleFactor).toBeGreaterThanOrEqual(SCALE_BOUNDS.min);
-        expect(sub.scaleFactor).toBeLessThanOrEqual(SCALE_BOUNDS.max);
+        // Stage 2: subs are assembled by the per-ingredient solver (no factor).
+        expect(sub.scaledIngredients.length).toBeGreaterThan(0);
+        expect(sub.scaledIngredients.every((i) => i.grams > 0)).toBe(true);
         expect(sub.actualMacros.kcal).toBeGreaterThan(0);
         expect(sub.actualMacros.proteinG).toBeGreaterThan(0);
       });

@@ -27,6 +27,9 @@ export interface FoodMapEntry {
 
 export const FOOD_MAP: Record<string, FoodMapEntry> = {
   "acqua": { v3: null, via: "zero" },
+  // #15: egg whites — used by the solver to meet the fine protein remainder in
+  // egg meals after whole-egg (60 g) snapping. Not used by any template directly.
+  "albume": { v3: "Egg white (raw)", via: "exact" },
   "avocado": { v3: "Avocado (flesh)", via: "exact" },
   "banana": { v3: "Banana (peeled)", via: "exact" },
   "bresaola": { v3: "Bresaola (air-dried beef)", via: "exact" },
