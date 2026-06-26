@@ -47,6 +47,11 @@ const trainingSessionSchema = z.object({
   modality: z.string().max(100),
   duration_min: z.number().min(1).max(480),
   rpe: z.number().min(1).max(10),
+  // #18 nutrient timing — optional 24h clock "HH:MM" (e.g. "18:00"). Additive:
+  // absent = unchanged. Display-only (drives the timed session box + pre/intra/
+  // post grouping); the TDEE engine ignores it. Rides _intake JSONB, no migration.
+  startTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Formato ora non valido (HH:MM)").optional(),
+  endTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Formato ora non valido (HH:MM)").optional(),
 });
 
 /** Schema for creating a client snapshot from the intake form */

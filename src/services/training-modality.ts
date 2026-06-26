@@ -42,6 +42,15 @@ export interface IntakeTrainingSession {
   modality?: string;
   duration_min?: number;
   rpe?: number;
+  /**
+   * #18 nutrient timing — optional clock time of the session (24h "HH:MM",
+   * e.g. "18:00"). Display-only: it powers the timed training-session box +
+   * pre/intra/post grouping in the UI. The TDEE engine ignores it (it uses
+   * duration_min/modality/rpe), so it never changes the prescription.
+   */
+  startTime?: string;
+  /** #18 — optional session end "HH:MM" (derivable from startTime + duration_min if absent). */
+  endTime?: string;
 }
 
 /**
