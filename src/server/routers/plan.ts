@@ -188,6 +188,18 @@ const generatePlanSchema = z.object({
         .optional(),
     })
     .optional(),
+  /**
+   * #11 combat-sport protocols (OFF by default, combinable for fight week).
+   * Restriction caps are JOINT constraints on the solved plan (kcal+protein
+   * protected); water_loading produces a multi-day fluid schedule.
+   */
+  protocols: z
+    .object({
+      fibreRestriction: z.boolean().optional(),
+      sodiumRestriction: z.boolean().optional(),
+      waterLoading: z.boolean().optional(),
+    })
+    .optional(),
 });
 
 const previewWeekSchema = z.object({
@@ -354,6 +366,8 @@ interface PlanGenParams {
   /** Raw per-weekday training-session arrays (as stored on macro_payload / wizard input). */
   perDayTrainingSession?: (IntakeTrainingSession[] | null)[];
   macroOverrides?: Partial<Record<DayType, { proteinG?: number; fatG?: number; carbG?: number }>>;
+  /** #11 combat-sport protocols (fibre/sodium restriction + water loading). */
+  protocols?: { fibreRestriction?: boolean; sodiumRestriction?: boolean; waterLoading?: boolean };
 }
 
 interface PlanArtifacts {
@@ -421,6 +435,7 @@ function buildPlanArtifacts(
     preferTags: params.preferTags as PlanGenerationInput["preferTags"],
     maintenanceKcalEstimate: params.maintenanceKcalEstimate,
     ...(Object.keys(engineOptions).length > 0 ? { engineOptions } : {}),
+    ...(params.protocols ? { protocols: params.protocols } : {}),
   };
 
   const result = generatePlan(genInput);
@@ -439,6 +454,8 @@ function buildPlanArtifacts(
     ...(params.macroOverrides ? { macroOverrides: params.macroOverrides } : {}),
     ...(params.excludeAllergens ? { excludeAllergens: params.excludeAllergens } : {}),
     ...(params.preferTags ? { preferTags: params.preferTags } : {}),
+    ...(params.protocols ? { protocols: params.protocols } : {}),
+    ...(result.waterLoading ? { waterLoading: result.waterLoading } : {}),
   };
 
   return {
@@ -520,6 +537,7 @@ export const planRouter = router({
           weekScheduleOverride: input.weekScheduleOverride,
           perDayTrainingSession: input.perDayTrainingSession,
           macroOverrides: input.macroOverrides,
+          protocols: input.protocols,
         });
       } catch (err) {
         // Log the full engine error server-side; surface a safe message to the client.
@@ -690,6 +708,8 @@ export const planRouter = router({
           perDayTrainingSession: mp.perDayTrainingSessionRaw as
             | PlanGenParams["perDayTrainingSession"],
           macroOverrides: mp.macroOverrides as PlanGenParams["macroOverrides"],
+          // Preserve fight-week protocols across versions (recovered from macro_payload).
+          protocols: mp.protocols as PlanGenParams["protocols"],
         });
       } catch (err) {
         console.error("[router/plan.createVersion] engine error:", err);

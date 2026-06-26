@@ -261,12 +261,31 @@ export interface MealPlanConfig {
   substitutionsPerSlot?: number;
   /**
    * Day fibre target in grams per 1000 kcal. Defaults to 10 (the floor). Solved
-   * jointly (removable veg filler under kcal headroom), never bolted on. Exposed
-   * as a solver input so the upcoming #11 fibre-RESTRICTION protocol can pass a
-   * lower value; #11's cap mode is not built yet.
+   * jointly (removable veg filler under kcal headroom), never bolted on.
    */
   fibreTargetPer1000?: number;
+  /**
+   * Fibre direction (#11). "floor" (default) = reach ≥ fibreTargetPer1000 g/1000
+   * kcal via the compensated deficit pass. "cap" = combat-sport fibre RESTRICTION:
+   * keep day fibre ≤ `fibreCapG` by biasing reconcile toward low-fibre templates
+   * and skipping the fibre-add pass. Both protect kcal+protein.
+   */
+  fibreMode?: "floor" | "cap";
+  /** Absolute day fibre cap (g) when fibreMode==="cap". Defaults to FIBRE_RESTRICTION_CAP_G. */
+  fibreCapG?: number;
+  /**
+   * Combat-sport sodium RESTRICTION (#11): when set, reconcile biases toward
+   * low-sodium templates to keep summed day sodium ≤ this cap (mg), while
+   * protecting kcal+protein (sodium yields below them). Off when undefined.
+   */
+  sodiumCapMg?: number;
 }
+
+// ── Combat-sport restriction caps (#11) ──────────────────────────────────────
+/** Day fibre cap (g) for the fibre-restriction protocol (target < 10 g/day). */
+export const FIBRE_RESTRICTION_CAP_G = 9;
+/** Day sodium cap (mg) for the sodium-restriction protocol (target < 500 mg/day). */
+export const SODIUM_RESTRICTION_CAP_MG = 500;
 
 // ── Output ──────────────────────────────────────────────────────────────────
 

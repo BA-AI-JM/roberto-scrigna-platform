@@ -59,7 +59,8 @@ export { calculateTdee, calculateWeeklyTdee, type TdeeOptions } from "./tdee";
 export { calculateMacros, type MacroOptions } from "./macros";
 
 // Hydration
-export { calculateHydration } from "./hydration";
+export { calculateHydration, waterLoadingSchedule } from "./hydration";
+export type { WaterLoadingSchedule, WaterLoadingDay } from "./hydration";
 
 // ── Convenience: Full Daily Plan ──────────────────────────────────────────────
 

@@ -24,6 +24,7 @@ import type {
   SelectedMeal,
   SlotMacroTargets,
 } from "./types";
+import { FIBRE_RESTRICTION_CAP_G } from "./types";
 import { assembleMeal } from "./solver";
 import { filterMeals } from "./selector";
 
@@ -32,6 +33,14 @@ export const RECONCILE_TOLERANCE_PCT = 5;
 
 /** Fibre floor used to bias selection (g per 1000 kcal). Hard floor enforced by planner. */
 const FIBRE_FLOOR_PER_1000 = 10;
+
+/**
+ * Deadband (%) for kcal/protein when a restriction protocol is active: inside this
+ * band their differences stop dominating so the fibre/sodium caps drive template
+ * selection. Tighter than RECONCILE_TOLERANCE_PCT (±5%) so the protected pair keeps
+ * a safety margin instead of drifting to the band edge.
+ */
+const RESTRICTION_DEADBAND_PCT = 4;
 
 const DEFAULT_MAX_PASSES = 12;
 
@@ -42,6 +51,17 @@ export interface ReconcileContext {
   preferTags: MealTag[];
   tolerancePct?: number;
   maxPasses?: number;
+  /** Combat-sport restriction protocols (#11) — bias template selection. */
+  fibreMode?: "floor" | "cap";
+  fibreCapG?: number;
+  sodiumCapMg?: number;
+}
+
+/** Protocol params threaded into the objective. */
+interface ObjProtocols {
+  fibreMode?: "floor" | "cap";
+  fibreCapG?: number;
+  sodiumCapMg?: number;
 }
 
 type Macros6 = Required<Pick<SlotMacroTargets, "kcal" | "proteinG" | "fatG" | "carbsG">> & {
@@ -72,22 +92,69 @@ function sumPrimaries(slots: MealSlot[], skipIdx = -1): Macros6 {
 
 /**
  * Prioritised proportional error of a candidate DAILY total vs the prescription.
- * Lexicographic via decaying weights: kcal ≫ protein ≫ fibre-floor ≫ carbs/fats.
+ * Lexicographic via decaying weights: kcal ≫ protein ≫ {fibre + sodium} ≫ carbs/fats.
+ *
+ * The fibre/sodium term sits between protein and carbs/fats — so the restriction
+ * caps (fibre cap, sodium cap) and the default fibre floor all YIELD to the
+ * protected pair (kcal, protein) but OUTRANK carbs/fats. `restrictionPenalty` is
+ * returned separately so the convergence loop only stops once both the protected
+ * pair AND any active restriction are satisfied.
  */
 function objective(
   total: Macros6,
-  target: MacroTargets
-): { maxPct: number; score: number } {
+  target: MacroTargets,
+  p: ObjProtocols = {}
+): { maxPct: number; score: number; restrictionPenalty: number } {
   const dev = (a: number, t: number) => (t > 0 ? Math.abs(a - t) / t : a === 0 ? 0 : 1);
   const eK = dev(total.kcal, target.totalKcal);
   const eP = dev(total.proteinG, target.proteinG);
   const eC = dev(total.carbsG, target.carbG);
   const eF = dev(total.fatG, target.fatG);
-  const fibreFloor = (FIBRE_FLOOR_PER_1000 * target.totalKcal) / 1000;
-  const fibreShort = fibreFloor > 0 ? Math.max(0, fibreFloor - total.fibreG) / fibreFloor : 0;
-  const score = eK * 1e6 + eP * 1e4 + fibreShort * 1e2 + (eC + eF);
+
+  // Fibre: cap (penalise EXCESS over the cap) or floor (penalise SHORTFALL).
+  let fibrePenalty: number;
+  if (p.fibreMode === "cap") {
+    const cap = p.fibreCapG ?? FIBRE_RESTRICTION_CAP_G;
+    fibrePenalty = cap > 0 ? Math.max(0, total.fibreG - cap) / cap : 0;
+  } else {
+    const floor = (FIBRE_FLOOR_PER_1000 * target.totalKcal) / 1000;
+    fibrePenalty = floor > 0 ? Math.max(0, floor - total.fibreG) / floor : 0;
+  }
+
+  // Sodium cap (only when the restriction is active): penalise EXCESS over the cap.
+  const sodiumPenalty =
+    p.sodiumCapMg && p.sodiumCapMg > 0
+      ? Math.max(0, total.sodiumMg - p.sodiumCapMg) / p.sodiumCapMg
+      : 0;
+
+  // The 1e2 slot always carries fibre + sodium (fibrePenalty is shortfall in floor
+  // mode, excess in cap mode). restrictionPenalty (the convergence gate) is only
+  // the HARD caps — fibre cap + sodium cap — not the best-effort fibre floor.
+  const penalty1e2 = fibrePenalty + sodiumPenalty;
+  const restrictionPenalty = (p.fibreMode === "cap" ? fibrePenalty : 0) + sodiumPenalty;
+  const restrictionActive = p.fibreMode === "cap" || (p.sodiumCapMg ?? 0) > 0;
+
+  let score: number;
+  if (restrictionActive) {
+    // DEADBAND: once kcal/protein are inside the protected ±tol band, their tiny
+    // differences must NOT dominate the restriction caps (weight 1e2) — otherwise
+    // a <1% kcal wobble between templates outranks a 500 mg sodium win and the cap
+    // is never enforced. So kcal/protein are penalised only BEYOND ±tol; inside the
+    // band the cap (then carbs/fats) drives selection, with a tiny in-band pull
+    // keeping kcal/protein near target when the cap is indifferent. kcal+protein
+    // stay PROTECTED (any breach past ±tol still dominates at 1e6/1e4). The
+    // deadband is tighter than the ±5% bound so the FINAL pair keeps a safety
+    // margin rather than drifting to the very edge to chase the caps.
+    const tol = RESTRICTION_DEADBAND_PCT / 100;
+    const eKpen = Math.max(0, eK - tol);
+    const ePpen = Math.max(0, eP - tol);
+    score = eKpen * 1e6 + ePpen * 1e4 + penalty1e2 * 1e2 + (eC + eF) + (eK + eP) * 1e-2;
+  } else {
+    // Original objective (regression-safe): kcal ≫ protein ≫ fibre-floor ≫ carbs/fats.
+    score = eK * 1e6 + eP * 1e4 + penalty1e2 * 1e2 + (eC + eF);
+  }
   // Convergence is driven by the protected pair (kcal, protein).
-  return { maxPct: Math.max(eK, eP) * 100, score };
+  return { maxPct: Math.max(eK, eP) * 100, score, restrictionPenalty };
 }
 
 /**
@@ -101,13 +168,21 @@ export function reconcilePlan(
 ): MealSlot[] {
   const tol = ctx.tolerancePct ?? RECONCILE_TOLERANCE_PCT;
   const maxPasses = ctx.maxPasses ?? DEFAULT_MAX_PASSES;
+  const protocols: ObjProtocols = {
+    fibreMode: ctx.fibreMode,
+    fibreCapG: ctx.fibreCapG,
+    sodiumCapMg: ctx.sodiumCapMg,
+  };
 
   let work = slots.map((s) => ({ ...s }));
   let best = work.map((s) => ({ ...s }));
-  let bestScore = objective(sumPrimaries(work), dailyMacros).score;
+  let bestScore = objective(sumPrimaries(work), dailyMacros, protocols).score;
 
   for (let pass = 0; pass < maxPasses; pass++) {
-    if (objective(sumPrimaries(work), dailyMacros).maxPct <= tol) break;
+    // Stop only when the protected pair converged AND any active restriction is
+    // satisfied — so fibre/sodium caps keep being pursued past kcal/protein.
+    const cur = objective(sumPrimaries(work), dailyMacros, protocols);
+    if (cur.maxPct <= tol && cur.restrictionPenalty <= 1e-9) break;
     let improved = false;
 
     for (let i = 0; i < work.length; i++) {
@@ -122,13 +197,13 @@ export function reconcilePlan(
       if (candidates.length === 0) continue;
 
       const others = sumPrimaries(work, i);
-      let localBestScore = objective(add(others, work[i]!.primary.actualMacros), dailyMacros).score;
+      let localBestScore = objective(add(others, work[i]!.primary.actualMacros), dailyMacros, protocols).score;
       let pick: SelectedMeal | null = null;
 
       for (const template of candidates) {
         const candidate = assembleMeal(template, work[i]!.targetMacros);
         const total = add(others, candidate.actualMacros);
-        const score = objective(total, dailyMacros).score;
+        const score = objective(total, dailyMacros, protocols).score;
         if (score < localBestScore - 1e-9) {
           localBestScore = score;
           pick = candidate;
@@ -141,7 +216,7 @@ export function reconcilePlan(
       }
     }
 
-    const score = objective(sumPrimaries(work), dailyMacros).score;
+    const score = objective(sumPrimaries(work), dailyMacros, protocols).score;
     if (score < bestScore) {
       bestScore = score;
       best = work.map((s) => ({ ...s }));

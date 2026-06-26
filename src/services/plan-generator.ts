@@ -17,9 +17,13 @@ import type {
   BodyComposition,
   WeeklyPlan,
 } from "../engine/types";
-import { generateWeeklyPlan, estimateBodyFat } from "../engine";
-import type { PlanOptions } from "../engine";
+import { generateWeeklyPlan, estimateBodyFat, waterLoadingSchedule } from "../engine";
+import type { PlanOptions, WaterLoadingSchedule } from "../engine";
 import { createMealPlan } from "../engine/meal-plan";
+import {
+  FIBRE_RESTRICTION_CAP_G,
+  SODIUM_RESTRICTION_CAP_MG,
+} from "../engine/meal-plan";
 import type {
   MealPlanConfig,
   Allergen,
@@ -89,6 +93,24 @@ export interface PlanGenerationInput {
 
   /** Estimated maintenance kcal (for deficit/surplus detection) */
   maintenanceKcalEstimate?: number;
+
+  /** Combat-sport protocols (#11) — OFF by default, combinable for fight week. */
+  protocols?: CombatProtocols;
+}
+
+/**
+ * Selectable combat-sport plan protocols (#11). All OFF by default and
+ * combinable (e.g. fibre + sodium restriction together for fight week). The
+ * restriction caps are layered as JOINT constraints on the solved meal plan
+ * (kcal + protein stay protected); water loading is a separate fluid schedule.
+ */
+export interface CombatProtocols {
+  /** Cap day fibre below the restriction cap (≈9 g/day) instead of the floor. */
+  fibreRestriction?: boolean;
+  /** Cap day sodium below the restriction cap (≈500 mg/day). */
+  sodiumRestriction?: boolean;
+  /** Produce a multi-day water-loading fluid schedule (3 load days + taper). */
+  waterLoading?: boolean;
 }
 
 /** Result from the plan generation pipeline */
@@ -111,6 +133,8 @@ export interface PlanGenerationResult {
   energyBalance: "deficit" | "surplus" | "maintenance";
   /** Assumptions made during generation */
   assumptions: string[];
+  /** Water-loading fluid schedule when the protocol is on (#11). */
+  waterLoading?: WaterLoadingSchedule;
 }
 
 // ── Day Type Labels ─────────────────────────────────────────────────────────
@@ -280,11 +304,24 @@ export function generatePlan(
       preferTags: input.preferTags ?? input.mealPlanConfig?.preferTags,
       tolerances: input.mealPlanConfig?.tolerances,
       substitutionsPerSlot: input.mealPlanConfig?.substitutionsPerSlot,
+      fibreTargetPer1000: input.mealPlanConfig?.fibreTargetPer1000,
+      // #11 restriction protocols → JOINT solver/reconcile constraints.
+      ...(input.protocols?.fibreRestriction
+        ? { fibreMode: "cap" as const, fibreCapG: FIBRE_RESTRICTION_CAP_G }
+        : {}),
+      ...(input.protocols?.sodiumRestriction
+        ? { sodiumCapMg: SODIUM_RESTRICTION_CAP_MG }
+        : {}),
     };
 
     const mealPlan = createMealPlan(ALL_TEMPLATES, config);
     mealPlans.set(dayType, mealPlan);
   }
+
+  // ── Water loading (#11) — a fluid schedule, not a macro change ──────────
+  const waterLoading: WaterLoadingSchedule | undefined = input.protocols?.waterLoading
+    ? waterLoadingSchedule(snapshot.weightKg)
+    : undefined;
 
   // ── Step 4: Energy balance ─────────────────────────────────────────────
   // Use weighted weekly average TDEE as maintenance baseline (not just rest-day TDEE)
@@ -388,6 +425,7 @@ export function generatePlan(
     monitoring,
     energyBalance,
     assumptions,
+    ...(waterLoading ? { waterLoading } : {}),
   };
 }
 
