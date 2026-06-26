@@ -31,6 +31,16 @@ describe("FeedbackCard", () => {
     expect(html).toContain("85%");
   });
 
+  test("renders coach review_notes when present (Stage-2 getLatestCompleted)", () => {
+    const html = renderToStaticMarkup(
+      createElement(FeedbackCard, {
+        checkin: { ...CHECKIN, review_notes: "Aumentare i carboidrati nei giorni ON." },
+      })
+    );
+    expect(html).toContain("Note del coach");
+    expect(html).toContain("Aumentare i carboidrati nei giorni ON.");
+  });
+
   test("renders an empty state when there is no completed check-in", () => {
     const html = renderToStaticMarkup(createElement(FeedbackCard, { checkin: null }));
     expect(html).toContain("Ultimo feedback");
