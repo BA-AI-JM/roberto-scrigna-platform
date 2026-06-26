@@ -34,9 +34,13 @@ const fp = (a: number, t: number) => (pct(a, t) >= 0 ? "+" : "") + pct(a, t).toF
 const flag = (ok: boolean) => (ok ? "✓" : "✗");
 
 // A fighter's fight-week cutting days.
+// Two moderate-carb days show the graceful trade-off (caps approached, not always
+// strictly hit because protein-source sodium is protected); the low-carb cut shows
+// a real fight-week day where BOTH caps are met with kcal+protein protected.
 const DAYS: { label: string; macros: MacroTargets; meals: number }[] = [
-  { label: "training", macros: rx(165, 55, 110, "training"), meals: 4 },
-  { label: "rest", macros: rx(160, 60, 80, "rest"), meals: 4 },
+  { label: "training (moderate carb)", macros: rx(165, 55, 110, "training"), meals: 4 },
+  { label: "rest (moderate carb)", macros: rx(160, 60, 80, "rest"), meals: 4 },
+  { label: "low-carb cut (fight week)", macros: rx(150, 55, 50, "rest"), meals: 4 },
 ];
 
 function run(label: string, macros: MacroTargets, meals: number, protocols: boolean) {
