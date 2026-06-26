@@ -131,6 +131,15 @@ export interface SupplementEntry {
   timing: string;
   /** Why it's recommended */
   rationale?: string;
+  // ── #23 supplements foundation (additive) ──
+  /** Free-text coach notes for this supplement. */
+  notes?: string;
+  /** How often (e.g. "daily", "training days"). */
+  frequency?: string;
+  /** Source library id (src/data/supplements/library.ts) when picked from it. */
+  libraryId?: string;
+  /** True when the coach added a free-text supplement not in the library. */
+  isCustom?: boolean;
 }
 
 // ── Guidance Section ────────────────────────────────────────────────────────

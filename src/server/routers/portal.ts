@@ -27,6 +27,7 @@ import { router, clientProcedure } from "../trpc";
 import { TRPCError } from "@trpc/server";
 import { createSupabaseServiceRole } from "../../lib/supabase/service";
 import { toClientPlanHistory, type RawPlanRow } from "../plan-versioning";
+import type { SupplementEntry } from "../../pdf/types";
 import { rateLimit, getClientIp } from "../../lib/rate-limit";
 
 // ── Shared Helpers ────────────────────────────────────────────────────────────
@@ -120,11 +121,7 @@ export const portalRouter = router({
       .select(
         `id, name, status, start_date, end_date, daily_targets,
          water_ml_training, water_ml_rest, salt_g_training, salt_g_rest,
-         meals_per_day, meal_distribution, diet_emphasis, notes,
-         supplement_protocol (
-           id, name, is_active,
-           supplement_item (id, name, dosage, timing, frequency, sort_order)
-         )`
+         meals_per_day, meal_distribution, diet_emphasis, notes`
       )
       .eq("client_id", ctx.clientId)
       .eq("status", "active")
@@ -145,10 +142,14 @@ export const portalRouter = router({
     // not to the meal_distribution column (which is never written during plan generation).
     const planBundle = (data.daily_targets as Record<string, unknown> | null)?.plan_bundle as Record<string, unknown> | undefined;
     const dayTypePlans = (planBundle?.reportData as Record<string, unknown> | undefined)?.dayTypePlans ?? [];
+    // #23: supplements live in the plan bundle (coach-curated), NOT the write-dead
+    // supplement_protocol relation. Read what the coach actually set.
+    const supplements = (planBundle?.supplements as SupplementEntry[] | undefined) ?? [];
 
     return {
       ...data,
       mealPlan: dayTypePlans as Array<{ dayType: string; label: string; mealPlan?: { withinTolerance: boolean; slots: Array<{ slot: string; primary: { template: { name: string }; scaledIngredients: Array<{ name: string; grams: number }>; actualMacros: { kcal: number; proteinG: number; carbsG: number; fatG: number } } }> } }>,
+      supplements,
     };
   }),
 

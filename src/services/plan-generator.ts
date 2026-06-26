@@ -45,10 +45,6 @@ import type {
   MonitoringConfig,
 } from "../pdf/types";
 import {
-  buildSupplementContext,
-  generateSupplementProtocol,
-} from "./supplements";
-import {
   generateNarratives,
   generateMonitoringConfig,
 } from "./narrative";
@@ -330,21 +326,12 @@ export function generatePlan(
   const energyBalance = determineEnergyBalance(weeklyPlan.weeklyAverageKcal, maintenanceEstimate);
 
   // ── Step 5: Supplement protocol ────────────────────────────────────────
-  let supplements: SupplementEntry[];
-  if (input.supplementOverrides) {
-    supplements = input.supplementOverrides;
-  } else {
-    const supplementCtx = buildSupplementContext({
-      bodyComposition,
-      snapshot,
-      weeklyAverageKcal: weeklyPlan.weeklyAverageKcal,
-      maintenanceKcal: maintenanceEstimate,
-      allenamento: input.allenamento,
-      stileVita: input.stileVita,
-      obiettivo: input.obiettivo,
-    });
-    supplements = generateSupplementProtocol(supplementCtx);
-  }
+  // #23: NEW plans seed ZERO supplements (Roberto's explicit default — no auto-
+  // assignment). The coach curates supplements from the static library and they
+  // live in the plan bundle. The opt-in `supplementOverrides` path is preserved;
+  // generateSupplementProtocol/checkSupplementInteractions remain in the service
+  // for that path and future use.
+  const supplements: SupplementEntry[] = input.supplementOverrides ?? [];
 
   // ── Step 6: Assumptions ────────────────────────────────────────────────
   const assumptions = collectAssumptions(input);

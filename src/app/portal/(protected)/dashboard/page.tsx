@@ -127,18 +127,17 @@ type ActivePlan = {
   meal_distribution?: unknown | null;
   mealPlan?: DayTypeMealPlan[] | null;
   notes?: string | null;
-  supplement_protocol?: Array<{
-    id: string;
+  // #23: supplements are coach-curated in the plan bundle (SupplementEntry shape),
+  // no longer the write-dead supplement_protocol relation.
+  supplements?: Array<{
     name: string;
-    is_active: boolean;
-    supplement_item?: Array<{
-      id: string;
-      name: string;
-      dosage: string;
-      timing: string;
-      frequency: string;
-      sort_order?: number;
-    }>;
+    dosage: string;
+    timing: string;
+    rationale?: string;
+    notes?: string;
+    frequency?: string;
+    libraryId?: string;
+    isCustom?: boolean;
   }> | null;
 };
 
@@ -259,9 +258,9 @@ function ActivePlanSection({ plan, loading }: { plan: ActivePlan | null | undefi
         <MealPlanSection dayTypePlans={plan.mealPlan} />
       )}
 
-      {/* Supplements */}
-      {Array.isArray(plan.supplement_protocol) && plan.supplement_protocol.length > 0 && (
-        <SupplementSection protocols={plan.supplement_protocol} />
+      {/* Supplements (#23: from the plan bundle) */}
+      {Array.isArray(plan.supplements) && plan.supplements.length > 0 && (
+        <SupplementSection supplements={plan.supplements} />
       )}
 
       {plan.notes && (
@@ -394,30 +393,20 @@ function MealPlanSection({ dayTypePlans }: { dayTypePlans: DayTypeMealPlan[] }) 
 }
 
 function SupplementSection({
-  protocols,
+  supplements,
 }: {
-  protocols: Array<{
-    id: string;
+  supplements: Array<{
     name: string;
-    is_active: boolean;
-    supplement_item?: Array<{
-      id: string;
-      name: string;
-      dosage: string;
-      timing: string;
-      frequency: string;
-      sort_order?: number;
-    }>;
+    dosage: string;
+    timing: string;
+    rationale?: string;
+    notes?: string;
+    frequency?: string;
+    libraryId?: string;
+    isCustom?: boolean;
   }>;
 }) {
-  const activeProtocols = protocols.filter((p) => p.is_active);
-  if (activeProtocols.length === 0) return null;
-
-  const allItems = activeProtocols.flatMap((p) =>
-    (p.supplement_item ?? []).sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
-  );
-
-  if (allItems.length === 0) return null;
+  if (supplements.length === 0) return null;
 
   return (
     <div style={{ marginTop: "20px" }}>
@@ -431,9 +420,9 @@ function SupplementSection({
           gap: "10px",
         }}
       >
-        {allItems.map((item) => (
+        {supplements.map((item, i) => (
           <div
-            key={item.id}
+            key={`${item.libraryId ?? item.name}-${i}`}
             style={{
               padding: "12px 14px",
               background: "#f0f9ff",
@@ -444,8 +433,16 @@ function SupplementSection({
             <div style={{ fontSize: "13px", fontWeight: 700, color: "#0c4a6e", marginBottom: "4px" }}>
               {item.name}
             </div>
-            <div style={{ fontSize: "12px", color: "#0369a1" }}>{item.dosage} · {item.timing}</div>
-            <div style={{ fontSize: "11px", color: "#7dd3fc", marginTop: "2px" }}>{item.frequency}</div>
+            {(item.dosage || item.timing) && (
+              <div style={{ fontSize: "12px", color: "#0369a1" }}>
+                {[item.dosage, item.timing].filter(Boolean).join(" · ")}
+              </div>
+            )}
+            {(item.frequency || item.notes) && (
+              <div style={{ fontSize: "11px", color: "#7dd3fc", marginTop: "2px" }}>
+                {[item.frequency, item.notes].filter(Boolean).join(" · ")}
+              </div>
+            )}
           </div>
         ))}
       </div>
