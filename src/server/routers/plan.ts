@@ -20,7 +20,7 @@ import {
   generatePlan,
   serializePlanResult,
 } from "../../services/plan-generator";
-import type { PlanGenerationInput } from "../../services/plan-generator";
+import type { PlanGenerationInput, InjuryStressSpec } from "../../services/plan-generator";
 import type { ClientSnapshot, DayType } from "../../engine/types";
 import type { PdfClientInfo } from "../../pdf/types";
 import { sendEmail } from "../../lib/resend/client";
@@ -121,6 +121,16 @@ const sourcePinsByDaySchema = z
     training_medium: sourcePinSchema.optional(),
     training_intense: sourcePinSchema.optional(),
     training_double: sourcePinSchema.optional(),
+  })
+  .optional();
+
+// #26 injury/stress adaptation (opt-in; absent = byte-identical). Ranges are
+// sanity bounds; provisional default VALUES are a Roberto-calibration point.
+const injuryStressSchema = z
+  .object({
+    stressFactor: z.number().min(0.5).max(1.5).optional(),
+    injuryProteinBumpGPerKg: z.number().min(0).max(2).optional(),
+    reducedActivitySteps: z.number().int().min(0).max(40000).optional(),
   })
   .optional();
 
@@ -245,6 +255,8 @@ const generatePlanSchema = z.object({
     .optional(),
   /** #16b coach source pins (per day-type → category → foodId). */
   sourcePins: sourcePinsByDaySchema,
+  /** #26 injury/stress adaptation (opt-in; absent = no effect). */
+  injuryStress: injuryStressSchema,
 });
 
 const previewWeekSchema = z.object({
@@ -283,6 +295,8 @@ const previewWeekSchema = z.object({
   macroOverrides: macroOverridesSchema,
   /** #16b — accepted for input symmetry; source pins don't affect the macro preview. */
   sourcePins: sourcePinsByDaySchema,
+  /** #26 injury/stress adaptation (opt-in; absent = no effect). */
+  injuryStress: injuryStressSchema,
 });
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -400,6 +414,8 @@ interface PlanGenParams {
   protocols?: { fibreRestriction?: boolean; sodiumRestriction?: boolean; waterLoading?: boolean };
   /** #16b coach source pins (per day-type → category → foodId). */
   sourcePins?: Partial<Record<DayType, SourcePin>>;
+  /** #26 injury/stress adaptation (opt-in; absent = byte-identical). */
+  injuryStress?: InjuryStressSpec;
 }
 
 interface PlanArtifacts {
@@ -469,6 +485,7 @@ function buildPlanArtifacts(
     ...(Object.keys(engineOptions).length > 0 ? { engineOptions } : {}),
     ...(params.protocols ? { protocols: params.protocols } : {}),
     ...(params.sourcePins ? { sourcePins: params.sourcePins } : {}),
+    ...(params.injuryStress ? { injuryStress: params.injuryStress } : {}),
   };
 
   const result = generatePlan(genInput);
@@ -490,6 +507,7 @@ function buildPlanArtifacts(
     ...(params.preferTags ? { preferTags: params.preferTags } : {}),
     ...(params.protocols ? { protocols: params.protocols } : {}),
     ...(params.sourcePins ? { sourcePins: params.sourcePins } : {}),
+    ...(params.injuryStress ? { injuryStress: params.injuryStress } : {}),
     ...(result.waterLoading ? { waterLoading: result.waterLoading } : {}),
   };
 
@@ -575,6 +593,7 @@ export const planRouter = router({
           macroOverrides: input.macroOverrides,
           protocols: input.protocols,
           sourcePins: input.sourcePins,
+          injuryStress: input.injuryStress,
         });
       } catch (err) {
         // Log the full engine error server-side; surface a safe message to the client.
@@ -752,6 +771,8 @@ export const planRouter = router({
           protocols: mp.protocols as PlanGenParams["protocols"],
           // #16b: preserve coach source pins across versions.
           sourcePins: mp.sourcePins as PlanGenParams["sourcePins"],
+          // #26: preserve injury/stress adaptation across versions.
+          injuryStress: mp.injuryStress as PlanGenParams["injuryStress"],
         });
       } catch (err) {
         console.error("[router/plan.createVersion] engine error:", err);
