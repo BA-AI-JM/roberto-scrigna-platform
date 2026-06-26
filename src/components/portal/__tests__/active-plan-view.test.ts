@@ -6,7 +6,6 @@ import { describe, test, expect } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { createElement } from "react";
 import { ActivePlanView, PlanSummaryCard, type ActivePlan } from "../active-plan-view";
-import { PortalComingSoon } from "../coming-soon";
 
 const PLAN: ActivePlan = {
   id: "p1",
@@ -65,16 +64,5 @@ describe("PlanSummaryCard (home)", () => {
     expect(html).toContain('href="/portal/plan"');
     // The compact card must NOT inline the full meal list.
     expect(html).not.toContain("I tuoi pasti");
-  });
-});
-
-describe("PortalComingSoon stub", () => {
-  test("renders the title, 'In arrivo' and the description", () => {
-    const html = renderToStaticMarkup(
-      createElement(PortalComingSoon, { title: "Diario alimentare", icon: "📓", description: "Presto disponibile." })
-    );
-    expect(html).toContain("Diario alimentare");
-    expect(html).toContain("In arrivo");
-    expect(html).toContain("Presto disponibile.");
   });
 });

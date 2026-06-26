@@ -22,6 +22,7 @@ import { LogWeightCard } from "@/components/portal/log-weight-card";
 import { PlanHistorySection } from "@/components/portal/plan-history-section";
 import { PlanSummaryCard, type ActivePlan } from "@/components/portal/active-plan-view";
 import { GoalsStrip, computeProgressSummary } from "@/components/portal/progress-summary";
+import { NotificationBell } from "@/components/portal/notification-bell";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -318,6 +319,7 @@ export default function PortalDashboardPage() {
   const checkInQuery = trpc.portal.getCheckInStatus.useQuery();
   const dashboardQuery = trpc.portal.getDashboardData.useQuery();
   const snapshotsQuery = trpc.portal.getSnapshots.useQuery({});
+  const notifQuery = trpc.portal.getNotifications.useQuery(undefined, { staleTime: 30_000 });
 
   const profile = profileQuery.data;
   const plan = planQuery.data as ActivePlan | null | undefined;
@@ -331,10 +333,15 @@ export default function PortalDashboardPage() {
     <div className="mx-auto w-full max-w-[640px] px-4 py-6 sm:px-6">
       {/* ── Header ── */}
       <div style={{ marginBottom: "20px" }}>
-        <h1 style={{ fontSize: "24px", fontWeight: 700, color: "#1a1a2e", margin: "0 0 4px" }}>
-          {profileQuery.isLoading ? "Caricamento…" : `Ciao, ${firstName}!`}
-        </h1>
-        <p style={{ fontSize: "13px", color: "#9ca3af", margin: 0 }}>Roberto Scrigna — Nutrizione Sportiva</p>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "12px" }}>
+          <div style={{ minWidth: 0 }}>
+            <h1 style={{ fontSize: "24px", fontWeight: 700, color: "#1a1a2e", margin: "0 0 4px" }}>
+              {profileQuery.isLoading ? "Caricamento…" : `Ciao, ${firstName}!`}
+            </h1>
+            <p style={{ fontSize: "13px", color: "#9ca3af", margin: 0 }}>Roberto Scrigna — Nutrizione Sportiva</p>
+          </div>
+          <NotificationBell unreadCount={notifQuery.data?.unreadCount ?? 0} />
+        </div>
         {profile?.partner && !Array.isArray(profile.partner) && (
           <p style={{ fontSize: "12px", color: "#6b7280", marginTop: "8px" }}>
             Coach:{" "}
