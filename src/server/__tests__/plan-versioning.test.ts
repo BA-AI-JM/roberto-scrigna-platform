@@ -17,8 +17,10 @@ import {
   computeNextVersion,
   orderVersionsNewestFirst,
   isFeedbackDue,
+  toClientPlanHistory,
   FEEDBACK_DUE_DAYS,
   type VersionRow,
+  type RawPlanRow,
 } from "../plan-versioning";
 
 describe("parseVersionLabel", () => {
@@ -161,5 +163,48 @@ describe("isFeedbackDue — fires once in the window after start_date", () => {
   test("respects a custom dueDays (e.g. a future restriction protocol)", () => {
     expect(isFeedbackDue(minus(14), today, { dueDays: 14, catchDays: 0 })).toBe(true);
     expect(isFeedbackDue(minus(13), today, { dueDays: 14, catchDays: 0 })).toBe(false);
+  });
+});
+
+describe("toClientPlanHistory — portal client-visible shaping", () => {
+  const rows: RawPlanRow[] = [
+    { id: "p1", status: "archived", version_number: 1, version_label: "v1", parent_plan_id: null, created_at: "2026-01-01T00:00:00Z" },
+    { id: "p3", status: "active", version_number: 3, version_label: "v1.2", parent_plan_id: "p1", created_at: "2026-01-03T00:00:00Z" },
+    { id: "p2", status: "archived", version_number: 2, version_label: "v1.1", parent_plan_id: "p1", created_at: "2026-01-02T00:00:00Z" },
+  ];
+
+  test("newest-first (created_at desc)", () => {
+    expect(toClientPlanHistory(rows).map((v) => v.id)).toEqual(["p3", "p2", "p1"]);
+  });
+
+  test("active marker reflects status === 'active'", () => {
+    const byId = Object.fromEntries(toClientPlanHistory(rows).map((v) => [v.id, v.isActive]));
+    expect(byId).toEqual({ p1: false, p2: false, p3: true });
+  });
+
+  test("rootPlanId = parent_plan_id ?? id (groups the chain)", () => {
+    const out = toClientPlanHistory(rows);
+    expect(out.every((v) => v.rootPlanId === "p1")).toBe(true);
+  });
+
+  test("exposes ONLY client-visible fields — no coach internals leak", () => {
+    const keys = Object.keys(toClientPlanHistory(rows)[0]!).sort();
+    expect(keys).toEqual(
+      ["createdAt", "id", "isActive", "rootPlanId", "status", "versionLabel", "versionNumber"]
+    );
+    // explicit: coach-only fields are absent
+    const v = toClientPlanHistory(rows)[0]! as unknown as Record<string, unknown>;
+    expect(v.change_reason).toBeUndefined();
+    expect(v.feedback_check_in_id).toBeUndefined();
+    expect(v.changeReason).toBeUndefined();
+    expect(v.name).toBeUndefined();
+    expect(v.notes).toBeUndefined();
+  });
+
+  test("defaults: null version/label/status → 1 / v1 / draft", () => {
+    const [v] = toClientPlanHistory([
+      { id: "x", status: null, version_number: null, version_label: null, parent_plan_id: null, created_at: "2026-01-01T00:00:00Z" },
+    ]);
+    expect(v).toMatchObject({ versionNumber: 1, versionLabel: "v1", status: "draft", isActive: false, rootPlanId: "x" });
   });
 });
