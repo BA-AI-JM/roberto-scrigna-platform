@@ -59,3 +59,11 @@ export type { FatCompensationResult } from "./fat-compensation";
 // Main API
 export { createMealPlan } from "./planner";
 export { foodCatalogue } from "./solver";
+// #20 item-level food swap (coach) — alternatives + item-local gram recalc.
+export {
+  getIngredientAlternatives,
+  recomputeSwappedIngredient,
+  classifyFood,
+  macrosFromIngredients,
+} from "./solver";
+export type { SwappedIngredient } from "./solver";

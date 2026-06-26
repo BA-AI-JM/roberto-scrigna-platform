@@ -30,6 +30,10 @@ import { DEFAULT_TOLERANCES } from "../../engine/meal-plan/types";
 import type { SourcePin } from "../../engine/meal-plan/types";
 import { foodCatalogue } from "../../engine/meal-plan";
 import {
+  recomputeSwappedIngredient,
+  macrosFromIngredients,
+} from "../../engine/meal-plan";
+import {
   buildTrainingSessionFromIntake,
   buildTrainingSessionForDay,
   type IntakeTrainingSession,
@@ -1561,6 +1565,201 @@ export const planRouter = router({
         success: true,
         promotedName: newPrimary.template?.name ?? null,
         demotedName: oldPrimary.template?.name ?? null,
+        withinTolerance,
+      };
+    }),
+
+  /**
+   * #20 — item-level food swap (coach). Replace ONE ingredient in a slot's
+   * primary meal with a SAME-CATEGORY alternative; grams are recomputed
+   * ITEM-LOCALLY to hold the swapped item's prior macro contribution (smaller
+   * allowance — we do NOT re-solve the whole slot/day). Day totals + deviation +
+   * tolerance are recomputed and the bundle is PATCHED IN PLACE (a coach
+   * item-tweak is an edit, like saveEdits — NOT a new version).
+   */
+  swapMealItem: protectedProcedure
+    .input(
+      z.object({
+        planId: z.string().uuid(),
+        dayType: z.string(),
+        slot: z.string(),
+        ingredientIndex: z.number().int().min(0),
+        newFoodId: z.string().min(1),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { data: plan } = await ctx.supabase
+        .from("plan")
+        .select("id, daily_targets")
+        .eq("id", input.planId)
+        .eq("partner_id", ctx.partnerId)
+        .is("deleted_at", null)
+        .single();
+      if (!plan) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Piano non trovato." });
+      }
+
+      const dt = plan.daily_targets as Record<string, unknown> | null;
+      const bundle = dt?.plan_bundle as Record<string, unknown> | undefined;
+      const report = bundle?.reportData as Record<string, unknown> | undefined;
+      const dayPlans = report?.dayTypePlans as Array<Record<string, unknown>> | undefined;
+      if (!dt || !bundle || !report || !dayPlans) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Dati del piano mancanti." });
+      }
+
+      type Macros = { kcal: number; proteinG: number; fatG: number; carbsG: number; fibreG?: number; sodiumMg?: number };
+      type Ingredient = { name: string; grams: number; foodId?: string };
+      type SelectedMeal = {
+        template?: { id?: string; name?: string };
+        scaleFactor?: number;
+        scaledIngredients?: Ingredient[];
+        actualMacros?: Macros;
+      };
+      type Slot = { slot: string; targetMacros?: Macros; primary?: SelectedMeal; substitutions?: SelectedMeal[] };
+
+      const dayIdx = dayPlans.findIndex((d) => d.dayType === input.dayType);
+      if (dayIdx === -1) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Tipo giorno non trovato." });
+      }
+      const day = dayPlans[dayIdx] as Record<string, unknown>;
+      const mealPlan = day.mealPlan as Record<string, unknown> | undefined;
+      const slots = mealPlan?.slots as Slot[] | undefined;
+      if (!slots) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Pasti non disponibili." });
+      }
+      const slotIdx = slots.findIndex((s) => s.slot === input.slot);
+      if (slotIdx === -1) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Slot pasto non trovato." });
+      }
+
+      const slot = slots[slotIdx]!;
+      const ings = slot.primary?.scaledIngredients;
+      if (!slot.primary || !ings) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Pasto principale non disponibile." });
+      }
+      const oldIng = ings[input.ingredientIndex];
+      if (!oldIng || !oldIng.foodId) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Ingrediente non trovato." });
+      }
+
+      // Item-local recalc (validates FOOD_MAP + same-category; throws → 400).
+      let swapped;
+      try {
+        swapped = recomputeSwappedIngredient(
+          { foodId: oldIng.foodId, name: oldIng.name, grams: oldIng.grams },
+          input.newFoodId
+        );
+      } catch (err) {
+        const msg = err instanceof Error && /cross-category/.test(err.message)
+          ? "L'alternativa deve essere della stessa categoria."
+          : "Alimento alternativo non valido.";
+        throw new TRPCError({ code: "BAD_REQUEST", message: msg });
+      }
+
+      // Rewrite just the swapped ingredient; recompute the slot's macros
+      // item-locally from the full ingredient list (NOT a slot re-solve).
+      const newIngredients: Ingredient[] = ings.map((ing, i) =>
+        i === input.ingredientIndex ? { foodId: swapped.foodId, name: swapped.name, grams: swapped.grams } : ing
+      );
+      // Every solved ingredient carries a foodId; guard legacy bundles.
+      if (newIngredients.some((ing) => !ing.foodId)) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Ingredienti non ricalcolabili (foodId mancante)." });
+      }
+      const slotMacros = macrosFromIngredients(
+        newIngredients.map((ing) => ({ foodId: ing.foodId!, name: ing.name, grams: ing.grams }))
+      );
+      const newPrimary: SelectedMeal = {
+        ...slot.primary,
+        scaledIngredients: newIngredients,
+        actualMacros: {
+          kcal: slotMacros.kcal,
+          proteinG: slotMacros.proteinG,
+          fatG: slotMacros.fatG,
+          carbsG: slotMacros.carbsG,
+          fibreG: slotMacros.fibreG,
+          sodiumMg: slotMacros.sodiumMg,
+        },
+      };
+      const newSlots = [...slots];
+      newSlots[slotIdx] = { ...slot, primary: newPrimary };
+
+      // Recompute day-level macros + deviation + tolerance (protected pair).
+      const r1 = (n: number) => Math.round(n * 10) / 10;
+      const newActual: Macros = newSlots.reduce(
+        (acc, s) => {
+          const am = s.primary?.actualMacros;
+          return {
+            kcal: acc.kcal + (am?.kcal ?? 0),
+            proteinG: r1(acc.proteinG + (am?.proteinG ?? 0)),
+            fatG: r1(acc.fatG + (am?.fatG ?? 0)),
+            carbsG: r1(acc.carbsG + (am?.carbsG ?? 0)),
+          };
+        },
+        { kcal: 0, proteinG: 0, fatG: 0, carbsG: 0 }
+      );
+
+      const planTarget = mealPlan?.targetMacros as Record<string, number> | undefined;
+      const dayMacros = day.macros as Record<string, number> | undefined;
+      const tgtKcal = (planTarget?.totalKcal as number) ?? (dayMacros?.totalKcal as number) ?? 0;
+      const tgtProtein = (planTarget?.proteinG as number) ?? (dayMacros?.proteinG as number) ?? 0;
+      const tgtFat = (planTarget?.fatG as number) ?? (dayMacros?.fatG as number) ?? 0;
+      const tgtCarb =
+        (planTarget?.carbG as number) ??
+        (planTarget?.carbsG as number) ??
+        (dayMacros?.carbG as number) ??
+        0;
+
+      const deviation = {
+        kcal: newActual.kcal - tgtKcal,
+        proteinG: r1(newActual.proteinG - tgtProtein),
+        fatG: r1(newActual.fatG - tgtFat),
+        carbsG: r1(newActual.carbsG - tgtCarb),
+      };
+      const withinTolerance =
+        Math.abs(deviation.kcal) <= DEFAULT_TOLERANCES.kcal &&
+        Math.abs(deviation.proteinG) <= DEFAULT_TOLERANCES.proteinG;
+
+      const updatedMealPlan = {
+        ...mealPlan,
+        slots: newSlots,
+        actualMacros: newActual,
+        deviation,
+        withinTolerance,
+      };
+
+      const updatedDayPlans = [...dayPlans];
+      updatedDayPlans[dayIdx] = { ...day, mealPlan: updatedMealPlan };
+
+      const mealPlansRecord = bundle.mealPlans as Record<string, unknown> | undefined;
+      const updatedMealPlansRecord =
+        mealPlansRecord && Object.prototype.hasOwnProperty.call(mealPlansRecord, input.dayType)
+          ? { ...mealPlansRecord, [input.dayType]: updatedMealPlan }
+          : mealPlansRecord;
+
+      const updatedDt = {
+        ...dt,
+        plan_bundle: {
+          ...bundle,
+          ...(updatedMealPlansRecord ? { mealPlans: updatedMealPlansRecord } : {}),
+          reportData: { ...report, dayTypePlans: updatedDayPlans },
+        },
+      };
+
+      const { error } = await ctx.supabase
+        .from("plan")
+        .update({ daily_targets: updatedDt })
+        .eq("id", input.planId)
+        .eq("partner_id", ctx.partnerId);
+      if (error) {
+        console.error("[router/plan.swapMealItem]", error);
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Errore nel salvataggio." });
+      }
+
+      return {
+        success: true,
+        oldFood: { foodId: oldIng.foodId, name: oldIng.name, grams: oldIng.grams },
+        newFood: swapped,
+        slot: input.slot,
         withinTolerance,
       };
     }),
