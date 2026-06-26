@@ -111,6 +111,33 @@ const sourcePinsByDaySchema = z
     rest: sourcePinSchema.optional(),
     refeed: sourcePinSchema.optional(),
     deload: sourcePinSchema.optional(),
+    // #17 periodization intensity tiers
+    training_light: sourcePinSchema.optional(),
+    training_medium: sourcePinSchema.optional(),
+    training_intense: sourcePinSchema.optional(),
+    training_double: sourcePinSchema.optional(),
+  })
+  .optional();
+
+// #17: one per-day macro-override shape, reused for every day-type (incl. the
+// periodization intensity tiers) across both generate + previewWeek.
+const macroOverrideDaySchema = z
+  .object({
+    proteinG: z.number().min(0).max(800).optional(),
+    fatG: z.number().min(0).max(400).optional(),
+    carbG: z.number().min(0).max(1500).optional(),
+  })
+  .optional();
+const macroOverridesSchema = z
+  .object({
+    training: macroOverrideDaySchema,
+    rest: macroOverrideDaySchema,
+    refeed: macroOverrideDaySchema,
+    deload: macroOverrideDaySchema,
+    training_light: macroOverrideDaySchema,
+    training_medium: macroOverrideDaySchema,
+    training_intense: macroOverrideDaySchema,
+    training_double: macroOverrideDaySchema,
   })
   .optional();
 
@@ -147,8 +174,29 @@ const generatePlanSchema = z.object({
    * without mutating the intake. Stored on macro_payload for replay.
    */
   weekScheduleOverride: z
-    .array(z.enum(["training", "rest", "refeed", "deload"]))
+    .array(
+      z.enum([
+        "training",
+        "rest",
+        "refeed",
+        "deload",
+        // #17 periodization intensity tiers (modes 3-4)
+        "training_light",
+        "training_medium",
+        "training_intense",
+        "training_double",
+      ])
+    )
     .length(7)
+    .optional(),
+  /**
+   * #17 periodization mode the coach chose (which day-type vocabulary the week
+   * is built from). Pure label for replay/audit — the engine is vocabulary-
+   * driven (one plan per distinct day-type in weekScheduleOverride) and does
+   * NOT branch on this. Stored on macro_payload, recovered by createVersion.
+   */
+  periodizationMode: z
+    .enum(["weekly_average", "training_rest", "off_medium_intense", "off_light_medium_intense_double"])
     .optional(),
   /**
    * Per-weekday training session override (length-7, Mon-Sun). Each
@@ -177,38 +225,7 @@ const generatePlanSchema = z.object({
    * pins those macros instead of using the g/kg formulas. Any subset of
    * P/F/C may be set per day-type; unset macros still use the formula.
    */
-  macroOverrides: z
-    .object({
-      training: z
-        .object({
-          proteinG: z.number().min(0).max(800).optional(),
-          fatG: z.number().min(0).max(400).optional(),
-          carbG: z.number().min(0).max(1500).optional(),
-        })
-        .optional(),
-      rest: z
-        .object({
-          proteinG: z.number().min(0).max(800).optional(),
-          fatG: z.number().min(0).max(400).optional(),
-          carbG: z.number().min(0).max(1500).optional(),
-        })
-        .optional(),
-      refeed: z
-        .object({
-          proteinG: z.number().min(0).max(800).optional(),
-          fatG: z.number().min(0).max(400).optional(),
-          carbG: z.number().min(0).max(1500).optional(),
-        })
-        .optional(),
-      deload: z
-        .object({
-          proteinG: z.number().min(0).max(800).optional(),
-          fatG: z.number().min(0).max(400).optional(),
-          carbG: z.number().min(0).max(1500).optional(),
-        })
-        .optional(),
-    })
-    .optional(),
+  macroOverrides: macroOverridesSchema,
   /**
    * #11 combat-sport protocols (OFF by default, combinable for fight week).
    * Restriction caps are JOINT constraints on the solved plan (kcal+protein
@@ -228,7 +245,19 @@ const generatePlanSchema = z.object({
 const previewWeekSchema = z.object({
   clientId: z.string().uuid(),
   weekScheduleOverride: z
-    .array(z.enum(["training", "rest", "refeed", "deload"]))
+    .array(
+      z.enum([
+        "training",
+        "rest",
+        "refeed",
+        "deload",
+        // #17 periodization intensity tiers (modes 3-4)
+        "training_light",
+        "training_medium",
+        "training_intense",
+        "training_double",
+      ])
+    )
     .length(7)
     .optional(),
   perDayTrainingSession: z
@@ -246,38 +275,7 @@ const previewWeekSchema = z.object({
     .length(7)
     .optional(),
   dailyDeficitKcal: z.number().min(-1500).max(1500).optional(),
-  macroOverrides: z
-    .object({
-      training: z
-        .object({
-          proteinG: z.number().min(0).max(800).optional(),
-          fatG: z.number().min(0).max(400).optional(),
-          carbG: z.number().min(0).max(1500).optional(),
-        })
-        .optional(),
-      rest: z
-        .object({
-          proteinG: z.number().min(0).max(800).optional(),
-          fatG: z.number().min(0).max(400).optional(),
-          carbG: z.number().min(0).max(1500).optional(),
-        })
-        .optional(),
-      refeed: z
-        .object({
-          proteinG: z.number().min(0).max(800).optional(),
-          fatG: z.number().min(0).max(400).optional(),
-          carbG: z.number().min(0).max(1500).optional(),
-        })
-        .optional(),
-      deload: z
-        .object({
-          proteinG: z.number().min(0).max(800).optional(),
-          fatG: z.number().min(0).max(400).optional(),
-          carbG: z.number().min(0).max(1500).optional(),
-        })
-        .optional(),
-    })
-    .optional(),
+  macroOverrides: macroOverridesSchema,
   /** #16b — accepted for input symmetry; source pins don't affect the macro preview. */
   sourcePins: sourcePinsByDaySchema,
 });
@@ -388,6 +386,8 @@ interface PlanGenParams {
   dailyDeficitKcal?: number;
   goalOverride?: Record<string, unknown>;
   weekScheduleOverride?: unknown;
+  /** #17 periodization mode label (replay/audit only; engine doesn't branch on it). */
+  periodizationMode?: string;
   /** Raw per-weekday training-session arrays (as stored on macro_payload / wizard input). */
   perDayTrainingSession?: (IntakeTrainingSession[] | null)[];
   macroOverrides?: Partial<Record<DayType, { proteinG?: number; fatG?: number; carbG?: number }>>;
@@ -478,6 +478,7 @@ function buildPlanArtifacts(
     ...(params.dailyDeficitKcal != null ? { dailyDeficitKcal: params.dailyDeficitKcal } : {}),
     ...(params.goalOverride ? { goalOverride: params.goalOverride } : {}),
     ...(params.weekScheduleOverride ? { weekScheduleOverride: params.weekScheduleOverride } : {}),
+    ...(params.periodizationMode ? { periodizationMode: params.periodizationMode } : {}),
     ...(params.perDayTrainingSession ? { perDayTrainingSessionRaw: params.perDayTrainingSession } : {}),
     ...(params.macroOverrides ? { macroOverrides: params.macroOverrides } : {}),
     ...(params.excludeAllergens ? { excludeAllergens: params.excludeAllergens } : {}),
@@ -564,6 +565,7 @@ export const planRouter = router({
           dailyDeficitKcal: input.dailyDeficitKcal,
           goalOverride: input.goalOverride,
           weekScheduleOverride: input.weekScheduleOverride,
+          periodizationMode: input.periodizationMode,
           perDayTrainingSession: input.perDayTrainingSession,
           macroOverrides: input.macroOverrides,
           protocols: input.protocols,
@@ -736,6 +738,8 @@ export const planRouter = router({
           dailyDeficitKcal: mp.dailyDeficitKcal as number | undefined,
           goalOverride: mp.goalOverride as Record<string, unknown> | undefined,
           weekScheduleOverride: mp.weekScheduleOverride,
+          // #17: preserve the periodization mode label across versions.
+          periodizationMode: mp.periodizationMode as PlanGenParams["periodizationMode"],
           perDayTrainingSession: mp.perDayTrainingSessionRaw as
             | PlanGenParams["perDayTrainingSession"],
           macroOverrides: mp.macroOverrides as PlanGenParams["macroOverrides"],

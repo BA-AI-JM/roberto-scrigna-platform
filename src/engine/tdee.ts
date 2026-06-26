@@ -28,6 +28,26 @@ const DEFAULT_TRAINING_SESSION: ExerciseSession = {
   durationMin: 60,
 };
 
+/**
+ * #17 periodization tiers — provisional DEFAULT sessions per intensity tier.
+ * Used ONLY when no explicit per-day session is supplied; real generation threads
+ * the coach's session via `options.trainingSession`, so intensity flows from the
+ * actual session inputs (MET/HR/SCP/duration). The rising kcal estimates order
+ * the tiers light < medium < intense < double so modes 3-4 differentiate out of
+ * the box. `training_double` approximates a two-session day via higher duration +
+ * kcal (a true second session would sum two ExerciseSessions).
+ * provisional — Roberto to calibrate intensity defaults
+ */
+const DEFAULT_TIER_SESSIONS: Record<
+  "training_light" | "training_medium" | "training_intense" | "training_double",
+  ExerciseSession
+> = {
+  training_light: { method: "session_estimate", durationMin: 45, kcalEstimate: 200 },
+  training_medium: { method: "session_estimate", durationMin: 60, kcalEstimate: 350 },
+  training_intense: { method: "session_estimate", durationMin: 75, kcalEstimate: 500 },
+  training_double: { method: "session_estimate", durationMin: 120, kcalEstimate: 700 },
+};
+
 // ── Public API ────────────────────────────────────────────────────────────────
 
 export interface TdeeOptions {
@@ -113,6 +133,22 @@ export function calculateTdee(
               sex: snapshot.sex,
             }
           );
+      break;
+    // #17 intensity tiers — route through calculateExercise like a training day.
+    // The coach's per-day session (options.trainingSession) wins; otherwise the
+    // provisional per-tier default supplies rising expenditure by intensity.
+    case "training_light":
+    case "training_medium":
+    case "training_intense":
+    case "training_double":
+      exercise = calculateExercise(
+        options.trainingSession ?? DEFAULT_TIER_SESSIONS[dayType],
+        {
+          weightKg: snapshot.weightKg,
+          ageYears: snapshot.ageYears,
+          sex: snapshot.sex,
+        }
+      );
       break;
     case "rest":
     case "refeed":

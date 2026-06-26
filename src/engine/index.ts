@@ -71,6 +71,7 @@ import type {
   WeeklyPlan,
   ExerciseSession,
 } from "./types";
+import { isTrainingLikeDayType } from "./types";
 import { calculateTdee, calculateWeeklyTdee, type TdeeOptions } from "./tdee";
 import { calculateMacros, type MacroOptions } from "./macros";
 import { calculateHydration } from "./hydration";
@@ -128,7 +129,10 @@ export function generateWeeklyPlan(
   const perDay = options.perDayTrainingSession;
   const days = snapshot.weekSchedule.map((dayType, i) => {
     const override = perDay?.[i];
-    if (override && dayType === "training") {
+    // #17: per-day session override applies to training AND the intensity tiers
+    // (so a coach's per-day session flows through on tier days, not just plain
+    // "training"). tdee.ts routes all training-like types through calculateExercise.
+    if (override && isTrainingLikeDayType(dayType)) {
       return generateDailyPlan(snapshot, dayType, {
         ...options,
         trainingSession: override,

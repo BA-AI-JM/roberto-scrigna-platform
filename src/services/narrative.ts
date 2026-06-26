@@ -149,6 +149,11 @@ function generateNutritionStrategy(ctx: NarrativeContext): string {
     rest: "Riposo",
     refeed: "Refeed",
     deload: "Deload",
+    // #17 periodization intensity tiers (modes 3-4)
+    training_light: "Allenamento Leggero",
+    training_medium: "Allenamento Medio",
+    training_intense: "Allenamento Intenso",
+    training_double: "Doppia Seduta",
   };
 
   lines.push("**Struttura del Piano Nutrizionale**:");
