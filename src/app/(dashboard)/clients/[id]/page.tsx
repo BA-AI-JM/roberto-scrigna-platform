@@ -16,6 +16,8 @@ import { trpc } from "@/lib/trpc/client";
 import { ChartControls } from "@/components/charts/ChartControls";
 import { totalDataPoints, type TrendSeries } from "@/components/charts/TrendChart";
 import { ClientPhotoGallery } from "@/components/client-photo-gallery";
+import { FeedbackCard, type FeedbackCheckin } from "@/components/client/feedback-card";
+import { PlaceholderSection } from "@/components/client/placeholder-section";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -563,8 +565,6 @@ function PanoramicaTab({
         )}
       </div>
 
-      <BodyCompositionPanel snapshot={(snapshots as SnapshotRow[])[0] ?? null} />
-
       <OverviewCard title="Anamnesi">
         {medicalRows.length > 0 ? <InfoGrid rows={medicalRows} /> : <EmptySection />}
       </OverviewCard>
@@ -582,8 +582,6 @@ function PanoramicaTab({
       </OverviewCard>
 
       <WeightTrend snapshots={snapshots as SnapshotRow[]} />
-
-      <PhotoSection clientId={clientId} />
     </div>
   );
 }
@@ -986,16 +984,6 @@ function CheckinTab({ clientId }: { clientId: string }) {
 
 // ── Page ───────────────────────────────────────────────────────────────────────
 
-type ActiveTab = "panoramica" | "bodycomp" | "snapshot" | "piani" | "checkin";
-
-const TABS: Array<{ value: ActiveTab; label: string }> = [
-  { value: "panoramica", label: "Panoramica" },
-  { value: "bodycomp", label: "Composizione corporea" },
-  { value: "snapshot", label: "Cronologia Snapshot" },
-  { value: "piani", label: "Piani" },
-  { value: "checkin", label: "Check-in" },
-];
-
 export default function ClientDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -1006,11 +994,17 @@ export default function ClientDetailPage() {
     router.replace("/plans/new");
     return null;
   }
-  const [activeTab, setActiveTab] = useState<ActiveTab>("panoramica");
   const [archiving, setArchiving] = useState(false);
   const [inviteMsg, setInviteMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   const { data, isLoading, isError } = trpc.client.getById.useQuery({ id: clientId });
+  // #2 Stage 1 — latest completed check-in for the "feedback first" card.
+  const { data: feedbackData } = trpc.checkin.list.useQuery(
+    { clientId, status: "completed", limit: 1 },
+    { staleTime: 60_000 }
+  );
+  const latestFeedback =
+    (feedbackData?.checkins?.[0] as FeedbackCheckin | undefined) ?? null;
   const archiveMutation = trpc.client.archive.useMutation({
     onSuccess: () => {
       router.push("/clients");
@@ -1286,56 +1280,49 @@ export default function ClientDetailPage() {
         </div>
       )}
 
-      {/* Tab nav */}
-      <div
-        style={{
-          display: "flex",
-          gap: "4px",
-          borderBottom: "2px solid #e2e8f0",
-          marginBottom: "24px",
-        }}
-      >
-        {TABS.map((tab) => (
-          <button
-            key={tab.value}
-            onClick={() => setActiveTab(tab.value)}
-            style={{
-              padding: "10px 16px",
-              border: "none",
-              background: "transparent",
-              cursor: "pointer",
-              fontSize: "14px",
-              fontWeight: activeTab === tab.value ? 600 : 400,
-              color: activeTab === tab.value ? "#1a1a2e" : "#6b7280",
-              borderBottom:
-                activeTab === tab.value ? "2px solid #1a1a2e" : "2px solid transparent",
-              marginBottom: "-2px",
-              transition: "all 0.15s",
-            }}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      {/* #2 Stage 1 — consolidated top-down dashboard (tab shell removed; every
+          former tab body is now a stacked section over the SAME queries). Order
+          per Roberto: feedback first → notifications → anagrafica/anamnesi/
+          lifestyle/goal/training → body-comp + energy → snapshot → plans →
+          check-ins → photos. Click-throughs (plan review, generate) preserved. */}
+      <div style={{ display: "flex", flexDirection: "column", gap: "28px" }}>
+        {/* 1 · Feedback first (latest completed check-in) */}
+        <FeedbackCard checkin={latestFeedback} />
 
-      {/* Tab content */}
-      {activeTab === "panoramica" && (
+        {/* 2 · Notifications — Stage-2 backend (notification.getForClient) */}
+        <PlaceholderSection
+          title="Notifiche"
+          hint="Avvisi sul cliente (deviazione peso, feedback in scadenza, check-in mancanti)."
+        />
+
+        {/* 3 · Demographics / medical (+ medications) / lifestyle / goal / training */}
         <PanoramicaTab
           snapshot={latestSnapshot as Record<string, unknown> | null}
           client={client as Record<string, unknown> | null}
           clientId={clientId}
         />
-      )}
 
-      {activeTab === "bodycomp" && <BodyCompTab clientId={clientId} />}
+        {/* 4 · Body composition (current + trend) */}
+        <BodyCompTab clientId={clientId} />
 
-      {activeTab === "snapshot" && (
+        {/* 4b · Energy breakdown — Stage-2 backend (client.estimateTdee) */}
+        <PlaceholderSection
+          title="Energia (BMR / NEAT / EAT)"
+          hint="Dispendio energetico e disponibilità energetica, calcolati dallo snapshot più recente."
+        />
+
+        {/* 5 · Snapshot history */}
         <SnapshotHistoryTab clientId={clientId} />
-      )}
 
-      {activeTab === "piani" && <PianiTab clientId={clientId} />}
+        {/* 6 · Plans (click-through to /plans/[id]/review preserved in PianiTab) */}
+        <PianiTab clientId={clientId} />
 
-      {activeTab === "checkin" && <CheckinTab clientId={clientId} />}
+        {/* 7 · Check-ins */}
+        <CheckinTab clientId={clientId} />
+
+        {/* 8 · Photos */}
+        <PhotoSection clientId={clientId} />
+      </div>
     </div>
   );
 }

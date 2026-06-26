@@ -35,6 +35,7 @@ import { buildCreateVersionInput } from "@/components/plan/version-helpers";
 import { SupplementsEditor } from "@/components/plan/supplements-editor";
 import { PlanNotesSection } from "@/components/plan/plan-notes-section";
 import { IngredientSwapList } from "@/components/plan/ingredient-swap";
+import { PortionAdjustMenu } from "@/components/plan/portion-adjust-menu";
 
 // ── Review State ─────────────────────────────────────────────────────────────
 
@@ -1229,24 +1230,15 @@ function MealsTab({
                 )}
               </span>
               {!plan.mealPlan.withinTolerance && (
-                <button
-                  onClick={() => adjustMutation.mutate({ planId, dayType: plan.dayType })}
-                  disabled={adjustMutation.isPending}
-                  title="Riscala automaticamente le porzioni di questo giorno per centrare il target calorico"
-                  style={{
-                    marginLeft: "8px",
-                    padding: "3px 10px",
-                    borderRadius: "12px",
-                    backgroundColor: adjustMutation.isPending ? "#e5e7eb" : "#dbeafe",
-                    color: adjustMutation.isPending ? "#9ca3af" : "#1d4ed8",
-                    border: "none",
-                    cursor: adjustMutation.isPending ? "not-allowed" : "pointer",
-                    fontSize: "12px",
-                    fontWeight: 600,
-                  }}
-                >
-                  {adjustMutation.isPending ? "Aggiustando…" : "Aggiusta Porzioni"}
-                </button>
+                <div style={{ marginLeft: "8px" }}>
+                  {/* #21 — portion-adjustment dropdown (target + relative ±%, PR #23 backend). */}
+                  <PortionAdjustMenu
+                    planId={planId}
+                    dayType={plan.dayType}
+                    pending={adjustMutation.isPending}
+                    onAdjust={(args) => adjustMutation.mutate(args)}
+                  />
+                </div>
               )}
               </>
             )}
