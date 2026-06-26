@@ -11,6 +11,7 @@
 import { redirect } from "next/navigation";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { createSupabaseServiceRole } from "@/lib/supabase/service";
+import { Toaster } from "@/components/ui/sonner";
 
 export default async function PortalProtectedLayout({
   children,
@@ -39,5 +40,10 @@ export default async function PortalProtectedLayout({
     redirect("/portal/login");
   }
 
-  return <>{children}</>;
+  return (
+    <>
+      {children}
+      <Toaster position="top-center" />
+    </>
+  );
 }
