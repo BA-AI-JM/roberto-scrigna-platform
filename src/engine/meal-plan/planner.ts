@@ -126,6 +126,8 @@ export function createMealPlan(
   // reconcile instead biases toward low-fibre templates (see ReconcileContext).
   const fibrePer1000 = config.fibreTargetPer1000 ?? FIBRE_FLOOR_PER_1000;
   const fibreMode = config.fibreMode ?? "floor";
+  // #16b: resolve coach source pins for THIS day-type (undefined = free selection).
+  const daySourcePin = config.sourcePins?.[config.dayType];
 
   // 3-4. Pick a starting template per slot and solve its ingredient grams.
   const usedIds: string[] = [];
@@ -150,7 +152,7 @@ export function createMealPlan(
     return {
       slot: distSlot.slot,
       targetMacros: target,
-      primary: assembleMeal(bestTemplate, target),
+      primary: assembleMeal(bestTemplate, target, daySourcePin),
       substitutions: [],
     };
   });
@@ -166,6 +168,7 @@ export function createMealPlan(
     fibreMode,
     fibreCapG: config.fibreCapG,
     sodiumCapMg: config.sodiumCapMg,
+    sourcePin: daySourcePin,
   });
 
   // 6. Day fibre floor — a COMPENSATED top-up (re-solve, NOT an additive pass).
@@ -193,7 +196,7 @@ export function createMealPlan(
         const share = deficit * (slot.primary.actualMacros.kcal / capableKcal);
         const slotFibre = slot.primary.actualMacros.fibreG ?? 0;
         const fibreTarget = { ...slot.targetMacros, fibreG: slotFibre + share };
-        return { ...slot, primary: assembleMeal(slot.primary.template, fibreTarget) };
+        return { ...slot, primary: assembleMeal(slot.primary.template, fibreTarget, daySourcePin) };
       });
     }
   }
@@ -209,6 +212,7 @@ export function createMealPlan(
       excludeAllergens,
       preferTags,
       count: subsCount,
+      sourcePin: daySourcePin,
     }),
   }));
 

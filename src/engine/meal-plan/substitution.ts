@@ -10,6 +10,7 @@ import type {
   MealType,
   SelectedMeal,
   SlotMacroTargets,
+  SourcePin,
 } from "./types";
 import { SUBSTITUTION_BOUNDS } from "./types";
 import { filterMeals, scoreMeal, type SelectionFilter } from "./selector";
@@ -31,6 +32,8 @@ export interface SubstitutionOptions {
   preferTags: MealTag[];
   /** Number of substitutions to generate (clamped to 2-4) */
   count: number;
+  /** Coach source pins (#16b) for this day-type — forwarded to assembleMeal. */
+  sourcePin?: SourcePin;
 }
 
 /**
@@ -65,5 +68,5 @@ export function generateSubstitutions(
   // Take top N, solve each to target via the per-ingredient solver
   return scored
     .slice(0, count)
-    .map((s) => assembleMeal(s.template, options.target));
+    .map((s) => assembleMeal(s.template, options.target, options.sourcePin));
 }

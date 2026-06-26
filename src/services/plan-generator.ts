@@ -29,6 +29,7 @@ import type {
   Allergen,
   MealTag,
   DayMealPlan,
+  SourcePin,
 } from "../engine/meal-plan";
 import { ALL_TEMPLATES } from "../data/meals";
 import type {
@@ -92,6 +93,11 @@ export interface PlanGenerationInput {
 
   /** Combat-sport protocols (#11) — OFF by default, combinable for fight week. */
   protocols?: CombatProtocols;
+  /**
+   * Coach source pins (#16b) per day-type — force which food fills a category.
+   * Opt-in; absent = free selection (unchanged). Threaded into the solver.
+   */
+  sourcePins?: Partial<Record<DayType, SourcePin>>;
 }
 
 /**
@@ -308,6 +314,8 @@ export function generatePlan(
       ...(input.protocols?.sodiumRestriction
         ? { sodiumCapMg: SODIUM_RESTRICTION_CAP_MG }
         : {}),
+      // #16b: coach source pins (per day-type); planner resolves config.dayType.
+      ...(input.sourcePins ? { sourcePins: input.sourcePins } : {}),
     };
 
     const mealPlan = createMealPlan(ALL_TEMPLATES, config);

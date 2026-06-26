@@ -19,9 +19,9 @@
  * Nutrition (incl. fibre/sodium) is summed from resolveFood × grams/100.
  */
 
-import type { MealIngredient, MealTemplate, MealType, SelectedMeal, SlotMacroTargets } from "./types";
+import type { MealIngredient, MealTemplate, MealType, SelectedMeal, SlotMacroTargets, SourcePin, PinnableCategory } from "./types";
 import { roundGrams } from "./rounding";
-import { resolveFood } from "../../data/meals/food-map";
+import { resolveFood, FOOD_MAP } from "../../data/meals/food-map";
 
 // ── Full 6-macro vector ───────────────────────────────────────────────────────
 
@@ -168,11 +168,27 @@ const KCAL_TOL = 0.05; // ±5%
  * SelectedMeal with solved `scaledIngredients` and `actualMacros` (incl fibre/
  * sodium). `scaleFactor` is intentionally left undefined (Stage 2).
  */
-export function assembleMeal(template: MealTemplate, target: SlotMacroTargets): SelectedMeal {
+export function assembleMeal(
+  template: MealTemplate,
+  target: SlotMacroTargets,
+  sourcePin?: SourcePin
+): SelectedMeal {
   const work: WorkIng[] = template.ingredients.map((ing) => {
-    const cat = classifyFood(ing.foodId);
-    const r = resolveFood(ing.foodId);
-    return { ing, base: ing.grams, cat, factor: 1, p: r.proteinG, c: r.carbsG, f: r.fatG };
+    // #16b source pin: if this ingredient's category is pinned to a different
+    // (valid) food, swap the foodId/name; the solver then recomputes grams from
+    // the pinned food. Unknown pin ids are ignored (never crash) → template food.
+    let foodId = ing.foodId;
+    let name = ing.name;
+    if (sourcePin) {
+      const pin = sourcePin[classifyFood(ing.foodId) as PinnableCategory];
+      if (pin && pin.foodId !== ing.foodId && FOOD_MAP[pin.foodId]) {
+        foodId = pin.foodId;
+        name = FOOD_MAP[pin.foodId]!.v3 ?? pin.foodId;
+      }
+    }
+    const cat = classifyFood(foodId);
+    const r = resolveFood(foodId);
+    return { ing: { ...ing, foodId, name }, base: ing.grams, cat, factor: 1, p: r.proteinG, c: r.carbsG, f: r.fatG };
   });
 
   const inCat = (cats: SolveCategory[]) => work.filter((w) => cats.includes(w.cat) && w.base > 0);
@@ -372,6 +388,32 @@ function fibreFillerFor(mealType: MealType): FillerPick | null {
 /** Meal types that can host a low-carb fibre filler (carry the day floor). */
 export function isFibreCapableType(mealType: MealType): boolean {
   return mealType === "lunch" || mealType === "dinner" || mealType === "breakfast";
+}
+
+/**
+ * #16b catalogue: pinnable food sources grouped by solver category, for the
+ * wizard's source-swap dropdowns. Server-only (reads the food DB via FOOD_MAP).
+ * Excludes FIXED (water/spices) and zero-sentinel entries; name = v3 food name.
+ */
+export function foodCatalogue(): Record<PinnableCategory, { foodId: string; name: string }[]> {
+  const out: Record<PinnableCategory, { foodId: string; name: string }[]> = {
+    PROTEIN: [],
+    CARB: [],
+    VEG: [],
+    FAT: [],
+    FRUIT: [],
+  };
+  for (const foodId of Object.keys(FOOD_MAP)) {
+    const entry = FOOD_MAP[foodId]!;
+    if (entry.via === "zero" || entry.v3 === null) continue;
+    const cat = classifyFood(foodId);
+    if (cat === "FIXED") continue;
+    out[cat as PinnableCategory].push({ foodId, name: entry.v3 });
+  }
+  for (const k of Object.keys(out) as PinnableCategory[]) {
+    out[k].sort((a, b) => a.name.localeCompare(b.name));
+  }
+  return out;
 }
 
 /**

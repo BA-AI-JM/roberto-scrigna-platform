@@ -26,6 +26,8 @@ import { sendEmail } from "../../lib/resend/client";
 import { createSupabaseServiceRole } from "../../lib/supabase/service";
 import { ensurePortalAuthUser } from "../../services/portal-auth";
 import { DEFAULT_TOLERANCES } from "../../engine/meal-plan/types";
+import type { SourcePin } from "../../engine/meal-plan/types";
+import { foodCatalogue } from "../../engine/meal-plan";
 import {
   buildTrainingSessionFromIntake,
   buildTrainingSessionForDay,
@@ -93,6 +95,23 @@ function portalUrl(path = ""): string {
 }
 
 // ── Input schemas ────────────────────────────────────────────────────────────
+
+// #16b coach source pins: per day-type, per pinnable category → forced foodId.
+const sourcePinSchema = z.object({
+  PROTEIN: z.object({ foodId: z.string() }).optional(),
+  CARB: z.object({ foodId: z.string() }).optional(),
+  VEG: z.object({ foodId: z.string() }).optional(),
+  FAT: z.object({ foodId: z.string() }).optional(),
+  FRUIT: z.object({ foodId: z.string() }).optional(),
+});
+const sourcePinsByDaySchema = z
+  .object({
+    training: sourcePinSchema.optional(),
+    rest: sourcePinSchema.optional(),
+    refeed: sourcePinSchema.optional(),
+    deload: sourcePinSchema.optional(),
+  })
+  .optional();
 
 const generatePlanSchema = z.object({
   clientId: z.string().uuid(),
@@ -201,6 +220,8 @@ const generatePlanSchema = z.object({
       waterLoading: z.boolean().optional(),
     })
     .optional(),
+  /** #16b coach source pins (per day-type → category → foodId). */
+  sourcePins: sourcePinsByDaySchema,
 });
 
 const previewWeekSchema = z.object({
@@ -256,6 +277,8 @@ const previewWeekSchema = z.object({
         .optional(),
     })
     .optional(),
+  /** #16b — accepted for input symmetry; source pins don't affect the macro preview. */
+  sourcePins: sourcePinsByDaySchema,
 });
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -369,6 +392,8 @@ interface PlanGenParams {
   macroOverrides?: Partial<Record<DayType, { proteinG?: number; fatG?: number; carbG?: number }>>;
   /** #11 combat-sport protocols (fibre/sodium restriction + water loading). */
   protocols?: { fibreRestriction?: boolean; sodiumRestriction?: boolean; waterLoading?: boolean };
+  /** #16b coach source pins (per day-type → category → foodId). */
+  sourcePins?: Partial<Record<DayType, SourcePin>>;
 }
 
 interface PlanArtifacts {
@@ -437,6 +462,7 @@ function buildPlanArtifacts(
     maintenanceKcalEstimate: params.maintenanceKcalEstimate,
     ...(Object.keys(engineOptions).length > 0 ? { engineOptions } : {}),
     ...(params.protocols ? { protocols: params.protocols } : {}),
+    ...(params.sourcePins ? { sourcePins: params.sourcePins } : {}),
   };
 
   const result = generatePlan(genInput);
@@ -456,6 +482,7 @@ function buildPlanArtifacts(
     ...(params.excludeAllergens ? { excludeAllergens: params.excludeAllergens } : {}),
     ...(params.preferTags ? { preferTags: params.preferTags } : {}),
     ...(params.protocols ? { protocols: params.protocols } : {}),
+    ...(params.sourcePins ? { sourcePins: params.sourcePins } : {}),
     ...(result.waterLoading ? { waterLoading: result.waterLoading } : {}),
   };
 
@@ -539,6 +566,7 @@ export const planRouter = router({
           perDayTrainingSession: input.perDayTrainingSession,
           macroOverrides: input.macroOverrides,
           protocols: input.protocols,
+          sourcePins: input.sourcePins,
         });
       } catch (err) {
         // Log the full engine error server-side; surface a safe message to the client.
@@ -712,6 +740,8 @@ export const planRouter = router({
           macroOverrides: mp.macroOverrides as PlanGenParams["macroOverrides"],
           // Preserve fight-week protocols across versions (recovered from macro_payload).
           protocols: mp.protocols as PlanGenParams["protocols"],
+          // #16b: preserve coach source pins across versions.
+          sourcePins: mp.sourcePins as PlanGenParams["sourcePins"],
         });
       } catch (err) {
         console.error("[router/plan.createVersion] engine error:", err);
@@ -1777,6 +1807,14 @@ ${btnHtml(portalUrl("/login"), "Visualizza il piano")}
 
       return { success: true, sentTo: recipientEmail };
     }),
+
+  /**
+   * #16b — pinnable food sources grouped by category, for the generate wizard's
+   * source-swap dropdowns. Static catalogue (food DB), partner-gated.
+   */
+  foodCatalogue: protectedProcedure.query(() => {
+    return foodCatalogue();
+  }),
 
   /**
    * List all plans for the authenticated partner with client names.

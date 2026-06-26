@@ -23,6 +23,7 @@ import type {
   MealType,
   SelectedMeal,
   SlotMacroTargets,
+  SourcePin,
 } from "./types";
 import { FIBRE_RESTRICTION_CAP_G } from "./types";
 import { assembleMeal } from "./solver";
@@ -55,6 +56,8 @@ export interface ReconcileContext {
   fibreMode?: "floor" | "cap";
   fibreCapG?: number;
   sodiumCapMg?: number;
+  /** Coach source pins (#16b) for THIS day-type — forwarded to assembleMeal. */
+  sourcePin?: SourcePin;
 }
 
 /** Protocol params threaded into the objective. */
@@ -201,7 +204,7 @@ export function reconcilePlan(
       let pick: SelectedMeal | null = null;
 
       for (const template of candidates) {
-        const candidate = assembleMeal(template, work[i]!.targetMacros);
+        const candidate = assembleMeal(template, work[i]!.targetMacros, ctx.sourcePin);
         const total = add(others, candidate.actualMacros);
         const score = objective(total, dailyMacros, protocols).score;
         if (score < localBestScore - 1e-9) {

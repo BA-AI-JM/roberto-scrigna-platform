@@ -26,6 +26,8 @@ export type {
   MealPlanConfig,
   MacroDeviation,
   DayMealPlan,
+  SourcePin,
+  PinnableCategory,
 } from "./types";
 
 export { DEFAULT_TOLERANCES, SCALE_BOUNDS, SUBSTITUTION_BOUNDS } from "./types";
@@ -56,3 +58,4 @@ export type { FatCompensationResult } from "./fat-compensation";
 
 // Main API
 export { createMealPlan } from "./planner";
+export { foodCatalogue } from "./solver";
