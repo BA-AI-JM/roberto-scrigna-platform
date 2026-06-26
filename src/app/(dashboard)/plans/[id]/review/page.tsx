@@ -6,10 +6,10 @@
  *
  * Sections (tabbed):
  * - Panoramica: body comp summary, energy balance, assumptions
- * - Macro: day-type macro cards + TDEE
+ * - Macro: day-type macro cards + TDEE + editable plan narrative (#3: the
+ *   "Note e strategia" fields relocated here from the removed "Guida" tab)
  * - Pasti: meal plan per day type
  * - Integratori: editable supplement list
- * - Guida: editable narrative fields
  * - Monitoraggio: check-in config
  */
 
@@ -33,6 +33,7 @@ import { getQueryKey } from "@trpc/react-query";
 import { VersionsTab } from "@/components/plan/versions-tab";
 import { buildCreateVersionInput } from "@/components/plan/version-helpers";
 import { SupplementsEditor } from "@/components/plan/supplements-editor";
+import { PlanNotesSection } from "@/components/plan/plan-notes-section";
 
 // ── Review State ─────────────────────────────────────────────────────────────
 
@@ -56,7 +57,6 @@ type ReviewTab =
   | "macros"
   | "meals"
   | "supplements"
-  | "guidance"
   | "monitoring"
   | "versions";
 
@@ -65,7 +65,6 @@ const TABS: readonly { key: ReviewTab; label: string }[] = [
   { key: "macros", label: "Macro" },
   { key: "meals", label: "Pasti" },
   { key: "supplements", label: "Integratori" },
-  { key: "guidance", label: "Guida" },
   { key: "monitoring", label: "Monitoraggio" },
   { key: "versions", label: "Versioni" },
 ] as const;
@@ -764,7 +763,13 @@ export default function PlanReviewPage({
         <OverviewTab review={review} cardStyle={cardStyle} />
       )}
       {activeTab === "macros" && (
-        <MacrosTab dayTypePlans={review.dayTypePlans} cardStyle={cardStyle} />
+        <MacrosTab
+          dayTypePlans={review.dayTypePlans}
+          cardStyle={cardStyle}
+          guidance={review.guidance}
+          onUpdateGuidance={updateGuidance}
+          textareaStyle={textareaStyle}
+        />
       )}
       {activeTab === "meals" && (
         <MealsTab dayTypePlans={review.dayTypePlans} cardStyle={cardStyle} planId={planId} />
@@ -775,15 +780,6 @@ export default function PlanReviewPage({
           onUpdate={updateSupplement}
           onRemove={removeSupplement}
           onAddEntries={addSupplementEntries}
-        />
-      )}
-      {activeTab === "guidance" && (
-        <GuidanceTab
-          guidance={review.guidance}
-          assumptions={review.assumptions}
-          onUpdate={updateGuidance}
-          textareaStyle={textareaStyle}
-          cardStyle={cardStyle}
         />
       )}
       {activeTab === "monitoring" && (
@@ -897,24 +893,28 @@ function OverviewTab({
 function MacrosTab({
   dayTypePlans,
   cardStyle,
+  guidance,
+  onUpdateGuidance,
+  textareaStyle,
 }: {
   dayTypePlans: DayTypePlanSummary[];
   cardStyle: React.CSSProperties;
+  guidance: GuidanceSection;
+  onUpdateGuidance: (field: keyof GuidanceSection, value: string) => void;
+  textareaStyle: React.CSSProperties;
 }) {
-  if (dayTypePlans.length === 0) {
-    return (
-      <div style={cardStyle}>
-        <p style={{ color: "#71717a", fontSize: "14px", margin: 0 }}>
-          Nessun dato macro disponibile.
-        </p>
-      </div>
-    );
-  }
-
   return (
     <div>
-      <DailyTotalsTable dayTypePlans={dayTypePlans} cardStyle={cardStyle} />
-      {dayTypePlans.map((plan) => (
+      {dayTypePlans.length === 0 ? (
+        <div style={cardStyle}>
+          <p style={{ color: "#71717a", fontSize: "14px", margin: 0 }}>
+            Nessun dato macro disponibile.
+          </p>
+        </div>
+      ) : (
+        <>
+          <DailyTotalsTable dayTypePlans={dayTypePlans} cardStyle={cardStyle} />
+          {dayTypePlans.map((plan) => (
         <div key={plan.dayType} style={cardStyle}>
           <h3
             style={{
@@ -1077,6 +1077,15 @@ function MacrosTab({
           </div>
         </div>
       ))}
+        </>
+      )}
+      {/* #3 — guidance narrative relocated here from the removed "Guida" tab. */}
+      <PlanNotesSection
+        guidance={guidance}
+        onUpdate={onUpdateGuidance}
+        textareaStyle={textareaStyle}
+        cardStyle={cardStyle}
+      />
     </div>
   );
 }
@@ -1463,54 +1472,6 @@ function SupplementsTab({
       onRemove={onRemove}
       onAddEntries={onAddEntries}
     />
-  );
-}
-
-function GuidanceTab({
-  guidance,
-  assumptions,
-  onUpdate,
-  textareaStyle,
-  cardStyle,
-}: {
-  guidance: GuidanceSection;
-  assumptions: string[];
-  onUpdate: (field: keyof GuidanceSection, value: string) => void;
-  textareaStyle: React.CSSProperties;
-  cardStyle: React.CSSProperties;
-}) {
-  const fields: { key: keyof GuidanceSection; label: string }[] = [
-    { key: "bodyCompAnalysis", label: "Analisi Composizione Corporea" },
-    { key: "nutritionStrategy", label: "Strategia Nutrizionale" },
-    { key: "trainingNotes", label: "Note Allenamento" },
-    { key: "coachNotes", label: "Note del Coach" },
-  ];
-
-  return (
-    <div>
-      {fields.map((f) => (
-        <div key={f.key} style={cardStyle}>
-          <label
-            style={{
-              display: "block",
-              fontSize: "14px",
-              fontWeight: 600,
-              marginBottom: "8px",
-              color: "#18181b",
-            }}
-          >
-            {f.label}
-          </label>
-          <textarea
-            value={guidance[f.key] ?? ""}
-            onChange={(e) => onUpdate(f.key, e.target.value)}
-            style={textareaStyle}
-            rows={6}
-            placeholder={`${f.label}...`}
-          />
-        </div>
-      ))}
-    </div>
   );
 }
 
