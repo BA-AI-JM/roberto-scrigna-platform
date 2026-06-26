@@ -279,7 +279,21 @@ export interface MealPlanConfig {
    * protecting kcal+protein (sodium yields below them). Off when undefined.
    */
   sodiumCapMg?: number;
+  /**
+   * Coach source pins (#16b) — force which food fills a category, per day-type
+   * (e.g. PROTEIN → cottage cheese). Opt-in; absent = free selection (unchanged).
+   * Applied in assembleMeal: the pinned food replaces the category's template
+   * ingredient and the solver recomputes grams. A pin changes WHICH food fills a
+   * category, not the macro targets.
+   */
+  sourcePins?: Partial<Record<DayType, SourcePin>>;
 }
+
+// ── Source pins (#16b) ────────────────────────────────────────────────────────
+/** Categories a coach may pin a source for (FIXED — water/spices — is excluded). */
+export type PinnableCategory = "PROTEIN" | "CARB" | "VEG" | "FAT" | "FRUIT";
+/** Per-category forced food source for one day-type. */
+export type SourcePin = Partial<Record<PinnableCategory, { foodId: string }>>;
 
 // ── Combat-sport restriction caps (#11) ──────────────────────────────────────
 /** Day fibre cap (g) for the fibre-restriction protocol (target < 10 g/day). */
