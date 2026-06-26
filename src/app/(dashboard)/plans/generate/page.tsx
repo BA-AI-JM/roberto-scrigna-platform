@@ -14,8 +14,9 @@ import { useState, useCallback, useEffect, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { trpc } from "../../../../lib/trpc/client";
 import type { Allergen, MealTag } from "../../../../engine/meal-plan/types";
-import type { DayType } from "../../../../engine/types";
+import { isTrainingLikeDayType, type DayType } from "../../../../engine/types";
 import { SourceSwapCard } from "../../../../components/plan/source-swap-card";
+import { PeriodizationModeSelector } from "../../../../components/plan/periodization-mode-selector";
 import {
   EMPTY_SELECTIONS,
   buildSourcePinsPayload,
@@ -52,6 +53,20 @@ const DAY_TYPE_LABELS: Record<DayType, string> = {
   training_intense: "Intenso",
   training_double: "Doppia",
 };
+
+// Every day-type, in display order — the manual per-day editing vocabulary
+// (base types + the #17 intensity tiers). Shared by the per-day select, the
+// macro-override rows, and the macro-override payload so all three stay in sync.
+const ALL_DAY_TYPES: DayType[] = [
+  "training",
+  "rest",
+  "refeed",
+  "deload",
+  "training_light",
+  "training_medium",
+  "training_intense",
+  "training_double",
+];
 
 const DAY_TYPE_COLORS: Record<DayType, { bg: string; text: string; border: string }> = {
   training: { bg: "#18181b", text: "#ffffff", border: "#18181b" },
@@ -317,10 +332,9 @@ export default function GeneratePlanPage() {
   // Build the macroOverrides payload (or undefined if all fields blank).
   // Empty strings parse to NaN → dropped; only finite numbers reach the server.
   const macroOverridesPayload = useMemo(() => {
-    const dayTypes: DayType[] = ["training", "rest", "refeed", "deload"];
     let any = false;
     const out: Record<string, { proteinG?: number; fatG?: number; carbG?: number }> = {};
-    for (const dt of dayTypes) {
+    for (const dt of ALL_DAY_TYPES) {
       const row = form.macroOverrides[dt];
       const p = Number(row.proteinG);
       const f = Number(row.fatG);
@@ -334,7 +348,9 @@ export default function GeneratePlanPage() {
         any = true;
       }
     }
-    return any ? (out as { training?: typeof out.training; rest?: typeof out.rest; refeed?: typeof out.refeed; deload?: typeof out.deload }) : undefined;
+    return any
+      ? (out as Partial<Record<DayType, { proteinG?: number; fatG?: number; carbG?: number }>>)
+      : undefined;
   }, [form.macroOverrides]);
 
   // #16b — catalogue for the source-swap dropdowns (static food DB; load once).
@@ -388,9 +404,10 @@ export default function GeneratePlanPage() {
         const sessions = prev.perDaySessions.slice();
         if (patch.dayType !== undefined) schedule[i] = patch.dayType;
         if (patch.sessions !== undefined) sessions[i] = patch.sessions;
-        // Non-training days clear their session list to keep the engine
-        // mapping honest (perDayTrainingSession is only applied on training).
-        if (patch.dayType !== undefined && patch.dayType !== "training") {
+        // Non-training-like days clear their session list to keep the engine
+        // mapping honest (per-day sessions only apply on training-like days,
+        // i.e. training + the #17 intensity tiers).
+        if (patch.dayType !== undefined && !isTrainingLikeDayType(patch.dayType)) {
           sessions[i] = null;
         }
         return { ...prev, weekSchedule: schedule, perDaySessions: sessions };
@@ -403,9 +420,9 @@ export default function GeneratePlanPage() {
     setForm((prev) => ({
       ...prev,
       weekSchedule: preset.slice() as DayType[],
-      // Drop sessions on days that flipped to non-training.
+      // Drop sessions on days that flipped to non-training-like (tiers keep them).
       perDaySessions: prev.perDaySessions.map((s, i) =>
-        preset[i] === "training" ? s : null
+        isTrainingLikeDayType(preset[i]!) ? s : null
       ),
     }));
   }, []);
@@ -1203,7 +1220,7 @@ function WeekStructureCard({
                   outline: "none",
                 }}
               >
-                {(["training", "rest", "refeed", "deload"] as DayType[]).map((opt) => (
+                {ALL_DAY_TYPES.map((opt) => (
                   <option key={opt} value={opt}>
                     {DAY_TYPE_LABELS[opt]}
                   </option>
@@ -1219,7 +1236,7 @@ function WeekStructureCard({
         <label style={labelStyle}>Attività per giorno (solo giorni ON)</label>
         <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
           {weekSchedule.map((dt, i) => {
-            if (dt !== "training") return null;
+            if (!isTrainingLikeDayType(dt)) return null;
             const sessions = perDaySessions[i] ?? [];
             const first = sessions[0] ?? { modality: "", duration_min: 60, rpe: 7 };
             return (
@@ -1290,6 +1307,13 @@ function WeekStructureCard({
           })}
         </div>
       </div>
+
+      {/* #17 Stage B — periodization mode selector (sets the week vocabulary). */}
+      <PeriodizationModeSelector
+        weekSchedule={weekSchedule}
+        onSelect={onPreset}
+        labelStyle={labelStyle}
+      />
 
       {/* Live weekly table */}
       <div>
@@ -1396,11 +1420,11 @@ function MacroOverridesCard({
   labelStyle,
   inputStyle,
 }: MacroOverridesCardProps) {
-  // Only show rows for day-types actually present in the schedule
+  // Only show rows for day-types actually present in the schedule (incl. #17 tiers).
   const presentDayTypes = useMemo(() => {
     const seen = new Set<DayType>();
     for (const dt of weekSchedule) seen.add(dt);
-    return (["training", "rest", "refeed", "deload"] as DayType[]).filter((dt) => seen.has(dt));
+    return ALL_DAY_TYPES.filter((dt) => seen.has(dt));
   }, [weekSchedule]);
 
   // Help the coach by showing what the engine would compute when the field is blank
