@@ -15,6 +15,12 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { trpc } from "../../../../lib/trpc/client";
 import type { Allergen, MealTag } from "../../../../engine/meal-plan/types";
 import type { DayType } from "../../../../engine/types";
+import { SourceSwapCard } from "../../../../components/plan/source-swap-card";
+import {
+  EMPTY_SELECTIONS,
+  buildSourcePinsPayload,
+  type SourceSwapSelections,
+} from "../../../../components/plan/source-swap-helpers";
 import {
   computeGoalRate,
   weeksUntil,
@@ -94,6 +100,11 @@ interface GeneratePlanFormState {
    * before sending.
    */
   macroOverrides: Record<DayType, { proteinG: string; fatG: string; carbG: string }>;
+  /**
+   * #16b source pins — GLOBAL per-category food source ("" = Automatico / no
+   * pin). Applied to every present day-type when sent. All-Automatico → omitted.
+   */
+  sourcePins: SourceSwapSelections;
 }
 
 const EMPTY_MACRO_ROW = { proteinG: "", fatG: "", carbG: "" } as const;
@@ -194,6 +205,7 @@ export default function GeneratePlanPage() {
       refeed: { ...EMPTY_MACRO_ROW },
       deload: { ...EMPTY_MACRO_ROW },
     },
+    sourcePins: { ...EMPTY_SELECTIONS },
   });
   const [error, setError] = useState<string | null>(null);
 
@@ -310,6 +322,24 @@ export default function GeneratePlanPage() {
     return any ? (out as { training?: typeof out.training; rest?: typeof out.rest; refeed?: typeof out.refeed; deload?: typeof out.deload }) : undefined;
   }, [form.macroOverrides]);
 
+  // #16b — catalogue for the source-swap dropdowns (static food DB; load once).
+  const { data: foodCatalogue } = trpc.plan.foodCatalogue.useQuery(undefined, {
+    staleTime: Infinity,
+  });
+
+  // Day-types present in the schedule (the GLOBAL pins are applied to each).
+  const presentDayTypes = useMemo<DayType[]>(
+    () => (form.weekSchedule ? Array.from(new Set(form.weekSchedule)) : []),
+    [form.weekSchedule]
+  );
+
+  // Build the sourcePins payload (undefined when all Automatico). Absent =
+  // byte-identical default behaviour (the engine regression depends on this).
+  const sourcePinsPayload = useMemo(
+    () => buildSourcePinsPayload(form.sourcePins, presentDayTypes),
+    [form.sourcePins, presentDayTypes]
+  );
+
   // Live week preview. Only fires when we have a schedule to send (i.e.
   // after the prefill from estimateForClient has run). Refetches whenever
   // schedule / per-day sessions / deficit change.
@@ -330,6 +360,7 @@ export default function GeneratePlanPage() {
           ? { dailyDeficitKcal: Math.round(effectiveDeficitKcal) }
           : {}),
         ...(macroOverridesPayload ? { macroOverrides: macroOverridesPayload } : {}),
+        ...(sourcePinsPayload ? { sourcePins: sourcePinsPayload } : {}),
       },
       { enabled: previewEnabled, staleTime: 30_000 }
     );
@@ -440,8 +471,9 @@ export default function GeneratePlanPage() {
           }
         : {}),
       ...(macroOverridesPayload ? { macroOverrides: macroOverridesPayload } : {}),
+      ...(sourcePinsPayload ? { sourcePins: sourcePinsPayload } : {}),
     });
-  }, [form, generateMutation, belowFloor, effectiveDeficitKcal, macroOverridesPayload]);
+  }, [form, generateMutation, belowFloor, effectiveDeficitKcal, macroOverridesPayload, sourcePinsPayload]);
 
   const isGenerating = generateMutation.isPending;
 
@@ -791,6 +823,21 @@ export default function GeneratePlanPage() {
           sectionStyle={sectionStyle}
           labelStyle={labelStyle}
           inputStyle={inputStyle}
+        />
+      )}
+
+      {/* Source swap (#16b) */}
+      {form.clientId && form.weekSchedule && (
+        <SourceSwapCard
+          catalogue={foodCatalogue}
+          selections={form.sourcePins}
+          onChange={(category, foodId) =>
+            setForm((prev) => ({
+              ...prev,
+              sourcePins: { ...prev.sourcePins, [category]: foodId },
+            }))
+          }
+          sectionStyle={sectionStyle}
         />
       )}
 
