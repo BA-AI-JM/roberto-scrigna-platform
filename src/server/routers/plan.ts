@@ -14,6 +14,7 @@
 import { z } from "zod/v4";
 import { router, protectedProcedure } from "../trpc";
 import { TRPCError } from "@trpc/server";
+import { supplementEditItemSchema } from "../schemas/supplement-edit-schema";
 import { inngest } from "../../lib/inngest/client";
 import {
   generatePlan,
@@ -1574,17 +1575,9 @@ export const planRouter = router({
     .input(
       z.object({
         planId: z.string().uuid(),
-        supplements: z
-          .array(
-            z.object({
-              name: z.string().max(200),
-              dosage: z.string().max(200),
-              timing: z.string().max(500),
-              rationale: z.string().max(2000).optional(),
-            })
-          )
-          .max(60)
-          .optional(),
+        // #23: item schema widened (notes/frequency/libraryId/isCustom) so the
+        // Integratori library/custom fields persist instead of being stripped.
+        supplements: z.array(supplementEditItemSchema).max(60).optional(),
         guidance: z
           .object({
             bodyCompAnalysis: z.string().max(20000),
