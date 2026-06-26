@@ -122,7 +122,10 @@ export function createMealPlan(
   // Day fibre floor (default = 10 g/1000 kcal). NOT allocated per slot up front —
   // see the post-reconcile compensated deficit pass below, which tops up only the
   // shortfall (crediting every slot's intrinsic fibre) so we never over-provision.
+  // In "cap" mode (#11 fibre RESTRICTION) the deficit pass is skipped entirely and
+  // reconcile instead biases toward low-fibre templates (see ReconcileContext).
   const fibrePer1000 = config.fibreTargetPer1000 ?? FIBRE_FLOOR_PER_1000;
+  const fibreMode = config.fibreMode ?? "floor";
 
   // 3-4. Pick a starting template per slot and solve its ingredient grams.
   const usedIds: string[] = [];
@@ -160,6 +163,9 @@ export function createMealPlan(
     validTypesPerSlot: slotValidTypes,
     excludeAllergens,
     preferTags,
+    fibreMode,
+    fibreCapG: config.fibreCapG,
+    sodiumCapMg: config.sodiumCapMg,
   });
 
   // 6. Day fibre floor — a COMPENSATED top-up (re-solve, NOT an additive pass).
@@ -173,7 +179,9 @@ export function createMealPlan(
   let fibreSlots = reconciledSlots;
   const floorG = (fibrePer1000 * config.macroTargets.totalKcal) / 1000;
   const dayFibreG = sumActualMacros(fibreSlots).fibreG ?? 0;
-  if (floorG > 0 && dayFibreG < floorG) {
+  // Skip the fibre-ADD pass under the restriction cap — reconcile already biased
+  // toward low fibre; adding veg here would fight the cap.
+  if (fibreMode !== "cap" && floorG > 0 && dayFibreG < floorG) {
     const capableIdx = fibreSlots
       .map((s, i) => (isFibreCapableType(s.primary.template.mealType) ? i : -1))
       .filter((i) => i >= 0);

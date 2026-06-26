@@ -45,3 +45,59 @@ export function calculateHydration(
 
   return { waterMl, saltG };
 }
+
+// ── Water loading (#11 combat-sport protocol) ────────────────────────────────
+
+/** Load-day fluid: midpoint of Roberto's 70–90 mL/kg/day band. */
+const WATER_LOADING_ML_PER_KG = 80;
+/** Number of high-volume load days before the taper. */
+const WATER_LOADING_LOAD_DAYS = 3;
+/** Final taper-day cut (Roberto's spec: ≤ 500 mL – 1 L). */
+const WATER_LOADING_TAPER_ML = 500;
+
+const clampNum = (x: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, x));
+
+/** One day of the water-loading schedule. */
+export interface WaterLoadingDay {
+  /** 1-indexed day in the schedule. */
+  day: number;
+  /** Fluid target for the day (mL). */
+  fluidMl: number;
+  /** "load" = high-volume days; "taper" = the final cut day. */
+  phase: "load" | "taper";
+}
+
+/** A water-loading fluid schedule for the plan/PDF to render. */
+export interface WaterLoadingSchedule {
+  /** Per-day fluid targets (loadDays of "load" then one "taper"). */
+  days: WaterLoadingDay[];
+  /** mL/kg used on load days. */
+  mlPerKgLoad: number;
+  /** Body weight the schedule was computed for (kg). */
+  weightKg: number;
+}
+
+/**
+ * Build a combat-sport water-loading schedule: `loadDays` high-volume days at
+ * 70–90 mL/kg/day, then a final taper day capped at ≤ 500 mL – 1 L. This is a
+ * HYDRATION schedule (per-day fluid targets in mL), not a macro change — it does
+ * not touch the meal plan.
+ */
+export function waterLoadingSchedule(
+  weightKg: number,
+  opts: { mlPerKg?: number; loadDays?: number; taperMl?: number } = {}
+): WaterLoadingSchedule {
+  const w = Number.isFinite(weightKg) && weightKg > 0 ? weightKg : 0;
+  const mlPerKg = clampNum(opts.mlPerKg ?? WATER_LOADING_ML_PER_KG, 70, 90);
+  const loadDays = Math.max(1, Math.round(opts.loadDays ?? WATER_LOADING_LOAD_DAYS));
+  const taperMl = clampNum(opts.taperMl ?? WATER_LOADING_TAPER_ML, 250, 1000);
+  const loadMl = Math.round(mlPerKg * w);
+
+  const days: WaterLoadingDay[] = [];
+  for (let d = 1; d <= loadDays; d++) {
+    days.push({ day: d, fluidMl: loadMl, phase: "load" });
+  }
+  days.push({ day: loadDays + 1, fluidMl: taperMl, phase: "taper" });
+
+  return { days, mlPerKgLoad: mlPerKg, weightKg: w };
+}

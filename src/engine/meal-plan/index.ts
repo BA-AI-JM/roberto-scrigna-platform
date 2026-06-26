@@ -29,6 +29,7 @@ export type {
 } from "./types";
 
 export { DEFAULT_TOLERANCES, SCALE_BOUNDS, SUBSTITUTION_BOUNDS } from "./types";
+export { FIBRE_RESTRICTION_CAP_G, SODIUM_RESTRICTION_CAP_MG } from "./types";
 
 // Distribution
 export { getDistribution, DISTRIBUTION_TEMPLATES } from "./distribution";
