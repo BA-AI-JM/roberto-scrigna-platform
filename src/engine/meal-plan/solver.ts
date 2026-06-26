@@ -416,6 +416,99 @@ export function foodCatalogue(): Record<PinnableCategory, { foodId: string; name
   return out;
 }
 
+// ── #20 item-level food swap (coach) ─────────────────────────────────────────
+//
+// Post-generation, a coach can replace ONE ingredient in a meal with a
+// same-category alternative. The grams are recomputed ITEM-LOCALLY to reproduce
+// the old item's contribution of the category-defining macro (the "smaller
+// allowance" — we hold just this item, we do NOT re-solve the whole slot/day via
+// assembleMeal). This is the surgical counterpart to the meal-level
+// substitution swap; it reuses resolveFood + the realism bounds + roundGrams.
+
+/** The macro a swap holds, keyed by the swapped ingredient's solver category. */
+function heldMacroForCategory(cat: SolveCategory): keyof FullMacros {
+  switch (cat) {
+    case "PROTEIN": return "proteinG";
+    case "CARB": return "carbsG";
+    case "FRUIT": return "carbsG";
+    case "FAT": return "fatG";
+    case "VEG": return "kcal"; // veg is low-density bulk → hold energy, not carbs
+    default: return "kcal"; // FIXED — never swapped (guarded by getIngredientAlternatives)
+  }
+}
+
+/**
+ * Same-category alternatives for an ingredient, drawn from the shipped
+ * `foodCatalogue`, excluding the ingredient itself. FIXED / zero-sentinel
+ * ingredients (water, spices, honey…) have no swappable bucket → returns [].
+ */
+export function getIngredientAlternatives(foodId: string): { foodId: string; name: string }[] {
+  const cat = classifyFood(foodId);
+  if (cat === "FIXED") return [];
+  return foodCatalogue()[cat as PinnableCategory].filter((f) => f.foodId !== foodId);
+}
+
+export interface SwappedIngredient {
+  foodId: string;
+  name: string;
+  grams: number;
+}
+
+/**
+ * #20 item-local recalc: replace `oldIngredient` with `newFoodId` (a same-category
+ * alternative) and recompute grams so the new item reproduces the OLD item's
+ * contribution of the category-defining macro (protein for PROTEIN, carbs for
+ * CARB/FRUIT, fat for FAT, kcal for VEG). Grams are clamped to the per-category
+ * realism band and rounded — so when the held macro can't be reproduced within a
+ * realistic portion (e.g. a very low-density alternative) the realism cap wins
+ * and the contribution is held only as closely as a sane portion allows.
+ *
+ * THROWS on an unmapped `newFoodId` or a cross-category swap — the caller must
+ * validate first (it never silently mis-swaps).
+ */
+export function recomputeSwappedIngredient(
+  oldIngredient: MealIngredient,
+  newFoodId: string
+): SwappedIngredient {
+  if (!FOOD_MAP[newFoodId]) {
+    throw new Error(`recomputeSwappedIngredient: unmapped foodId "${newFoodId}"`);
+  }
+  const oldCat = classifyFood(oldIngredient.foodId);
+  const newCat = classifyFood(newFoodId);
+  if (oldCat !== newCat) {
+    throw new Error(
+      `recomputeSwappedIngredient: cross-category swap ${oldCat}→${newCat} rejected`
+    );
+  }
+
+  const held = heldMacroForCategory(oldCat);
+  const oldFood = resolveFood(oldIngredient.foodId);
+  const newFood = resolveFood(newFoodId);
+
+  // Old item's contribution of the held macro (one term of macrosFromIngredients).
+  const oldContribution = (oldFood[held] * oldIngredient.grams) / 100;
+  const newPer100 = newFood[held];
+
+  // Invert to the grams that reproduce that contribution. If the new food has
+  // none of the held macro (shouldn't happen within a category, but be safe),
+  // fall back to holding kcal so we never divide by zero.
+  let grams: number;
+  if (newPer100 > 0) {
+    grams = (oldContribution / newPer100) * 100;
+  } else if (newFood.kcal > 0) {
+    grams = ((oldFood.kcal * oldIngredient.grams) / 100 / newFood.kcal) * 100;
+  } else {
+    grams = oldIngredient.grams;
+  }
+
+  // Realism clamp + round (use the computed grams as the new food's base, so the
+  // relative band is inert and only the per-category absolute cap + 1 g floor bind).
+  const [lo, hi] = ingredientGramBounds(newFoodId, grams, newCat);
+  grams = Math.max(1, roundGrams(clamp(grams, lo, hi)));
+
+  return { foodId: newFoodId, name: FOOD_MAP[newFoodId]!.v3 ?? newFoodId, grams };
+}
+
 /**
  * Size removable carb/fibre fillers for one meal, JOINTLY with the rest of the
  * solve. Each filler may consume ONLY the slot's leftover kcal headroom
