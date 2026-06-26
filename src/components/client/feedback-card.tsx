@@ -13,6 +13,8 @@
 export interface FeedbackCheckin {
   id: string;
   ai_summary: string | null;
+  /** Coach review notes (from checkin.getLatestCompleted). */
+  review_notes?: string | null;
   weight_kg: number | null;
   weight_deviation_kg: number | null;
   energy_level: number | null;
@@ -95,6 +97,20 @@ export function FeedbackCard({ checkin }: { checkin: FeedbackCheckin | null }) {
               }}
             >
               {checkin.ai_summary}
+            </div>
+          )}
+          {checkin.review_notes && (
+            <div
+              style={{
+                padding: "12px 24px",
+                fontSize: "13px",
+                color: "#6b7280",
+                lineHeight: 1.5,
+                borderBottom: "1px solid #f1f5f9",
+              }}
+            >
+              <span style={{ fontWeight: 600, color: "#374151" }}>Note del coach: </span>
+              {checkin.review_notes}
             </div>
           )}
           <div

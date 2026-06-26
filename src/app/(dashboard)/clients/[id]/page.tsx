@@ -17,7 +17,8 @@ import { ChartControls } from "@/components/charts/ChartControls";
 import { totalDataPoints, type TrendSeries } from "@/components/charts/TrendChart";
 import { ClientPhotoGallery } from "@/components/client-photo-gallery";
 import { FeedbackCard, type FeedbackCheckin } from "@/components/client/feedback-card";
-import { PlaceholderSection } from "@/components/client/placeholder-section";
+import { NotificationsPanel, type NotificationItem } from "@/components/client/notifications-panel";
+import { EnergyPanel, type EnergyEstimate } from "@/components/client/energy-panel";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -998,13 +999,28 @@ export default function ClientDetailPage() {
   const [inviteMsg, setInviteMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   const { data, isLoading, isError } = trpc.client.getById.useQuery({ id: clientId });
-  // #2 Stage 1 — latest completed check-in for the "feedback first" card.
-  const { data: feedbackData } = trpc.checkin.list.useQuery(
-    { clientId, status: "completed", limit: 1 },
+  // #2 — latest completed check-in for the "feedback first" card (Stage-2:
+  // getLatestCompleted also returns review_notes).
+  const { data: feedbackData } = trpc.checkin.getLatestCompleted.useQuery(
+    { clientId },
     { staleTime: 60_000 }
   );
-  const latestFeedback =
-    (feedbackData?.checkins?.[0] as FeedbackCheckin | undefined) ?? null;
+  const latestFeedback = (feedbackData?.checkin as FeedbackCheckin | null | undefined) ?? null;
+
+  // #2 Stage 2 — per-client notifications feed.
+  const {
+    data: notifData,
+    isLoading: notifLoading,
+    isError: notifError,
+  } = trpc.notification.getForClient.useQuery({ clientId, limit: 20 }, { staleTime: 60_000 });
+
+  // #2 Stage 2 — energy breakdown (estimateTdee throws PRECONDITION_FAILED when
+  // the client has no snapshot yet; don't retry — the panel shows an empty state).
+  const {
+    data: tdeeData,
+    isLoading: tdeeLoading,
+    isError: tdeeError,
+  } = trpc.client.estimateTdee.useQuery({ clientId }, { staleTime: 60_000, retry: false });
   const archiveMutation = trpc.client.archive.useMutation({
     onSuccess: () => {
       router.push("/clients");
@@ -1289,10 +1305,11 @@ export default function ClientDetailPage() {
         {/* 1 · Feedback first (latest completed check-in) */}
         <FeedbackCard checkin={latestFeedback} />
 
-        {/* 2 · Notifications — Stage-2 backend (notification.getForClient) */}
-        <PlaceholderSection
-          title="Notifiche"
-          hint="Avvisi sul cliente (deviazione peso, feedback in scadenza, check-in mancanti)."
+        {/* 2 · Notifications (Stage 2) — per-client feed */}
+        <NotificationsPanel
+          notifications={(notifData?.notifications ?? []) as NotificationItem[]}
+          isLoading={notifLoading}
+          isError={notifError}
         />
 
         {/* 3 · Demographics / medical (+ medications) / lifestyle / goal / training */}
@@ -1305,10 +1322,11 @@ export default function ClientDetailPage() {
         {/* 4 · Body composition (current + trend) */}
         <BodyCompTab clientId={clientId} />
 
-        {/* 4b · Energy breakdown — Stage-2 backend (client.estimateTdee) */}
-        <PlaceholderSection
-          title="Energia (BMR / NEAT / EAT)"
-          hint="Dispendio energetico e disponibilità energetica, calcolati dallo snapshot più recente."
+        {/* 4b · Energy breakdown (Stage 2) — per day-type BMR/NEAT/TEF/EAT/TDEE */}
+        <EnergyPanel
+          data={tdeeData as EnergyEstimate | undefined}
+          isLoading={tdeeLoading}
+          isError={tdeeError}
         />
 
         {/* 5 · Snapshot history */}
