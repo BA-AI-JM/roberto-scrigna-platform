@@ -32,6 +32,12 @@ import {
   type IntakeTrainingSession,
 } from "../../services/training-modality";
 import { roundGrams } from "../../engine/meal-plan/rounding";
+import {
+  computeNextVersion,
+  orderVersionsNewestFirst,
+  rootPlanIdOf,
+  type VersionRow,
+} from "../plan-versioning";
 
 // ── Email helpers (shared with inngest functions) ────────────────────────────
 
@@ -334,6 +340,115 @@ function buildEngineSnapshot(
   };
 }
 
+// ── Shared plan-artifact builder (generate + createVersion) ──────────────────
+
+/** Generation parameters recoverable from wizard input or a stored plan's macro_payload. */
+interface PlanGenParams {
+  mealCount: number;
+  excludeAllergens?: string[];
+  preferTags?: string[];
+  maintenanceKcalEstimate?: number;
+  dailyDeficitKcal?: number;
+  goalOverride?: Record<string, unknown>;
+  weekScheduleOverride?: unknown;
+  /** Raw per-weekday training-session arrays (as stored on macro_payload / wizard input). */
+  perDayTrainingSession?: (IntakeTrainingSession[] | null)[];
+  macroOverrides?: Partial<Record<DayType, { proteinG?: number; fatG?: number; carbG?: number }>>;
+}
+
+interface PlanArtifacts {
+  serialized: ReturnType<typeof serializePlanResult>;
+  macroPayload: Record<string, unknown>;
+  weeklyAverageKcal: number;
+  energyBalance: string;
+}
+
+/**
+ * Run the engine for a snapshot + generation params and produce the persisted
+ * artifacts (serialized bundle + macro_payload summary). Pure w.r.t. the DB: the
+ * caller fetches the snapshot/client and persists the result. Shared by
+ * `generate` (params from the wizard) and `createVersion` (params recovered from
+ * the source plan's macro_payload, re-run against the latest snapshot). Throws
+ * the raw engine error; callers translate to a TRPCError.
+ */
+function buildPlanArtifacts(
+  snapshotRecord: Record<string, unknown>,
+  clientSex: "male" | "female",
+  clientInfo: PdfClientInfo,
+  params: PlanGenParams
+): PlanArtifacts {
+  const snapshotBase = buildEngineSnapshot(snapshotRecord, clientSex);
+  const snapshot: ClientSnapshot = params.weekScheduleOverride
+    ? { ...snapshotBase, weekSchedule: params.weekScheduleOverride as ClientSnapshot["weekSchedule"] }
+    : snapshotBase;
+
+  const trainingSession = buildTrainingSessionFromIntake(
+    intakeTrainingSessions(snapshotRecord),
+    snapshot.weekSchedule
+  );
+  const perDayTrainingSession =
+    params.perDayTrainingSession?.map((daySessions) =>
+      buildTrainingSessionForDay(daySessions ?? null)
+    ) ?? undefined;
+
+  const engineOptions: PlanGenerationInput["engineOptions"] = {};
+  if (trainingSession) engineOptions.trainingSession = trainingSession;
+  if (params.dailyDeficitKcal != null && params.dailyDeficitKcal !== 0) {
+    engineOptions.dailyDeficitKcal = params.dailyDeficitKcal;
+  }
+  if (perDayTrainingSession && perDayTrainingSession.some((s) => s != null)) {
+    engineOptions.perDayTrainingSession = perDayTrainingSession;
+  }
+  if (params.macroOverrides) {
+    const cleaned: NonNullable<typeof params.macroOverrides> = {};
+    for (const [dt, override] of Object.entries(params.macroOverrides) as Array<
+      [DayType, { proteinG?: number; fatG?: number; carbG?: number } | undefined]
+    >) {
+      if (override && (override.proteinG != null || override.fatG != null || override.carbG != null)) {
+        cleaned[dt] = override;
+      }
+    }
+    if (Object.keys(cleaned).length > 0) {
+      engineOptions.macroOptions = { absoluteOverrides: cleaned };
+    }
+  }
+
+  const genInput: PlanGenerationInput = {
+    clientInfo,
+    snapshot,
+    mealCount: params.mealCount,
+    excludeAllergens: params.excludeAllergens as PlanGenerationInput["excludeAllergens"],
+    preferTags: params.preferTags as PlanGenerationInput["preferTags"],
+    maintenanceKcalEstimate: params.maintenanceKcalEstimate,
+    ...(Object.keys(engineOptions).length > 0 ? { engineOptions } : {}),
+  };
+
+  const result = generatePlan(genInput);
+  const serialized = serializePlanResult(result);
+
+  const uniqueDayTypes = [...new Set(snapshot.weekSchedule)];
+  const macroPayload: Record<string, unknown> = {
+    weeklyAverageKcal: result.weeklyPlan.weeklyAverageKcal,
+    weeklyAverageProteinG: result.weeklyPlan.weeklyAverageProteinG,
+    dayTypes: uniqueDayTypes,
+    energyBalance: result.energyBalance,
+    ...(params.dailyDeficitKcal != null ? { dailyDeficitKcal: params.dailyDeficitKcal } : {}),
+    ...(params.goalOverride ? { goalOverride: params.goalOverride } : {}),
+    ...(params.weekScheduleOverride ? { weekScheduleOverride: params.weekScheduleOverride } : {}),
+    ...(params.perDayTrainingSession ? { perDayTrainingSessionRaw: params.perDayTrainingSession } : {}),
+    ...(params.macroOverrides ? { macroOverrides: params.macroOverrides } : {}),
+    ...(params.excludeAllergens ? { excludeAllergens: params.excludeAllergens } : {}),
+    ...(params.preferTags ? { preferTags: params.preferTags } : {}),
+  };
+
+  return {
+    serialized,
+    macroPayload,
+    weeklyAverageKcal: result.weeklyPlan.weeklyAverageKcal,
+    energyBalance: result.energyBalance as string,
+  };
+}
+
 // ── Router ───────────────────────────────────────────────────────────────────
 
 export const planRouter = router({
@@ -377,37 +492,12 @@ export const planRouter = router({
         });
       }
 
-      // 3. Build engine snapshot
+      // 3. Engine snapshot context.
       const clientSex: "male" | "female" =
         (client.sex as "male" | "female") ?? "male";
       const snapshotRecord = snapshotRow as unknown as Record<string, unknown>;
-      const snapshotBase = buildEngineSnapshot(snapshotRecord, clientSex);
 
-      // 3a. Apply the per-plan week-schedule override (if any). This swaps
-      // out the intake schedule for this plan only; nothing on the client
-      // snapshot row is mutated.
-      const snapshot: ClientSnapshot = input.weekScheduleOverride
-        ? {
-            ...snapshotBase,
-            weekSchedule: input.weekScheduleOverride as ClientSnapshot["weekSchedule"],
-          }
-        : snapshotBase;
-
-      // 3b. Derive a per-training-day exercise session from the intake schedule
-      // (falls back to the engine default when no training data is present).
-      const trainingSession = buildTrainingSessionFromIntake(
-        intakeTrainingSessions(snapshotRecord),
-        snapshot.weekSchedule
-      );
-
-      // 3c. Resolve per-weekday training-session overrides into ExerciseSessions.
-      // Null entries (or empty arrays) keep the global fallback for that day.
-      const perDayTrainingSession =
-        input.perDayTrainingSession?.map((daySessions) =>
-          buildTrainingSessionForDay(daySessions ?? null)
-        ) ?? undefined;
-
-      // 4. Build client info for PDF cover
+      // 4. Build client info for PDF cover.
       const planDate = new Date().toISOString().split("T")[0]!;
       const clientInfo: PdfClientInfo = {
         fullName: client.full_name,
@@ -417,50 +507,20 @@ export const planRouter = router({
         planDate,
       };
 
-      // 5. Build generation input. Engine options accumulate two optional
-      //    overrides: the training session derived from the intake schedule
-      //    (so training-day exercise EE isn't the flat 300 kcal default),
-      //    and a daily deficit/surplus from the goal-rate calculator that
-      //    shifts the per-day macro target away from pure-TDEE-as-intake.
-      const engineOptions: PlanGenerationInput["engineOptions"] = {};
-      if (trainingSession) engineOptions.trainingSession = trainingSession;
-      if (input.dailyDeficitKcal != null && input.dailyDeficitKcal !== 0) {
-        engineOptions.dailyDeficitKcal = input.dailyDeficitKcal;
-      }
-      if (perDayTrainingSession && perDayTrainingSession.some((s) => s != null)) {
-        engineOptions.perDayTrainingSession = perDayTrainingSession;
-      }
-      if (input.macroOverrides) {
-        // Strip out empty objects so the engine sees only meaningful overrides
-        const cleaned: NonNullable<typeof input.macroOverrides> = {};
-        for (const [dt, override] of Object.entries(input.macroOverrides) as Array<
-          [DayType, { proteinG?: number; fatG?: number; carbG?: number } | undefined]
-        >) {
-          if (
-            override &&
-            (override.proteinG != null || override.fatG != null || override.carbG != null)
-          ) {
-            cleaned[dt] = override;
-          }
-        }
-        if (Object.keys(cleaned).length > 0) {
-          engineOptions.macroOptions = { absoluteOverrides: cleaned };
-        }
-      }
-      const genInput: PlanGenerationInput = {
-        clientInfo,
-        snapshot,
-        mealCount: input.mealCount,
-        excludeAllergens: input.excludeAllergens as PlanGenerationInput["excludeAllergens"],
-        preferTags: input.preferTags as PlanGenerationInput["preferTags"],
-        maintenanceKcalEstimate: input.maintenanceKcalEstimate,
-        ...(Object.keys(engineOptions).length > 0 ? { engineOptions } : {}),
-      };
-
-      // 6. Run the pipeline (pure, synchronous)
-      let result;
+      // 5-7. Run the engine + derive artifacts (shared with createVersion).
+      let artifacts: PlanArtifacts;
       try {
-        result = generatePlan(genInput);
+        artifacts = buildPlanArtifacts(snapshotRecord, clientSex, clientInfo, {
+          mealCount: input.mealCount,
+          excludeAllergens: input.excludeAllergens,
+          preferTags: input.preferTags,
+          maintenanceKcalEstimate: input.maintenanceKcalEstimate,
+          dailyDeficitKcal: input.dailyDeficitKcal,
+          goalOverride: input.goalOverride,
+          weekScheduleOverride: input.weekScheduleOverride,
+          perDayTrainingSession: input.perDayTrainingSession,
+          macroOverrides: input.macroOverrides,
+        });
       } catch (err) {
         // Log the full engine error server-side; surface a safe message to the client.
         console.error("[router/plan.generate] engine error:", err);
@@ -470,34 +530,8 @@ export const planRouter = router({
         });
       }
 
-      const serialized = serializePlanResult(result);
-
-      // 7. Derive the macro payload summary for quick display in the list view
-      const uniqueDayTypes = [...new Set(snapshot.weekSchedule)];
-      const macroPayload: Record<string, unknown> = {
-        weeklyAverageKcal: result.weeklyPlan.weeklyAverageKcal,
-        weeklyAverageProteinG: result.weeklyPlan.weeklyAverageProteinG,
-        dayTypes: uniqueDayTypes,
-        energyBalance: result.energyBalance,
-        ...(input.dailyDeficitKcal != null
-          ? { dailyDeficitKcal: input.dailyDeficitKcal }
-          : {}),
-        ...(input.goalOverride ? { goalOverride: input.goalOverride } : {}),
-        ...(input.weekScheduleOverride
-          ? { weekScheduleOverride: input.weekScheduleOverride }
-          : {}),
-        ...(input.perDayTrainingSession
-          ? { perDayTrainingSessionRaw: input.perDayTrainingSession }
-          : {}),
-        ...(input.macroOverrides
-          ? { macroOverrides: input.macroOverrides }
-          : {}),
-      };
-
-      // 8. Persist plan to DB
-      // plan_bundle and macro_payload are stored in daily_targets JSONB for now
-      // (the schema already has daily_targets JSONB; we overload it to carry the
-      //  full serialized result to avoid a migration while still being queryable).
+      // 8. Persist plan to DB. plan_bundle + macro_payload live in daily_targets
+      //    JSONB (overloaded to carry the full serialized result, queryable).
       const planName = `Piano ${client.full_name} — ${planDate}`;
 
       const { data: plan, error: planError } = await ctx.supabase
@@ -509,8 +543,8 @@ export const planRouter = router({
           name: planName,
           status: "draft",
           daily_targets: {
-            macro_payload: macroPayload,
-            plan_bundle: serialized,
+            macro_payload: artifacts.macroPayload,
+            plan_bundle: artifacts.serialized,
           },
           meals_per_day: input.mealCount,
           notes: input.notes ?? null,
@@ -529,9 +563,252 @@ export const planRouter = router({
       return {
         planId: plan.id,
         planName,
-        weeklyAverageKcal: result.weeklyPlan.weeklyAverageKcal,
-        energyBalance: result.energyBalance,
+        weeklyAverageKcal: artifacts.weeklyAverageKcal,
+        energyBalance: artifacts.energyBalance,
       };
+    }),
+
+  /**
+   * Create a new VERSION of an existing plan (lifecycle-spine increment 1).
+   *
+   * Clones the source plan as a new row in the same version chain: parent_plan_id
+   * points at the chain ROOT, version_number = max(chain) + 1, and version_label
+   * follows Roberto's convention — a tweak/regeneration is a MINOR bump
+   * (v1 → v1.1), a brand-new plan is a MAJOR bump (v1.x → v2). The bundle is
+   * REGENERATED from the latest snapshot (which reflects the latest check-in's
+   * measurements) reusing the source plan's generation params; the prompting
+   * check-in is linked via feedback_check_in_id. The prior version is archived.
+   * A calorie tweak is just createVersion (kind defaults to "minor").
+   */
+  createVersion: protectedProcedure
+    .input(
+      z.object({
+        planId: z.string().uuid(),
+        changeReason: z.string().max(2000).optional(),
+        kind: z.enum(["minor", "major"]).optional().default("minor"),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      // 1. Source plan (ownership + version context).
+      const { data: src, error: srcErr } = await ctx.supabase
+        .from("plan")
+        .select(
+          "id, client_id, parent_plan_id, version_number, version_label, meals_per_day, daily_targets"
+        )
+        .eq("id", input.planId)
+        .eq("partner_id", ctx.partnerId)
+        .is("deleted_at", null)
+        .single();
+
+      if (srcErr || !src) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Piano non trovato." });
+      }
+
+      const rootId = rootPlanIdOf({ id: src.id, parent_plan_id: src.parent_plan_id });
+
+      // 2. The whole version chain (root + descendants) → next number + label.
+      const { data: chainRows } = await ctx.supabase
+        .from("plan")
+        .select("id, version_number, version_label")
+        .eq("partner_id", ctx.partnerId)
+        .or(`id.eq.${rootId},parent_plan_id.eq.${rootId}`)
+        .is("deleted_at", null);
+
+      const chain: VersionRow[] = (chainRows ?? []).map((r) => ({
+        versionNumber: (r.version_number as number | null) ?? 1,
+        versionLabel: (r.version_label as string | null) ?? null,
+      }));
+      const { versionNumber, versionLabel } = computeNextVersion(chain, input.kind);
+
+      // 3. Client + latest snapshot (reflects the latest check-in) + latest check-in.
+      const { data: client, error: clientErr } = await ctx.supabase
+        .from("client")
+        .select("id, full_name, email, phone, date_of_birth, sex")
+        .eq("id", src.client_id)
+        .eq("partner_id", ctx.partnerId)
+        .is("deleted_at", null)
+        .single();
+      if (clientErr || !client) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Cliente non trovato." });
+      }
+
+      const { data: snapshotRow, error: snapErr } = await ctx.supabase
+        .from("client_snapshot")
+        .select("*")
+        .eq("client_id", src.client_id)
+        .order("taken_at", { ascending: false })
+        .limit(1)
+        .single();
+      if (snapErr || !snapshotRow) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "Nessuna misurazione trovata per questo cliente.",
+        });
+      }
+
+      const { data: latestCheckin } = await ctx.supabase
+        .from("check_in")
+        .select("id")
+        .eq("client_id", src.client_id)
+        .eq("partner_id", ctx.partnerId)
+        .in("status", ["completed", "reviewed"])
+        // nullsFirst:false — a 'reviewed' check-in can have NULL completed_at
+        // (markReviewed sets reviewed_at, not completed_at); keep those last so
+        // the most recently completed one wins. created_at is the tiebreak.
+        .order("completed_at", { ascending: false, nullsFirst: false })
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      // 4. Recover the source plan's generation params and regenerate the bundle
+      //    against the latest snapshot.
+      const srcDt = (src.daily_targets as Record<string, unknown> | null) ?? {};
+      const mp = (srcDt.macro_payload as Record<string, unknown> | undefined) ?? {};
+      const clientSex: "male" | "female" = (client.sex as "male" | "female") ?? "male";
+      const snapshotRecord = snapshotRow as unknown as Record<string, unknown>;
+      const planDate = new Date().toISOString().split("T")[0]!;
+      const clientInfo: PdfClientInfo = {
+        fullName: client.full_name,
+        email: client.email ?? undefined,
+        phone: client.phone ?? undefined,
+        dateOfBirth: client.date_of_birth ?? undefined,
+        planDate,
+      };
+
+      let artifacts: PlanArtifacts;
+      try {
+        artifacts = buildPlanArtifacts(snapshotRecord, clientSex, clientInfo, {
+          mealCount: (src.meals_per_day as number | null) ?? 4,
+          excludeAllergens: mp.excludeAllergens as string[] | undefined,
+          preferTags: mp.preferTags as string[] | undefined,
+          maintenanceKcalEstimate:
+            (mp.maintenanceEstimate as number | undefined) ??
+            (mp.maintenanceKcalEstimate as number | undefined),
+          dailyDeficitKcal: mp.dailyDeficitKcal as number | undefined,
+          goalOverride: mp.goalOverride as Record<string, unknown> | undefined,
+          weekScheduleOverride: mp.weekScheduleOverride,
+          perDayTrainingSession: mp.perDayTrainingSessionRaw as
+            | PlanGenParams["perDayTrainingSession"],
+          macroOverrides: mp.macroOverrides as PlanGenParams["macroOverrides"],
+        });
+      } catch (err) {
+        console.error("[router/plan.createVersion] engine error:", err);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Errore nella rigenerazione del piano.",
+        });
+      }
+
+      // 5. Insert the new version row.
+      const planName = `Piano ${client.full_name} — ${planDate} (${versionLabel})`;
+      const { data: newPlan, error: insErr } = await ctx.supabase
+        .from("plan")
+        .insert({
+          client_id: src.client_id,
+          snapshot_id: snapshotRow.id,
+          partner_id: ctx.partnerId,
+          name: planName,
+          status: "draft",
+          parent_plan_id: rootId,
+          version_number: versionNumber,
+          version_label: versionLabel,
+          change_reason: input.changeReason ?? null,
+          feedback_check_in_id: latestCheckin?.id ?? null,
+          daily_targets: {
+            macro_payload: artifacts.macroPayload,
+            plan_bundle: artifacts.serialized,
+          },
+          meals_per_day: (src.meals_per_day as number | null) ?? 4,
+        })
+        .select("id")
+        .single();
+
+      if (insErr || !newPlan) {
+        console.error("[router/plan.createVersion] insert:", insErr);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Errore nel salvataggio della nuova versione.",
+        });
+      }
+
+      // 6. Archive the prior version (the source).
+      await ctx.supabase
+        .from("plan")
+        .update({ status: "archived" })
+        .eq("id", src.id)
+        .eq("partner_id", ctx.partnerId);
+
+      return {
+        planId: newPlan.id,
+        planName,
+        versionNumber,
+        versionLabel,
+        parentPlanId: rootId,
+        archivedPlanId: src.id,
+        feedbackCheckInId: latestCheckin?.id ?? null,
+        weeklyAverageKcal: artifacts.weeklyAverageKcal,
+        energyBalance: artifacts.energyBalance,
+      };
+    }),
+
+  /**
+   * List the version chain for a client (or a specific root plan), newest-first.
+   * Coach-visible (partner-scoped). Returns each version's number, label, status,
+   * change reason and the linked feedback check-in.
+   */
+  listVersions: protectedProcedure
+    .input(
+      z
+        .object({
+          clientId: z.string().uuid().optional(),
+          rootPlanId: z.string().uuid().optional(),
+        })
+        .refine((d) => d.clientId || d.rootPlanId, {
+          message: "Fornire clientId o rootPlanId.",
+        })
+    )
+    .query(async ({ ctx, input }) => {
+      let query = ctx.supabase
+        .from("plan")
+        .select(
+          "id, name, status, version_number, version_label, change_reason, parent_plan_id, feedback_check_in_id, created_at, client_id"
+        )
+        .eq("partner_id", ctx.partnerId)
+        .is("deleted_at", null)
+        .order("created_at", { ascending: false });
+
+      if (input.rootPlanId) {
+        query = query.or(
+          `id.eq.${input.rootPlanId},parent_plan_id.eq.${input.rootPlanId}`
+        );
+      } else {
+        query = query.eq("client_id", input.clientId as string);
+      }
+
+      const { data: rows, error } = await query;
+      if (error) {
+        console.error("[router/plan.listVersions]", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Errore nel caricamento delle versioni.",
+        });
+      }
+
+      const versions = (rows ?? []).map((r) => ({
+        id: r.id as string,
+        name: r.name as string,
+        status: r.status as string,
+        versionNumber: (r.version_number as number | null) ?? 1,
+        versionLabel: (r.version_label as string | null) ?? "v1",
+        changeReason: (r.change_reason as string | null) ?? null,
+        parentPlanId: (r.parent_plan_id as string | null) ?? null,
+        feedbackCheckInId: (r.feedback_check_in_id as string | null) ?? null,
+        createdAt: r.created_at as string,
+      }));
+
+      // Stable: DB returns created_at desc; sort by version_number desc keeps the
+      // chain newest-first while preserving created_at order on ties.
+      return { versions: orderVersionsNewestFirst(versions) };
     }),
 
   /**
@@ -773,7 +1050,7 @@ export const planRouter = router({
       // Verify ownership first — include client_id so we can dispatch the event
       const { data: plan } = await ctx.supabase
         .from("plan")
-        .select("id, client_id, daily_targets")
+        .select("id, client_id, daily_targets, start_date")
         .eq("id", input.id)
         .eq("partner_id", ctx.partnerId)
         .is("deleted_at", null)
@@ -823,9 +1100,13 @@ export const planRouter = router({
         }
       }
 
+      // Set start_date on activation (preserving any existing value) so the
+      // feedback-reminder cadence (≈21 days after start_date) becomes live.
+      const activationDate =
+        (plan.start_date as string | null) ?? new Date().toISOString().split("T")[0]!;
       const { error } = await ctx.supabase
         .from("plan")
-        .update({ status: "active" })
+        .update({ status: "active", start_date: activationDate })
         .eq("id", input.id)
         .eq("partner_id", ctx.partnerId);
 
