@@ -54,6 +54,22 @@ import type { NarrativeContext } from "./narrative";
 // ── Pipeline Input ──────────────────────────────────────────────────────────
 
 /** Complete input for the plan generation pipeline */
+/**
+ * #26 injury/stress adaptation — an OPT-IN, per-plan coach spec. Absent / empty
+ * fields = no effect (byte-identical to a normal plan). It only alters the
+ * ENERGY engine (TDEE/NEAT/protein), never the meal solver. Provisional default
+ * VALUES are a Roberto-calibration point (flag like the MET/RPE numbers):
+ *   - stressFactor: multiplier on the day's TDEE (recovery cost), 1 = none.
+ *   - injuryProteinBumpGPerKg: additive g/kg LBM on the protein target, 0 = none.
+ *   - reducedActivitySteps: absolute steps to use for NEAT (e.g. broken foot),
+ *     absent = use the snapshot's daily steps.
+ */
+export interface InjuryStressSpec {
+  stressFactor?: number;
+  injuryProteinBumpGPerKg?: number;
+  reducedActivitySteps?: number;
+}
+
 export interface PlanGenerationInput {
   /** Client personal info for the PDF cover */
   clientInfo: PdfClientInfo;
@@ -98,6 +114,11 @@ export interface PlanGenerationInput {
    * Opt-in; absent = free selection (unchanged). Threaded into the solver.
    */
   sourcePins?: Partial<Record<DayType, SourcePin>>;
+  /**
+   * #26 injury/stress adaptation — OPT-IN; absent = byte-identical. Folded into
+   * the engine options (TDEE stress multiplier, reduced NEAT steps, protein bump).
+   */
+  injuryStress?: InjuryStressSpec;
 }
 
 /**
@@ -272,6 +293,24 @@ function collectAssumptions(input: PlanGenerationInput): string[] {
     }
   }
 
+  // #26 injury/stress adaptation provenance.
+  const inj = input.injuryStress;
+  if (inj && (inj.stressFactor != null || inj.injuryProteinBumpGPerKg != null || inj.reducedActivitySteps != null)) {
+    const parts: string[] = [];
+    if (inj.stressFactor != null && inj.stressFactor !== 1) {
+      parts.push(`fattore stress ${inj.stressFactor}× sul TDEE`);
+    }
+    if (inj.injuryProteinBumpGPerKg != null && inj.injuryProteinBumpGPerKg !== 0) {
+      parts.push(`+${inj.injuryProteinBumpGPerKg} g/kg di proteine (recupero infortunio)`);
+    }
+    if (inj.reducedActivitySteps != null) {
+      parts.push(`passi ridotti a ${inj.reducedActivitySteps}/giorno (NEAT ridotto)`);
+    }
+    if (parts.length > 0) {
+      assumptions.push(`Adattamento infortunio/stress: ${parts.join("; ")}.`);
+    }
+  }
+
   return assumptions;
 }
 
@@ -291,7 +330,25 @@ export function generatePlan(
   const bodyComposition: BodyComposition = bodyFatResult.bodyComposition;
 
   // ── Step 2: Weekly plan (TDEE + macros + hydration) ────────────────────
-  const weeklyPlan = generateWeeklyPlan(snapshot, input.engineOptions);
+  // #26: fold the OPT-IN injury/stress spec into the engine options. Absent →
+  // engineOptions is input.engineOptions unchanged (byte-identical).
+  const inj = input.injuryStress;
+  const engineOptions: PlanOptions | undefined = inj
+    ? {
+        ...input.engineOptions,
+        ...(inj.stressFactor != null ? { stressFactor: inj.stressFactor } : {}),
+        ...(inj.reducedActivitySteps != null ? { reducedActivitySteps: inj.reducedActivitySteps } : {}),
+        ...(inj.injuryProteinBumpGPerKg != null
+          ? {
+              macroOptions: {
+                ...input.engineOptions?.macroOptions,
+                injuryProteinBumpGPerKg: inj.injuryProteinBumpGPerKg,
+              },
+            }
+          : {}),
+      }
+    : input.engineOptions;
+  const weeklyPlan = generateWeeklyPlan(snapshot, engineOptions);
 
   // ── Step 3: Meal plans per unique day type ─────────────────────────────
   const uniqueDayTypes = [

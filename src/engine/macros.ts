@@ -69,6 +69,13 @@ export interface MacroOptions {
    * going through the deficit math.
    */
   absoluteOverrides?: Partial<Record<DayType, MacroOverrideGrams>>;
+  /**
+   * #26 injury/stress — additive bump to protein g/kg LBM (on top of the
+   * day-type or overridden proteinPerKgLbm) for injury recovery. Absent / 0 =
+   * no effect (byte-identical). Only affects the FORMULA path, not an absolute
+   * per-day-type override. provisional — Roberto to calibrate.
+   */
+  injuryProteinBumpGPerKg?: number;
 }
 
 /**
@@ -91,8 +98,11 @@ export function calculateMacros(
   const multipliers = DAY_TYPE_MULTIPLIERS[dayType];
   const dayOverride = options.absoluteOverrides?.[dayType];
 
-  // Protein — absolute override wins; else formula
-  const proteinPerKgLbm = options.proteinPerKgLbm ?? multipliers.proteinPerKgLbm;
+  // Protein — absolute override wins; else formula (+ #26 injury bump on the
+  // per-kg rate; 0 = byte-identical).
+  const proteinPerKgLbm =
+    (options.proteinPerKgLbm ?? multipliers.proteinPerKgLbm) +
+    (options.injuryProteinBumpGPerKg ?? 0);
   const proteinG =
     dayOverride?.proteinG != null
       ? Math.max(0, Math.round(dayOverride.proteinG))

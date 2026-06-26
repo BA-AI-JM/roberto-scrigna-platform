@@ -59,6 +59,18 @@ export interface TdeeOptions {
   dietEmphasis?: DietEmphasis;
   /** Manual TDEE overrides per day-type */
   overrides?: TdeeOverride[];
+  /**
+   * #26 injury/stress — multiplier on the day's TOTAL TDEE (recovery cost).
+   * Absent / 1 = no effect (byte-identical). e.g. 1.1 = +10% for high stress.
+   * provisional — Roberto to calibrate.
+   */
+  stressFactor?: number;
+  /**
+   * #26 injury/stress — when set, replaces snapshot.dailySteps as the NEAT step
+   * input (a reduced-activity day, e.g. broken foot → fewer steps → lower NEAT).
+   * Absent = use snapshot.dailySteps (byte-identical). 0 is a valid value.
+   */
+  reducedActivitySteps?: number;
 }
 
 /**
@@ -74,13 +86,18 @@ export function calculateTdee(
   dayType: DayType,
   options: TdeeOptions = {}
 ): TdeeResult {
+  // #26 injury/stress levers. Absent → byte-identical: stress=1 (no-op) and
+  // NEAT steps fall back to snapshot.dailySteps. provisional — Roberto to calibrate.
+  const stressFactor = options.stressFactor ?? 1;
+  const neatSteps = options.reducedActivitySteps ?? snapshot.dailySteps;
+
   // Check for manual override first
   const override = options.overrides?.find((o) => o.dayType === dayType);
   if (override) {
     // Still calculate components for informational purposes
     const bodyFatResult = estimateBodyFat(snapshot);
     const bmr = calculateBmr(bodyFatResult);
-    const neat = calculateNeat(snapshot.dailySteps, snapshot.weightKg, snapshot.occupationalLevel);
+    const neat = calculateNeat(neatSteps, snapshot.weightKg, snapshot.occupationalLevel);
     const exercise = restDayExercise();
     const tef = calculateTef(bmr.bmrKcal, options.dietEmphasis);
 
@@ -89,7 +106,7 @@ export function calculateTdee(
       neat,
       tef,
       exercise,
-      totalTdeeKcal: override.tdeeKcal,
+      totalTdeeKcal: stressFactor === 1 ? override.tdeeKcal : Math.round(override.tdeeKcal * stressFactor),
       dayType,
     };
   }
@@ -98,9 +115,9 @@ export function calculateTdee(
   const bodyFatResult = estimateBodyFat(snapshot);
   const bmr = calculateBmr(bodyFatResult);
 
-  // 2. NEAT
+  // 2. NEAT (neatSteps = reducedActivitySteps when set, else snapshot.dailySteps)
   const neat = calculateNeat(
-    snapshot.dailySteps,
+    neatSteps,
     snapshot.weightKg,
     snapshot.occupationalLevel
   );
@@ -161,8 +178,10 @@ export function calculateTdee(
   const subtotal = bmr.bmrKcal + neat.totalNeatKcal + exercise.exerciseKcal;
   const tef = calculateTef(bmr.bmrKcal, options.dietEmphasis);
 
-  // 5. Total
-  const totalTdeeKcal = subtotal + tef.tefKcal;
+  // 5. Total (× stressFactor; stress=1 is the exact original expression → byte-identical)
+  const rawTotalTdeeKcal = subtotal + tef.tefKcal;
+  const totalTdeeKcal =
+    stressFactor === 1 ? rawTotalTdeeKcal : Math.round(rawTotalTdeeKcal * stressFactor);
 
   return {
     bmr,
