@@ -32,6 +32,7 @@ import { foodCatalogue } from "../../engine/meal-plan";
 import {
   recomputeSwappedIngredient,
   macrosFromIngredients,
+  clampAdjustedGrams,
 } from "../../engine/meal-plan";
 import {
   buildTrainingSessionFromIntake,
@@ -1237,6 +1238,16 @@ export const planRouter = router({
     .input(z.object({
       planId: z.string().uuid(),
       dayType: z.string(),
+      /**
+       * #21 adjustment spec (OPTIONAL, additive). Absent / "target" =
+       * unchanged behaviour: rescale the whole day to its calorie target
+       * (scale = targetKcal/actualKcal). "relative" = bump every ingredient by
+       * (1 + scalePct/100) — directional/graduated, allowed regardless of
+       * tolerance — with the engine's realism rails applied per ingredient.
+       */
+      mode: z.enum(["target", "relative"]).optional(),
+      /** Relative bump percentage, e.g. +10, +25, −10. Required when mode = "relative". */
+      scalePct: z.number().min(-50).max(100).optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       const { data: plan } = await ctx.supabase
@@ -1296,9 +1307,17 @@ export const planRouter = router({
         throw new TRPCError({ code: "BAD_REQUEST", message: "Calorie attuali non calcolabili." });
       }
 
-      const scale = targetKcal / actualKcal;
       const r1 = (n: number) => Math.round(n * 10) / 10;
 
+      // #21: resolve the adjustment mode. "target" (default) is the original
+      // rescale-to-calorie-target; "relative" is a directional ±% bump.
+      const mode = input.mode ?? "target";
+      if (mode === "relative" && input.scalePct == null) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "scalePct richiesto per la modalità relativa." });
+      }
+
+      // ── "target" mode: EXACT original behaviour (byte-identical) ──────────────
+      const scale = targetKcal / actualKcal;
       const scaleMeal = (m: SelectedMeal | undefined): SelectedMeal | undefined => {
         if (!m) return m;
         const am = m.actualMacros;
@@ -1321,10 +1340,41 @@ export const planRouter = router({
         };
       };
 
+      // ── "relative" mode: bump every ingredient by (1 + scalePct/100), clamp to
+      // the engine's realism rails, and recompute each meal's macros FROM the
+      // clamped grams (so a capped bump reports honest macros). ─────────────────
+      const factor = 1 + (input.scalePct ?? 0) / 100;
+      const scaleMealRelative = (m: SelectedMeal | undefined): SelectedMeal | undefined => {
+        if (!m) return m;
+        const newIngs = m.scaledIngredients?.map((ing) => ({
+          ...ing,
+          grams: ing.foodId
+            ? clampAdjustedGrams(ing.foodId, ing.grams * factor)
+            : Math.max(1, roundGrams(ing.grams * factor)),
+        }));
+        let am = m.actualMacros;
+        if (newIngs && newIngs.length > 0 && newIngs.every((i) => i.foodId)) {
+          const mm = macrosFromIngredients(
+            newIngs.map((i) => ({ foodId: i.foodId!, name: i.name, grams: i.grams }))
+          );
+          am = { kcal: mm.kcal, proteinG: mm.proteinG, fatG: mm.fatG, carbsG: mm.carbsG };
+        } else if (am) {
+          // Legacy bundle without foodIds → linear fallback.
+          am = {
+            kcal: Math.round((am.kcal ?? 0) * factor),
+            proteinG: r1((am.proteinG ?? 0) * factor),
+            fatG: r1((am.fatG ?? 0) * factor),
+            carbsG: r1((am.carbsG ?? 0) * factor),
+          };
+        }
+        return { ...m, scaledIngredients: newIngs, actualMacros: am };
+      };
+
+      const transform = mode === "relative" ? scaleMealRelative : scaleMeal;
       const adjustedSlots: Slot[] = slots.map((slot) => ({
         ...slot,
-        primary: scaleMeal(slot.primary),
-        substitutions: slot.substitutions?.map((sub) => scaleMeal(sub)) as SelectedMeal[] | undefined,
+        primary: transform(slot.primary),
+        substitutions: slot.substitutions?.map((sub) => transform(sub)) as SelectedMeal[] | undefined,
       }));
 
       // Recompute day totals from the scaled primaries.
@@ -1405,9 +1455,10 @@ export const planRouter = router({
 
       return {
         success: true,
+        mode,
         previousKcal: Math.round(actualKcal),
         newKcal: newActual.kcal,
-        scaleFactor: scale,
+        scaleFactor: mode === "relative" ? factor : scale,
         withinTolerance,
       };
     }),

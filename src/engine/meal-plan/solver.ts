@@ -509,6 +509,28 @@ export function recomputeSwappedIngredient(
   return { foodId: newFoodId, name: FOOD_MAP[newFoodId]!.v3 ?? newFoodId, grams };
 }
 
+// ── #21 portion adjust (relative bumps) ──────────────────────────────────────
+//
+// Apply the engine's realism rails to a free-form adjusted gram amount (e.g. a
+// coach +10%/−10% portion bump). There is no template base here, so only the
+// per-category/per-food ABSOLUTE ceiling + the 1 g floor bind (the relative
+// ×0.4…×2.5 band needs a template base and is N/A for a directional nudge).
+// Whole eggs snap to 60 g units so a bump never yields a fractional egg.
+
+/**
+ * Clamp+round an adjusted ingredient gram amount to the engine's realism rails:
+ * whole eggs → nearest 60 g unit (≥1 unit); else round + clamp into
+ * [1 g, per-category/per-food cap]. Pure; mirrors the bounds assembleMeal uses.
+ */
+export function clampAdjustedGrams(foodId: string, grams: number): number {
+  if (foodId === WHOLE_EGG_ID) {
+    const units = Math.max(1, Math.round(grams / EGG_UNIT_G));
+    return units * EGG_UNIT_G;
+  }
+  const cap = absMaxFor(foodId, classifyFood(foodId));
+  return Math.max(1, roundGrams(clamp(grams, MIN_FLOOR_G, cap)));
+}
+
 /**
  * Size removable carb/fibre fillers for one meal, JOINTLY with the rest of the
  * solve. Each filler may consume ONLY the slot's leftover kcal headroom
