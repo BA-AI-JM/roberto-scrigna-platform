@@ -67,3 +67,5 @@ export {
   macrosFromIngredients,
 } from "./solver";
 export type { SwappedIngredient } from "./solver";
+// #21 portion adjust — realism clamp for relative portion bumps.
+export { clampAdjustedGrams } from "./solver";
