@@ -12,6 +12,7 @@ import { redirect } from "next/navigation";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { createSupabaseServiceRole } from "@/lib/supabase/service";
 import { Toaster } from "@/components/ui/sonner";
+import PortalBottomNav from "@/components/portal/portal-bottom-nav";
 
 export default async function PortalProtectedLayout({
   children,
@@ -42,7 +43,9 @@ export default async function PortalProtectedLayout({
 
   return (
     <>
-      {children}
+      {/* Bottom-nav clearance (the fixed nav is ~64px + safe-area). */}
+      <div style={{ paddingBottom: "80px" }}>{children}</div>
+      <PortalBottomNav />
       <Toaster position="top-center" />
     </>
   );

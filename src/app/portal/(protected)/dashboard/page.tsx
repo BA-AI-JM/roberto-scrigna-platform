@@ -1,57 +1,43 @@
 /**
- * Portal Dashboard — client-facing overview page.
+ * Portal home — mobile-first patient dashboard (#27 Stage 1).
  *
- * Sections:
- * - Header: client name greeting + last login
- * - Active Plan: plan name/status + today's meals with ingredients
- * - Check-in: next check-in / history
- * - Quick Stats: current weight, days on plan, adherence
+ * Single-column, at-a-glance composition over the EXISTING portal queries:
+ * - Greeting + coach
+ * - Goals/progress strip (current vs starting weight + last check-in)
+ * - Compact active-plan card (links to the "Piano" tab — full plan, no coach math)
+ * - Check-in status
+ * - Log weight (shadcn)
+ * - Weight history + trend charts + weekly avg
+ * - Plan version history (Storico piani)
+ * - Training log shortcut
+ * The bottom-tab nav lives in the (protected) layout.
  */
 
 "use client";
 
 import Link from "next/link";
 import { trpc } from "@/lib/trpc/client";
-import { formatIngredientQuantity } from "@/lib/ingredient-display";
 import { TrendChart, totalDataPoints, type TrendSeries } from "@/components/charts/TrendChart";
 import { LogWeightCard } from "@/components/portal/log-weight-card";
 import { PlanHistorySection } from "@/components/portal/plan-history-section";
+import { PlanSummaryCard, type ActivePlan } from "@/components/portal/active-plan-view";
+import { GoalsStrip, computeProgressSummary } from "@/components/portal/progress-summary";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function formatDate(iso: string | null | undefined): string {
   if (!iso) return "—";
-  return new Date(iso).toLocaleDateString("it-IT", {
-    day: "2-digit",
-    month: "long",
-    year: "numeric",
-  });
+  return new Date(iso).toLocaleDateString("it-IT", { day: "2-digit", month: "long", year: "numeric" });
 }
-
 function formatDateShort(iso: string | null | undefined): string {
   if (!iso) return "—";
-  return new Date(iso).toLocaleDateString("it-IT", {
-    day: "2-digit",
-    month: "short",
-  });
+  return new Date(iso).toLocaleDateString("it-IT", { day: "2-digit", month: "short" });
 }
-
 function daysBetween(from: string | null | undefined, to: string): number {
   if (!from) return 0;
-  const msPerDay = 86400000;
-  return Math.max(0, Math.floor((new Date(to).getTime() - new Date(from).getTime()) / msPerDay));
+  return Math.max(0, Math.floor((new Date(to).getTime() - new Date(from).getTime()) / 86400000));
 }
-
 const todayISO = new Date().toISOString().split("T")[0]!;
-
-const MEAL_LABELS: Record<string, string> = {
-  breakfast: "Colazione",
-  lunch: "Pranzo",
-  dinner: "Cena",
-  snack: "Spuntino",
-  pre_workout: "Pre-allenamento",
-  post_workout: "Spuntino proteico",
-};
 
 // ── Shared Styles ─────────────────────────────────────────────────────────────
 
@@ -59,395 +45,13 @@ const cardStyle = {
   background: "#ffffff",
   border: "1px solid #e2e8f0",
   borderRadius: "14px",
-  padding: "24px",
-  marginBottom: "24px",
+  padding: "20px",
+  marginBottom: "16px",
 } as const;
-
-const sectionTitle = {
-  fontSize: "16px",
-  fontWeight: 700 as const,
-  color: "#1a1a2e",
-  marginBottom: "18px",
-  marginTop: 0,
-};
-
-const pillStyle = (color: string, bg: string) => ({
-  display: "inline-block",
-  padding: "3px 10px",
-  borderRadius: "20px",
-  fontSize: "12px",
-  fontWeight: 600 as const,
-  color,
-  backgroundColor: bg,
-});
-
-// ── Skeleton ──────────────────────────────────────────────────────────────────
+const sectionTitle = { fontSize: "16px", fontWeight: 700 as const, color: "#1a1a2e", marginBottom: "18px", marginTop: 0 };
 
 function Skeleton({ width, height }: { width?: string; height?: string }) {
-  return (
-    <div
-      style={{
-        width: width ?? "100%",
-        height: height ?? "18px",
-        backgroundColor: "#e5e7eb",
-        borderRadius: "6px",
-      }}
-    />
-  );
-}
-
-// ── Active Plan Section ───────────────────────────────────────────────────────
-
-type MealSlot = {
-  slot: string;
-  primary: {
-    template: { name: string };
-    scaledIngredients: Array<{ name: string; grams: number; foodId?: string }>;
-    actualMacros: { kcal: number; proteinG: number; carbsG: number; fatG: number };
-  };
-};
-
-type DayTypeMealPlan = {
-  dayType: string;
-  label: string;
-  mealPlan?: {
-    withinTolerance: boolean;
-    slots: MealSlot[];
-  };
-};
-
-type ActivePlan = {
-  id: string;
-  name: string;
-  status: string;
-  start_date?: string | null;
-  end_date?: string | null;
-  daily_targets?: Record<string, unknown> | null;
-  meals_per_day?: number | null;
-  meal_distribution?: unknown | null;
-  mealPlan?: DayTypeMealPlan[] | null;
-  notes?: string | null;
-  // #23: supplements are coach-curated in the plan bundle (SupplementEntry shape),
-  // no longer the write-dead supplement_protocol relation.
-  supplements?: Array<{
-    name: string;
-    dosage: string;
-    timing: string;
-    rationale?: string;
-    notes?: string;
-    frequency?: string;
-    libraryId?: string;
-    isCustom?: boolean;
-  }> | null;
-};
-
-function ActivePlanSection({ plan, loading }: { plan: ActivePlan | null | undefined; loading: boolean }) {
-  if (loading) {
-    return (
-      <div style={cardStyle}>
-        <p style={sectionTitle}>Piano Attivo</p>
-        <Skeleton width="55%" height="22px" />
-        <div style={{ marginTop: "12px" }}>
-          <Skeleton width="35%" height="14px" />
-        </div>
-        <div style={{ marginTop: "20px", display: "flex", flexDirection: "column" as const, gap: "12px" }}>
-          <Skeleton height="60px" />
-          <Skeleton height="60px" />
-        </div>
-      </div>
-    );
-  }
-
-  if (!plan) {
-    return (
-      <div style={cardStyle}>
-        <p style={sectionTitle}>Piano Attivo</p>
-        <div
-          style={{
-            padding: "28px",
-            background: "#f8fafc",
-            borderRadius: "10px",
-            textAlign: "center" as const,
-            border: "1px dashed #cbd5e1",
-          }}
-        >
-          <div style={{ fontSize: "32px", marginBottom: "12px" }}>📋</div>
-          <p style={{ fontSize: "15px", fontWeight: 600, color: "#374151", margin: "0 0 6px" }}>
-            Nessun piano attivo
-          </p>
-          <p style={{ fontSize: "13px", color: "#9ca3af", margin: 0 }}>
-            Il tuo nutrizionista sta preparando il tuo piano.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  const targets = plan.daily_targets as Record<string, number | null | undefined> | null;
-  const daysOnPlan = daysBetween(plan.start_date, todayISO);
-
-  return (
-    <div style={cardStyle}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "18px" }}>
-        <p style={{ ...sectionTitle, marginBottom: 0 }}>Piano Attivo</p>
-        <span style={pillStyle("#15803d", "#f0fdf4")}>In corso</span>
-      </div>
-
-      {/* Plan meta */}
-      <div style={{ marginBottom: "20px" }}>
-        <h3 style={{ fontSize: "20px", fontWeight: 700, color: "#1a1a2e", margin: "0 0 8px" }}>
-          {plan.name}
-        </h3>
-        <div style={{ display: "flex", gap: "20px", flexWrap: "wrap" as const }}>
-          {plan.start_date && (
-            <span style={{ fontSize: "13px", color: "#6b7280" }}>
-              Inizio: <strong style={{ color: "#374151" }}>{formatDate(plan.start_date)}</strong>
-            </span>
-          )}
-          {plan.end_date && (
-            <span style={{ fontSize: "13px", color: "#6b7280" }}>
-              Fine: <strong style={{ color: "#374151" }}>{formatDate(plan.end_date)}</strong>
-            </span>
-          )}
-          <span style={{ fontSize: "13px", color: "#6b7280" }}>
-            Giorni seguiti: <strong style={{ color: "#1a1a2e" }}>{daysOnPlan}</strong>
-          </span>
-        </div>
-      </div>
-
-      {/* Daily macro targets */}
-      {targets != null ? (
-        <div
-          style={{
-            display: "flex",
-            gap: "12px",
-            flexWrap: "wrap" as const,
-            padding: "16px",
-            background: "#f8fafc",
-            borderRadius: "10px",
-            marginBottom: "20px",
-          }}
-        >
-          {[
-            { label: "Kcal", key: "kcal", unit: "" },
-            { label: "Proteine", key: "protein_g", unit: "g" },
-            { label: "Carboidrati", key: "carbs_g", unit: "g" },
-            { label: "Grassi", key: "fat_g", unit: "g" },
-          ].map(({ label, key, unit }) =>
-            targets[key] != null ? (
-              <div
-                key={key}
-                style={{
-                  flex: "1 1 80px",
-                  minWidth: "80px",
-                  textAlign: "center" as const,
-                }}
-              >
-                <div style={{ fontSize: "20px", fontWeight: 700, color: "#1a1a2e" }}>
-                  {String(targets[key] ?? "")}{unit}
-                </div>
-                <div style={{ fontSize: "11px", color: "#9ca3af", marginTop: "2px" }}>{label}</div>
-              </div>
-            ) : null
-          )}
-        </div>
-      ) : null}
-
-      {/* Meal plan — show meals with scaled ingredients from plan bundle */}
-      {Array.isArray(plan.mealPlan) && plan.mealPlan.length > 0 && (
-        <MealPlanSection dayTypePlans={plan.mealPlan} />
-      )}
-
-      {/* Supplements (#23: from the plan bundle) */}
-      {Array.isArray(plan.supplements) && plan.supplements.length > 0 && (
-        <SupplementSection supplements={plan.supplements} />
-      )}
-
-      {plan.notes && (
-        <div
-          style={{
-            marginTop: "16px",
-            padding: "14px",
-            background: "#fffbeb",
-            borderLeft: "4px solid #f59e0b",
-            borderRadius: "6px",
-            fontSize: "13px",
-            color: "#92400e",
-          }}
-        >
-          <strong>Note del coach:</strong> {plan.notes}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function MealPlanSection({ dayTypePlans }: { dayTypePlans: DayTypeMealPlan[] }) {
-  const plansWithMeals = dayTypePlans.filter((p) => p.mealPlan && p.mealPlan.slots.length > 0);
-
-  if (plansWithMeals.length === 0) return null;
-
-  return (
-    <div>
-      <p style={{ fontSize: "14px", fontWeight: 700, color: "#374151", marginBottom: "12px" }}>
-        I tuoi pasti
-      </p>
-      {plansWithMeals.map((dayPlan) => (
-        <div key={dayPlan.dayType} style={{ marginBottom: "20px" }}>
-          {/* Day type label */}
-          <div
-            style={{
-              fontSize: "13px",
-              fontWeight: 600,
-              color: "#6b7280",
-              marginBottom: "8px",
-              textTransform: "uppercase" as const,
-              letterSpacing: "0.05em",
-            }}
-          >
-            {dayPlan.label}
-          </div>
-
-          <div style={{ display: "flex", flexDirection: "column" as const, gap: "10px" }}>
-            {dayPlan.mealPlan!.slots.map((slot) => {
-              const macros = slot.primary.actualMacros;
-              const ingredients = slot.primary.scaledIngredients;
-
-              return (
-                <div
-                  key={slot.slot}
-                  style={{
-                    border: "1px solid #e2e8f0",
-                    borderRadius: "10px",
-                    overflow: "hidden",
-                  }}
-                >
-                  {/* Slot header */}
-                  <div
-                    style={{
-                      padding: "12px 16px",
-                      background: "#f8fafc",
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                    }}
-                  >
-                    <span style={{ fontSize: "14px", fontWeight: 700, color: "#1a1a2e" }}>
-                      {MEAL_LABELS[slot.slot] ?? slot.slot.replace(/_/g, " ")}
-                    </span>
-                    <div style={{ display: "flex", gap: "10px" }}>
-                      <span style={{ fontSize: "12px", color: "#6b7280" }}>{Math.round(macros.kcal)} kcal</span>
-                      <span style={{ fontSize: "12px", color: "#3b82f6" }}>P {Math.round(macros.proteinG)}g</span>
-                      <span style={{ fontSize: "12px", color: "#f59e0b" }}>C {Math.round(macros.carbsG)}g</span>
-                      <span style={{ fontSize: "12px", color: "#ef4444" }}>G {Math.round(macros.fatG)}g</span>
-                    </div>
-                  </div>
-
-                  {/* Meal template name */}
-                  <div
-                    style={{
-                      padding: "10px 16px 4px",
-                      fontSize: "13px",
-                      fontWeight: 600,
-                      color: "#374151",
-                    }}
-                  >
-                    {slot.primary.template.name}
-                  </div>
-
-                  {/* Scaled ingredients */}
-                  {ingredients.length > 0 ? (
-                    <div style={{ padding: "4px 16px 12px" }}>
-                      {ingredients.map((ing, idx) => (
-                        <div
-                          key={idx}
-                          style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            padding: "5px 0",
-                            borderBottom: idx < ingredients.length - 1 ? "1px solid #f1f5f9" : "none",
-                          }}
-                        >
-                          <span style={{ fontSize: "13px", color: "#374151" }}>{ing.name}</span>
-                          <span style={{ fontSize: "13px", fontWeight: 600, color: "#1a1a2e", whiteSpace: "nowrap" as const }}>
-                            {formatIngredientQuantity(ing.foodId, ing.grams)}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div style={{ padding: "8px 16px 12px" }}>
-                      <p style={{ fontSize: "13px", color: "#9ca3af", margin: 0 }}>
-                        Nessun ingrediente specificato.
-                      </p>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function SupplementSection({
-  supplements,
-}: {
-  supplements: Array<{
-    name: string;
-    dosage: string;
-    timing: string;
-    rationale?: string;
-    notes?: string;
-    frequency?: string;
-    libraryId?: string;
-    isCustom?: boolean;
-  }>;
-}) {
-  if (supplements.length === 0) return null;
-
-  return (
-    <div style={{ marginTop: "20px" }}>
-      <p style={{ fontSize: "14px", fontWeight: 700, color: "#374151", marginBottom: "12px" }}>
-        Integratori
-      </p>
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
-          gap: "10px",
-        }}
-      >
-        {supplements.map((item, i) => (
-          <div
-            key={`${item.libraryId ?? item.name}-${i}`}
-            style={{
-              padding: "12px 14px",
-              background: "#f0f9ff",
-              border: "1px solid #bae6fd",
-              borderRadius: "8px",
-            }}
-          >
-            <div style={{ fontSize: "13px", fontWeight: 700, color: "#0c4a6e", marginBottom: "4px" }}>
-              {item.name}
-            </div>
-            {(item.dosage || item.timing) && (
-              <div style={{ fontSize: "12px", color: "#0369a1" }}>
-                {[item.dosage, item.timing].filter(Boolean).join(" · ")}
-              </div>
-            )}
-            {(item.frequency || item.notes) && (
-              <div style={{ fontSize: "11px", color: "#7dd3fc", marginTop: "2px" }}>
-                {[item.frequency, item.notes].filter(Boolean).join(" · ")}
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
+  return <div style={{ width: width ?? "100%", height: height ?? "18px", backgroundColor: "#e5e7eb", borderRadius: "6px" }} />;
 }
 
 // ── Check-In Section ──────────────────────────────────────────────────────────
@@ -479,8 +83,6 @@ function CheckInSection({ data, loading }: { data: CheckInStatus | undefined; lo
   return (
     <div style={cardStyle}>
       <p style={sectionTitle}>Check-in</p>
-
-      {/* Pending token — check-in available */}
       {hasPending ? (
         <div
           style={{
@@ -492,14 +94,12 @@ function CheckInSection({ data, loading }: { data: CheckInStatus | undefined; lo
             justifyContent: "space-between",
             alignItems: "center",
             gap: "16px",
-            flexWrap: "wrap" as const,
+            flexWrap: "wrap",
             marginBottom: latest ? "16px" : 0,
           }}
         >
           <div>
-            <p style={{ fontSize: "15px", fontWeight: 700, color: "#92400e", margin: "0 0 4px" }}>
-              Check-in disponibile
-            </p>
+            <p style={{ fontSize: "15px", fontWeight: 700, color: "#92400e", margin: "0 0 4px" }}>Check-in disponibile</p>
             <p style={{ fontSize: "13px", color: "#b45309", margin: 0 }}>
               Il tuo coach ha inviato un check-in settimanale. Completalo ora!
             </p>
@@ -514,7 +114,7 @@ function CheckInSection({ data, loading }: { data: CheckInStatus | undefined; lo
               textDecoration: "none",
               fontSize: "14px",
               fontWeight: 700,
-              whiteSpace: "nowrap" as const,
+              whiteSpace: "nowrap",
             }}
           >
             Inizia check-in
@@ -535,58 +135,27 @@ function CheckInSection({ data, loading }: { data: CheckInStatus | undefined; lo
         </div>
       )}
 
-      {/* Latest check-in summary */}
       {latest && (
         <div>
           <p style={{ fontSize: "13px", fontWeight: 600, color: "#6b7280", marginBottom: "10px" }}>
             Ultimo check-in — {formatDate(latest.check_in_date)}
           </p>
-          <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" as const }}>
+          <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
             {latest.weight_kg != null && (
-              <div
-                style={{
-                  flex: "1 1 100px",
-                  padding: "12px 16px",
-                  background: "#f8fafc",
-                  borderRadius: "8px",
-                  textAlign: "center" as const,
-                }}
-              >
-                <div style={{ fontSize: "22px", fontWeight: 700, color: "#1a1a2e" }}>
-                  {latest.weight_kg}
-                </div>
+              <div style={{ flex: "1 1 100px", padding: "12px 16px", background: "#f8fafc", borderRadius: "8px", textAlign: "center" }}>
+                <div style={{ fontSize: "22px", fontWeight: 700, color: "#1a1a2e" }}>{latest.weight_kg}</div>
                 <div style={{ fontSize: "11px", color: "#9ca3af" }}>Peso (kg)</div>
               </div>
             )}
             {latest.nutrition_adherence != null && (
-              <div
-                style={{
-                  flex: "1 1 100px",
-                  padding: "12px 16px",
-                  background: "#f8fafc",
-                  borderRadius: "8px",
-                  textAlign: "center" as const,
-                }}
-              >
-                <div style={{ fontSize: "22px", fontWeight: 700, color: "#22c55e" }}>
-                  {latest.nutrition_adherence}%
-                </div>
+              <div style={{ flex: "1 1 100px", padding: "12px 16px", background: "#f8fafc", borderRadius: "8px", textAlign: "center" }}>
+                <div style={{ fontSize: "22px", fontWeight: 700, color: "#22c55e" }}>{latest.nutrition_adherence}%</div>
                 <div style={{ fontSize: "11px", color: "#9ca3af" }}>Aderenza nutrizionale</div>
               </div>
             )}
             {latest.training_adherence != null && (
-              <div
-                style={{
-                  flex: "1 1 100px",
-                  padding: "12px 16px",
-                  background: "#f8fafc",
-                  borderRadius: "8px",
-                  textAlign: "center" as const,
-                }}
-              >
-                <div style={{ fontSize: "22px", fontWeight: 700, color: "#3b82f6" }}>
-                  {latest.training_adherence}%
-                </div>
+              <div style={{ flex: "1 1 100px", padding: "12px 16px", background: "#f8fafc", borderRadius: "8px", textAlign: "center" }}>
+                <div style={{ fontSize: "22px", fontWeight: 700, color: "#3b82f6" }}>{latest.training_adherence}%</div>
                 <div style={{ fontSize: "11px", color: "#9ca3af" }}>Aderenza allenamento</div>
               </div>
             )}
@@ -621,7 +190,7 @@ function WeightHistorySection({ data, planStartDate, loading, snapshots }: {
     return (
       <div style={cardStyle}>
         <p style={sectionTitle}>Storico Peso</p>
-        <div style={{ display: "flex", flexDirection: "column" as const, gap: "8px" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
           {[1, 2, 3].map((i) => <Skeleton key={i} height="40px" />)}
         </div>
       </div>
@@ -636,52 +205,29 @@ function WeightHistorySection({ data, planStartDate, loading, snapshots }: {
     return (
       <div style={cardStyle}>
         <p style={sectionTitle}>Storico Peso</p>
-        <p style={{ fontSize: "13px", color: "#9ca3af" }}>
-          Nessun dato di peso registrato ancora.
-        </p>
+        <p style={{ fontSize: "13px", color: "#9ca3af" }}>Nessun dato di peso registrato ancora.</p>
       </div>
     );
   }
 
   const daysOnPlan = daysBetween(planStartDate, todayISO);
-
-  // Compute avg adherence from last 5 check-ins
-  const adherenceValues = recent
-    .map((e) => e.nutrition_adherence)
-    .filter((v): v is number => v != null);
+  const adherenceValues = recent.map((e) => e.nutrition_adherence).filter((v): v is number => v != null);
   const avgAdherence =
-    adherenceValues.length > 0
-      ? Math.round(adherenceValues.reduce((a, b) => a + b, 0) / adherenceValues.length)
-      : null;
-
+    adherenceValues.length > 0 ? Math.round(adherenceValues.reduce((a, b) => a + b, 0) / adherenceValues.length) : null;
   const latest = recent[recent.length - 1]!;
 
   return (
     <div style={cardStyle}>
       <p style={sectionTitle}>Statistiche Rapide</p>
 
-      {/* Quick stat row */}
-      <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" as const, marginBottom: "24px" }}>
-        {latest.weight_kg != null && (
-          <StatPill label="Peso attuale" value={`${latest.weight_kg} kg`} accent />
-        )}
-        {daysOnPlan > 0 && (
-          <StatPill label="Giorni sul piano" value={String(daysOnPlan)} />
-        )}
-        {avgAdherence != null && (
-          <StatPill label="Aderenza media" value={`${avgAdherence}%`} />
-        )}
+      <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", marginBottom: "24px" }}>
+        {latest.weight_kg != null && <StatPill label="Peso attuale" value={`${latest.weight_kg} kg`} accent />}
+        {daysOnPlan > 0 && <StatPill label="Giorni sul piano" value={String(daysOnPlan)} />}
+        {avgAdherence != null && <StatPill label="Aderenza media" value={`${avgAdherence}%`} />}
       </div>
 
-      {/* Interactive trend charts (weight + adherence) — render with ≥2 points */}
       {(() => {
-        // Merge check-in weights with client-logged snapshot weights (the
-        // "Registra peso" widget writes client_snapshot), deduped by day so a
-        // freshly-logged weight appears in this chart.
-        const checkinWeightPts = withWeight.map((e) => ({
-          date: e.check_in_date,
-          value: e.weight_kg as number,
-        }));
+        const checkinWeightPts = withWeight.map((e) => ({ date: e.check_in_date, value: e.weight_kg as number }));
         const snapshotWeightPts = (snapshots ?? [])
           .filter((s) => s.weight_kg != null && s.taken_at != null)
           .map((s) => ({ date: s.taken_at as string, value: s.weight_kg as number }));
@@ -691,58 +237,28 @@ function WeightHistorySection({ data, planStartDate, loading, snapshots }: {
           if (Number.isNaN(t)) continue;
           const day = p.date.slice(0, 10);
           const existing = weightByDay.get(day);
-          if (!existing || t >= existing.t) {
-            weightByDay.set(day, { date: p.date, value: p.value, t });
-          }
+          if (!existing || t >= existing.t) weightByDay.set(day, { date: p.date, value: p.value, t });
         }
-        const weightPoints = [...weightByDay.values()]
-          .sort((a, b) => a.t - b.t)
-          .map(({ date, value }) => ({ date, value }));
+        const weightPoints = [...weightByDay.values()].sort((a, b) => a.t - b.t).map(({ date, value }) => ({ date, value }));
 
         const weightSeries: TrendSeries[] = [
-          {
-            key: "weight",
-            label: "Peso",
-            color: "#1a1a2e",
-            unit: " kg",
-            points: weightPoints,
-          },
+          { key: "weight", label: "Peso", color: "#1a1a2e", unit: " kg", points: weightPoints },
         ];
         const adherenceSeries: TrendSeries[] = [
-          {
-            key: "nutrition",
-            label: "Aderenza dieta",
-            color: "#16a34a",
-            unit: "%",
-            points: trend
-              .filter((e) => e.nutrition_adherence != null)
-              .map((e) => ({ date: e.check_in_date, value: e.nutrition_adherence as number })),
-          },
-          {
-            key: "training",
-            label: "Aderenza allenamento",
-            color: "#3b82f6",
-            unit: "%",
-            points: trend
-              .filter((e) => e.training_adherence != null)
-              .map((e) => ({ date: e.check_in_date, value: e.training_adherence as number })),
-          },
+          { key: "nutrition", label: "Aderenza dieta", color: "#16a34a", unit: "%", points: trend.filter((e) => e.nutrition_adherence != null).map((e) => ({ date: e.check_in_date, value: e.nutrition_adherence as number })) },
+          { key: "training", label: "Aderenza allenamento", color: "#3b82f6", unit: "%", points: trend.filter((e) => e.training_adherence != null).map((e) => ({ date: e.check_in_date, value: e.training_adherence as number })) },
         ];
         return (
           <>
             {totalDataPoints(weightSeries) >= 2 && (
               <div style={{ marginBottom: "16px" }}>
-                <p style={{ fontSize: "13px", fontWeight: 600, color: "#6b7280", marginBottom: "2px" }}>
-                  Andamento peso
-                </p>
+                <p style={{ fontSize: "13px", fontWeight: 600, color: "#6b7280", marginBottom: "2px" }}>Andamento peso</p>
                 <TrendChart series={weightSeries} height={200} />
               </div>
             )}
             {totalDataPoints(adherenceSeries) >= 2 && (
               <div style={{ marginBottom: "16px" }}>
-                <p style={{ fontSize: "13px", fontWeight: 600, color: "#6b7280", marginBottom: "2px" }}>
-                  Andamento aderenza
-                </p>
+                <p style={{ fontSize: "13px", fontWeight: 600, color: "#6b7280", marginBottom: "2px" }}>Andamento aderenza</p>
                 <TrendChart series={adherenceSeries} height={200} />
               </div>
             )}
@@ -750,52 +266,22 @@ function WeightHistorySection({ data, planStartDate, loading, snapshots }: {
         );
       })()}
 
-      {/* Mini weight history table */}
-      <p style={{ fontSize: "13px", fontWeight: 600, color: "#6b7280", marginBottom: "10px" }}>
-        Ultime rilevazioni peso
-      </p>
-      <div style={{ display: "flex", flexDirection: "column" as const, gap: "6px" }}>
+      <p style={{ fontSize: "13px", fontWeight: 600, color: "#6b7280", marginBottom: "10px" }}>Ultime rilevazioni peso</p>
+      <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
         {recent
           .slice()
           .reverse()
           .map((entry, idx) => {
             const prev = recent.slice().reverse()[idx + 1];
-            const delta =
-              prev?.weight_kg != null && entry.weight_kg != null
-                ? entry.weight_kg - prev.weight_kg
-                : null;
-            const deltaStr =
-              delta != null
-                ? delta > 0
-                  ? `+${delta.toFixed(1)} kg`
-                  : `${delta.toFixed(1)} kg`
-                : null;
+            const delta = prev?.weight_kg != null && entry.weight_kg != null ? entry.weight_kg - prev.weight_kg : null;
+            const deltaStr = delta != null ? (delta > 0 ? `+${delta.toFixed(1)} kg` : `${delta.toFixed(1)} kg`) : null;
             const deltaColor = delta != null ? (delta > 0 ? "#ef4444" : "#22c55e") : "#9ca3af";
-
             return (
-              <div
-                key={entry.check_in_date}
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  padding: "8px 12px",
-                  background: "#f8fafc",
-                  borderRadius: "8px",
-                }}
-              >
-                <span style={{ fontSize: "13px", color: "#374151" }}>
-                  {formatDateShort(entry.check_in_date)}
-                </span>
+              <div key={entry.check_in_date} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", background: "#f8fafc", borderRadius: "8px" }}>
+                <span style={{ fontSize: "13px", color: "#374151" }}>{formatDateShort(entry.check_in_date)}</span>
                 <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                  {deltaStr && (
-                    <span style={{ fontSize: "12px", color: deltaColor, fontWeight: 600 }}>
-                      {deltaStr}
-                    </span>
-                  )}
-                  <span style={{ fontSize: "14px", fontWeight: 700, color: "#1a1a2e" }}>
-                    {entry.weight_kg} kg
-                  </span>
+                  {deltaStr && <span style={{ fontSize: "12px", color: deltaColor, fontWeight: 600 }}>{deltaStr}</span>}
+                  <span style={{ fontSize: "14px", fontWeight: 700, color: "#1a1a2e" }}>{entry.weight_kg} kg</span>
                 </div>
               </div>
             );
@@ -814,7 +300,7 @@ function StatPill({ label, value, accent }: { label: string; value: string; acce
         background: accent ? "#1a1a2e" : "#f8fafc",
         color: accent ? "#ffffff" : "#1a1a2e",
         borderRadius: "10px",
-        textAlign: "center" as const,
+        textAlign: "center",
         border: accent ? "none" : "1px solid #e2e8f0",
       }}
     >
@@ -834,135 +320,70 @@ export default function PortalDashboardPage() {
   const snapshotsQuery = trpc.portal.getSnapshots.useQuery({});
 
   const profile = profileQuery.data;
-  const plan = planQuery.data;
+  const plan = planQuery.data as ActivePlan | null | undefined;
   const checkIn = checkInQuery.data;
   const dashboard = dashboardQuery.data;
 
   const firstName = profile?.full_name?.split(" ")[0] ?? "Cliente";
+  const progress = computeProgressSummary(snapshotsQuery.data, dashboard?.weightTrend);
 
   return (
-    <div
-      style={{
-        padding: "32px 24px",
-        maxWidth: "860px",
-        margin: "0 auto",
-        fontFamily: "system-ui, -apple-system, sans-serif",
-      }}
-    >
+    <div className="mx-auto w-full max-w-[640px] px-4 py-6 sm:px-6">
       {/* ── Header ── */}
-      <div style={{ marginBottom: "28px" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap" as const, gap: "12px" }}>
-          <div>
-            <h1 style={{ fontSize: "26px", fontWeight: 700, color: "#1a1a2e", margin: "0 0 4px" }}>
-              {profileQuery.isLoading ? "Caricamento…" : `Ciao, ${firstName}!`}
-            </h1>
-            <p style={{ fontSize: "14px", color: "#9ca3af", margin: 0 }}>
-              Roberto Scrigna — Nutrizione Sportiva
-            </p>
-          </div>
-
-          {/* Coach info pill */}
-          {profile?.partner && !Array.isArray(profile.partner) && (
-            <div
-              style={{
-                padding: "10px 16px",
-                background: "#ffffff",
-                border: "1px solid #e2e8f0",
-                borderRadius: "10px",
-                display: "flex",
-                alignItems: "center",
-                gap: "10px",
-              }}
-            >
-              {(profile.partner as { avatar_url?: string | null }).avatar_url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={(profile.partner as { avatar_url: string }).avatar_url}
-                  alt="Coach"
-                  style={{ width: "32px", height: "32px", borderRadius: "50%", objectFit: "cover" as const }}
-                />
-              ) : (
-                <div
-                  style={{
-                    width: "32px",
-                    height: "32px",
-                    borderRadius: "50%",
-                    backgroundColor: "#1a1a2e",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: "13px",
-                    color: "#ffffff",
-                    fontWeight: 700,
-                  }}
+      <div style={{ marginBottom: "20px" }}>
+        <h1 style={{ fontSize: "24px", fontWeight: 700, color: "#1a1a2e", margin: "0 0 4px" }}>
+          {profileQuery.isLoading ? "Caricamento…" : `Ciao, ${firstName}!`}
+        </h1>
+        <p style={{ fontSize: "13px", color: "#9ca3af", margin: 0 }}>Roberto Scrigna — Nutrizione Sportiva</p>
+        {profile?.partner && !Array.isArray(profile.partner) && (
+          <p style={{ fontSize: "12px", color: "#6b7280", marginTop: "8px" }}>
+            Coach:{" "}
+            <strong style={{ color: "#1a1a2e" }}>
+              {(profile.partner as { full_name?: string }).full_name ?? "Roberto Scrigna"}
+            </strong>
+            {(profile.partner as { email?: string | null }).email && (
+              <>
+                {" · "}
+                <a
+                  href={`mailto:${(profile.partner as { email: string }).email}`}
+                  style={{ color: "#6b7280", textDecoration: "underline" }}
                 >
-                  {String((profile.partner as { full_name?: string }).full_name ?? "R").charAt(0)}
-                </div>
-              )}
-              <div>
-                <div style={{ fontSize: "12px", color: "#9ca3af" }}>Il tuo coach</div>
-                <div style={{ fontSize: "13px", fontWeight: 600, color: "#1a1a2e" }}>
-                  {(profile.partner as { full_name?: string }).full_name ?? "Roberto Scrigna"}
-                </div>
-                {(profile.partner as { email?: string | null }).email && (
-                  <div style={{ marginTop: "3px" }}>
-                    <a
-                      href={`mailto:${(profile.partner as { email: string }).email}`}
-                      style={{
-                        fontSize: "11px",
-                        color: "#6b7280",
-                        textDecoration: "none",
-                      }}
-                    >
-                      {(profile.partner as { email: string }).email}
-                    </a>
-                  </div>
-                )}
-                <div style={{ fontSize: "11px", color: "#9ca3af", marginTop: "2px" }}>
-                  Contatta il tuo coach
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Date strip */}
-        <div
-          style={{
-            marginTop: "16px",
-            padding: "10px 16px",
-            background: "#f0fdf4",
-            borderRadius: "8px",
-            fontSize: "13px",
-            color: "#15803d",
-            display: "inline-block",
-          }}
-        >
-          Oggi: {new Date().toLocaleDateString("it-IT", { weekday: "long", day: "2-digit", month: "long", year: "numeric" })}
-        </div>
+                  contatta
+                </a>
+              </>
+            )}
+          </p>
+        )}
       </div>
 
-      {/* ── Active Plan ── */}
-      <ActivePlanSection plan={plan} loading={planQuery.isLoading} />
+      {/* ── Goals / progress strip ── */}
+      <GoalsStrip
+        summary={progress}
+        latestCheckInDate={checkIn?.latestCheckIn?.check_in_date}
+        loading={snapshotsQuery.isLoading || dashboardQuery.isLoading}
+      />
 
-      {/* ── Storico piani (real version history via portal.getPlanHistory) ── */}
-      <PlanHistorySection />
+      {/* ── Compact active-plan card → Piano tab ── */}
+      <PlanSummaryCard plan={plan} loading={planQuery.isLoading} />
 
       {/* ── Check-in ── */}
       <CheckInSection data={checkIn} loading={checkInQuery.isLoading} />
 
-      {/* ── Log weight (shadcn/ui) ── */}
-      <div style={{ marginBottom: "24px" }}>
+      {/* ── Log weight (shadcn) ── */}
+      <div style={{ marginBottom: "16px" }}>
         <LogWeightCard />
       </div>
 
-      {/* ── Weight History & Quick Stats ── */}
+      {/* ── Weight history + charts + weekly avg ── */}
       <WeightHistorySection
         data={dashboard}
         planStartDate={plan?.start_date}
         loading={dashboardQuery.isLoading}
         snapshots={snapshotsQuery.data}
       />
+
+      {/* ── Storico piani ── */}
+      <PlanHistorySection />
 
       {/* ── Training log shortcut ── */}
       <Link
@@ -973,29 +394,16 @@ export default function PortalDashboardPage() {
           background: "#ffffff",
           border: "1px solid #e2e8f0",
           borderRadius: "14px",
-          marginBottom: "24px",
+          marginBottom: "16px",
           textDecoration: "none",
           color: "#1a1a2e",
         }}
       >
-        <div style={{ fontSize: "15px", fontWeight: 700, marginBottom: "4px" }}>
-          🏋️ I miei allenamenti
-        </div>
-        <div style={{ fontSize: "13px", color: "#6b7280" }}>
-          Registra un nuovo allenamento o consulta lo storico.
-        </div>
+        <div style={{ fontSize: "15px", fontWeight: 700, marginBottom: "4px" }}>🏋️ I miei allenamenti</div>
+        <div style={{ fontSize: "13px", color: "#6b7280" }}>Registra un nuovo allenamento o consulta lo storico.</div>
       </Link>
 
-      {/* ── Footer ── */}
-      <div
-        style={{
-          marginTop: "8px",
-          padding: "20px",
-          textAlign: "center" as const,
-          fontSize: "12px",
-          color: "#d1d5db",
-        }}
-      >
+      <div style={{ marginTop: "8px", padding: "16px", textAlign: "center", fontSize: "12px", color: "#d1d5db" }}>
         Roberto Scrigna — Nutrizione Sportiva · Portale Clienti
       </div>
     </div>
