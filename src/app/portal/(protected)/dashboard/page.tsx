@@ -14,6 +14,7 @@ import Link from "next/link";
 import { trpc } from "@/lib/trpc/client";
 import { formatIngredientQuantity } from "@/lib/ingredient-display";
 import { TrendChart, totalDataPoints, type TrendSeries } from "@/components/charts/TrendChart";
+import { LogWeightCard } from "@/components/portal/log-weight-card";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -612,10 +613,11 @@ type DashboardData = {
   activePlan: { daily_targets: unknown; meals_per_day: number | null } | null;
 };
 
-function WeightHistorySection({ data, planStartDate, loading }: {
+function WeightHistorySection({ data, planStartDate, loading, snapshots }: {
   data: DashboardData | undefined;
   planStartDate: string | null | undefined;
   loading: boolean;
+  snapshots: Array<{ taken_at: string | null; weight_kg: number | null }> | undefined;
 }) {
   if (loading) {
     return (
@@ -675,16 +677,37 @@ function WeightHistorySection({ data, planStartDate, loading }: {
 
       {/* Interactive trend charts (weight + adherence) — render with ≥2 points */}
       {(() => {
+        // Merge check-in weights with client-logged snapshot weights (the
+        // "Registra peso" widget writes client_snapshot), deduped by day so a
+        // freshly-logged weight appears in this chart.
+        const checkinWeightPts = withWeight.map((e) => ({
+          date: e.check_in_date,
+          value: e.weight_kg as number,
+        }));
+        const snapshotWeightPts = (snapshots ?? [])
+          .filter((s) => s.weight_kg != null && s.taken_at != null)
+          .map((s) => ({ date: s.taken_at as string, value: s.weight_kg as number }));
+        const weightByDay = new Map<string, { date: string; value: number; t: number }>();
+        for (const p of [...checkinWeightPts, ...snapshotWeightPts]) {
+          const t = new Date(p.date).getTime();
+          if (Number.isNaN(t)) continue;
+          const day = p.date.slice(0, 10);
+          const existing = weightByDay.get(day);
+          if (!existing || t >= existing.t) {
+            weightByDay.set(day, { date: p.date, value: p.value, t });
+          }
+        }
+        const weightPoints = [...weightByDay.values()]
+          .sort((a, b) => a.t - b.t)
+          .map(({ date, value }) => ({ date, value }));
+
         const weightSeries: TrendSeries[] = [
           {
             key: "weight",
             label: "Peso",
             color: "#1a1a2e",
             unit: " kg",
-            points: withWeight.map((e) => ({
-              date: e.check_in_date,
-              value: e.weight_kg as number,
-            })),
+            points: weightPoints,
           },
         ];
         const adherenceSeries: TrendSeries[] = [
@@ -810,6 +833,7 @@ export default function PortalDashboardPage() {
   const planQuery = trpc.portal.getActivePlan.useQuery();
   const checkInQuery = trpc.portal.getCheckInStatus.useQuery();
   const dashboardQuery = trpc.portal.getDashboardData.useQuery();
+  const snapshotsQuery = trpc.portal.getSnapshots.useQuery({});
 
   const profile = profileQuery.data;
   const plan = planQuery.data;
@@ -926,11 +950,17 @@ export default function PortalDashboardPage() {
       {/* ── Check-in ── */}
       <CheckInSection data={checkIn} loading={checkInQuery.isLoading} />
 
+      {/* ── Log weight (shadcn/ui) ── */}
+      <div style={{ marginBottom: "24px" }}>
+        <LogWeightCard />
+      </div>
+
       {/* ── Weight History & Quick Stats ── */}
       <WeightHistorySection
         data={dashboard}
         planStartDate={plan?.start_date}
         loading={dashboardQuery.isLoading}
+        snapshots={snapshotsQuery.data}
       />
 
       {/* ── Training log shortcut ── */}
