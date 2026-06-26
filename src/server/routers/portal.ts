@@ -82,6 +82,12 @@ const snapshotSchema = z.object({
   weightKg: z.number().min(30).max(300).optional(),
   bodyFatPct: z.number().min(3).max(60).optional(),
   notes: z.string().max(2000).optional(),
+  // #27 Stage 3: progress photos. Storage paths
+  // ("client-photos/<partner_id>/<client_id>/<file>") OR https URLs, like the
+  // training_log.screenshotUrls pattern. Persisted to client_snapshot.photo_*_url.
+  photoFrontUrl: z.string().min(1).max(500).optional(),
+  photoSideUrl: z.string().min(1).max(500).optional(),
+  photoBackUrl: z.string().min(1).max(500).optional(),
 });
 
 // ── Router ────────────────────────────────────────────────────────────────────
@@ -179,6 +185,70 @@ export const portalRouter = router({
 
     return { versions: toClientPlanHistory((rows ?? []) as RawPlanRow[]) };
   }),
+
+  /**
+   * #27 Stage 3 — the patient's OWN documents (PDFs etc.). The document table is
+   * coach-managed (document.ts is protectedProcedure); this is the patient read,
+   * STRICTLY scoped to ctx.clientId (a client never sees another client's docs).
+   * Newest-first, soft-deletes excluded.
+   */
+  getDocuments: clientProcedure.query(async ({ ctx }) => {
+    const db = svc();
+    const { data, error } = await db
+      .from("document")
+      .select("id, title, doc_type, file_url, mime_type, file_size_bytes, created_at")
+      .eq("client_id", ctx.clientId)
+      .is("deleted_at", null)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("[router/portal.getDocuments]", error);
+      throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Errore nel caricamento dei documenti." });
+    }
+
+    return { documents: data ?? [] };
+  }),
+
+  /**
+   * #27 Stage 3 — the patient's OWN notification feed (the partner/coach feed is
+   * notification.getForClient). STRICTLY scoped to ctx.clientId, newest-first,
+   * plus a cheap unread count for a badge.
+   */
+  getNotifications: clientProcedure
+    .input(
+      z.object({
+        unreadOnly: z.boolean().optional(),
+        limit: z.number().int().min(1).max(100).default(30),
+      }).optional()
+    )
+    .query(async ({ ctx, input }) => {
+      const db = svc();
+      let query = db
+        .from("notification")
+        .select("id, trigger, priority, title, body, read, metadata, created_at")
+        .eq("client_id", ctx.clientId);
+      if (input?.unreadOnly) query = query.eq("read", false);
+
+      const { data, error } = await query
+        .order("created_at", { ascending: false })
+        .limit(input?.limit ?? 30);
+
+      if (error) {
+        console.error("[router/portal.getNotifications]", error);
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Errore nel caricamento delle notifiche." });
+      }
+
+      const { count, error: countError } = await db
+        .from("notification")
+        .select("id", { count: "exact", head: true })
+        .eq("client_id", ctx.clientId)
+        .eq("read", false);
+      if (countError) {
+        console.error("[router/portal.getNotifications] count", countError);
+      }
+
+      return { notifications: data ?? [], unreadCount: count ?? 0 };
+    }),
 
   /**
    * Get example meals that match a given meal type and macro targets.
@@ -481,6 +551,10 @@ export const portalRouter = router({
           weight_kg: input.weightKg ?? null,
           body_fat_pct: input.bodyFatPct ?? null,
           notes: input.notes ?? null,
+          // #27 Stage 3: progress photos (additive; null when not provided).
+          photo_front_url: input.photoFrontUrl ?? null,
+          photo_side_url: input.photoSideUrl ?? null,
+          photo_back_url: input.photoBackUrl ?? null,
         })
         .select("id")
         .single();
