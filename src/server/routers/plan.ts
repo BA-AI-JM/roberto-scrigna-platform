@@ -1023,7 +1023,7 @@ export const planRouter = router({
       const { data: plan, error } = await ctx.supabase
         .from("plan")
         .select(
-          "id, name, status, created_at, client_id, daily_targets, notes, meals_per_day"
+          "id, name, status, created_at, client_id, parent_plan_id, daily_targets, notes, meals_per_day"
         )
         .eq("id", input.id)
         .eq("partner_id", ctx.partnerId)
@@ -1058,6 +1058,13 @@ export const planRouter = router({
         macroPayload,
         planBundle,
         notes: plan.notes,
+        // Additive (#portal-plan-history): let the coach Versioni tab resolve the
+        // chain root in ONE query instead of a client-side re-query.
+        clientId: plan.client_id as string,
+        rootPlanId: rootPlanIdOf({
+          id: plan.id,
+          parent_plan_id: (plan.parent_plan_id as string | null) ?? null,
+        }),
       };
     }),
 

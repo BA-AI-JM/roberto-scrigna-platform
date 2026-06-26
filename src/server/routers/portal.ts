@@ -26,6 +26,7 @@ import { z } from "zod/v4";
 import { router, clientProcedure } from "../trpc";
 import { TRPCError } from "@trpc/server";
 import { createSupabaseServiceRole } from "../../lib/supabase/service";
+import { toClientPlanHistory, type RawPlanRow } from "../plan-versioning";
 import { rateLimit, getClientIp } from "../../lib/rate-limit";
 
 // ── Shared Helpers ────────────────────────────────────────────────────────────
@@ -149,6 +150,33 @@ export const portalRouter = router({
       ...data,
       mealPlan: dayTypePlans as Array<{ dayType: string; label: string; mealPlan?: { withinTolerance: boolean; slots: Array<{ slot: string; primary: { template: { name: string }; scaledIngredients: Array<{ name: string; grams: number }>; actualMacros: { kcal: number; proteinG: number; carbsG: number; fatG: number } } }> } }>,
     };
+  }),
+
+  /**
+   * Get the authenticated client's own plan version history (PR #10 portal
+   * "Storico piani"), newest-first. Strictly scoped to ctx.clientId so a patient
+   * can only ever see their own plans. CLIENT-VISIBLE fields only — coach-only
+   * internals (change_reason, review notes) are never exposed. Returns all of the
+   * client's versions across any chains, each tagged with rootPlanId for grouping.
+   */
+  getPlanHistory: clientProcedure.query(async ({ ctx }) => {
+    const db = svc();
+    const { data: rows, error } = await db
+      .from("plan")
+      .select("id, status, version_number, version_label, parent_plan_id, created_at")
+      .eq("client_id", ctx.clientId)
+      .is("deleted_at", null)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("[router/portal.getPlanHistory]", error);
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Errore nel caricamento dello storico piani.",
+      });
+    }
+
+    return { versions: toClientPlanHistory((rows ?? []) as RawPlanRow[]) };
   }),
 
   /**

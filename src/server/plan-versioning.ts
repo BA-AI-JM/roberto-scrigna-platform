@@ -84,6 +84,53 @@ export function computeNextVersion(
   };
 }
 
+// ── Client-facing plan history (portal) ──────────────────────────────────────
+
+/** A raw plan row (the columns the portal selects) for client-history shaping. */
+export interface RawPlanRow {
+  id: string;
+  status: string | null;
+  version_number: number | null;
+  version_label: string | null;
+  parent_plan_id: string | null;
+  created_at: string;
+}
+
+/** A plan version as a patient may see it — NO coach-only internals. */
+export interface ClientPlanVersion {
+  id: string;
+  versionNumber: number;
+  versionLabel: string;
+  status: string;
+  isActive: boolean;
+  /** Chain root so the portal can group versions of the same plan. */
+  rootPlanId: string;
+  createdAt: string;
+}
+
+/**
+ * Map raw plan rows to CLIENT-VISIBLE version history, newest-first. Exposes only
+ * label / number / status / active-marker / date / chain-root — deliberately
+ * DROPS coach-only fields (change_reason, feedback_check_in_id, review notes,
+ * name, bundle). Newest-first by created_at (robust across multiple chains), with
+ * version_number as the tiebreak.
+ */
+export function toClientPlanHistory(rows: RawPlanRow[]): ClientPlanVersion[] {
+  const versions: ClientPlanVersion[] = rows.map((r) => ({
+    id: r.id,
+    versionNumber: r.version_number ?? 1,
+    versionLabel: r.version_label ?? "v1",
+    status: r.status ?? "draft",
+    isActive: r.status === "active",
+    rootPlanId: r.parent_plan_id ?? r.id,
+    createdAt: r.created_at,
+  }));
+  return versions.sort((a, b) => {
+    if (a.createdAt !== b.createdAt) return a.createdAt < b.createdAt ? 1 : -1;
+    return b.versionNumber - a.versionNumber;
+  });
+}
+
 /** Order a version chain newest-first by version_number (descending). */
 export function orderVersionsNewestFirst<T extends { versionNumber: number }>(
   rows: T[]
