@@ -18,6 +18,7 @@ import {
   orderVersionsNewestFirst,
   isFeedbackDue,
   toClientPlanHistory,
+  carrySupplementsForward,
   FEEDBACK_DUE_DAYS,
   type VersionRow,
   type RawPlanRow,
@@ -206,5 +207,28 @@ describe("toClientPlanHistory — portal client-visible shaping", () => {
       { id: "x", status: null, version_number: null, version_label: null, parent_plan_id: null, created_at: "2026-01-01T00:00:00Z" },
     ]);
     expect(v).toMatchObject({ versionNumber: 1, versionLabel: "v1", status: "draft", isActive: false, rootPlanId: "x" });
+  });
+});
+
+describe("carrySupplementsForward — version carry-forward (#23)", () => {
+  test("copies the parent bundle's supplements into the new bundle", () => {
+    const parentSupps = [{ name: "Creatine", dosage: "5g", timing: "AM", libraryId: "creatine-monohydrate" }];
+    const newBundle: { supplements?: unknown[] } = { supplements: [] };
+    carrySupplementsForward(newBundle, { supplements: parentSupps });
+    expect(newBundle.supplements).toEqual(parentSupps);
+  });
+
+  test("leaves the new bundle untouched when the parent has none", () => {
+    const newBundle: { supplements?: unknown[] } = { supplements: [] };
+    carrySupplementsForward(newBundle, {});
+    expect(newBundle.supplements).toEqual([]);
+    carrySupplementsForward(newBundle, undefined);
+    expect(newBundle.supplements).toEqual([]);
+  });
+
+  test("ignores a non-array parent.supplements", () => {
+    const newBundle: { supplements?: unknown[] } = { supplements: [] };
+    carrySupplementsForward(newBundle, { supplements: "garbage" });
+    expect(newBundle.supplements).toEqual([]);
   });
 });

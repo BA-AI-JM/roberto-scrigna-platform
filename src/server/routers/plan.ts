@@ -36,6 +36,7 @@ import {
   computeNextVersion,
   orderVersionsNewestFirst,
   rootPlanIdOf,
+  carrySupplementsForward,
   type VersionRow,
 } from "../plan-versioning";
 
@@ -682,6 +683,7 @@ export const planRouter = router({
       //    against the latest snapshot.
       const srcDt = (src.daily_targets as Record<string, unknown> | null) ?? {};
       const mp = (srcDt.macro_payload as Record<string, unknown> | undefined) ?? {};
+      const srcBundle = srcDt.plan_bundle as Record<string, unknown> | undefined;
       const clientSex: "male" | "female" = (client.sex as "male" | "female") ?? "male";
       const snapshotRecord = snapshotRow as unknown as Record<string, unknown>;
       const planDate = new Date().toISOString().split("T")[0]!;
@@ -718,6 +720,14 @@ export const planRouter = router({
           message: "Errore nella rigenerazione del piano.",
         });
       }
+
+      // #23: carry the PARENT version's coach-curated supplements forward — the
+      // engine now seeds ZERO supplements, so a regenerate would otherwise drop
+      // them. Supplements live in the bundle (daily_targets.plan_bundle.supplements).
+      carrySupplementsForward(
+        artifacts.serialized as { supplements?: unknown[] },
+        srcBundle
+      );
 
       // 5. Insert the new version row.
       const planName = `Piano ${client.full_name} — ${planDate} (${versionLabel})`;

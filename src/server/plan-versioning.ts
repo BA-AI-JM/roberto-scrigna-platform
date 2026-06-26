@@ -84,6 +84,20 @@ export function computeNextVersion(
   };
 }
 
+/**
+ * Carry coach-curated supplements forward when cutting a new version (#23). The
+ * engine seeds ZERO supplements, so without this a regenerate would drop them.
+ * Mutates `newBundle.supplements` to the parent's array when the parent has one.
+ */
+export function carrySupplementsForward(
+  newBundle: { supplements?: unknown[] } | null | undefined,
+  parentBundle: { supplements?: unknown } | null | undefined
+): void {
+  if (!newBundle) return;
+  const parent = parentBundle?.supplements;
+  if (Array.isArray(parent)) newBundle.supplements = parent;
+}
+
 // ── Client-facing plan history (portal) ──────────────────────────────────────
 
 /** A raw plan row (the columns the portal selects) for client-history shaping. */
