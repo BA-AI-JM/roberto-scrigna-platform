@@ -360,6 +360,37 @@ export const checkinRouter = router({
     }),
 
   /**
+   * #2 dashboard — latest COMPLETED check-in for one client (partner-scoped).
+   * Like `list` but returns a single newest-completed row AND `review_notes`
+   * (which `list` omits) for the dashboard's feedback card. No migration.
+   */
+  getLatestCompleted: protectedProcedure
+    .input(z.object({ clientId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      const { data, error } = await ctx.supabase
+        .from("check_in")
+        .select(
+          `id, status, weight_kg, weight_deviation_kg, weight_flagged,
+           energy_level, sleep_quality, adherence_pct, ai_summary, review_notes,
+           due_date, completed_at, created_at,
+           client:client_id (id, full_name)`
+        )
+        .eq("partner_id", ctx.partnerId)
+        .eq("client_id", input.clientId)
+        .eq("status", "completed")
+        .order("completed_at", { ascending: false, nullsFirst: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) {
+        console.error("[router/checkin.getLatestCompleted]", error);
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Errore nel caricamento dei dati." });
+      }
+
+      return { checkin: data ?? null };
+    }),
+
+  /**
    * Get a single check-in by ID with full details.
    */
   getById: protectedProcedure

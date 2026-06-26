@@ -122,6 +122,45 @@ export const notificationRouter = router({
     }),
 
   /**
+   * #2 dashboard — per-client notification feed. Partner-scoped (a coach only
+   * ever sees notifications for their own clients: every row carries partner_id,
+   * so the partner_id filter is the tenant boundary) AND filtered to one client,
+   * newest-first. Mirrors `list`'s row shape. Reuses the existing notification
+   * table + client_id index — no migration.
+   */
+  getForClient: protectedProcedure
+    .input(
+      z.object({
+        clientId: z.string().uuid(),
+        unreadOnly: z.boolean().optional(),
+        limit: z.number().int().min(1).max(100).default(20),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      let query = ctx.supabase
+        .from("notification")
+        .select(
+          `id, trigger, priority, title, body, read, metadata,
+           created_at, client:client_id (id, full_name)`
+        )
+        .eq("partner_id", ctx.partnerId)
+        .eq("client_id", input.clientId);
+
+      if (input.unreadOnly) query = query.eq("read", false);
+
+      const { data, error } = await query
+        .order("created_at", { ascending: false })
+        .limit(input.limit);
+
+      if (error) {
+        console.error("[router/notification.getForClient]", error);
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Errore nel caricamento dei dati." });
+      }
+
+      return { notifications: data ?? [] };
+    }),
+
+  /**
    * Get unread notification count (for badge).
    */
   getUnreadCount: protectedProcedure.query(async ({ ctx }) => {

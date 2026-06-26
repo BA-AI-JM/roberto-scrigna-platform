@@ -10,6 +10,12 @@ import { createSupabaseServiceRole } from "../../lib/supabase/service";
 import { sendEmail } from "../../lib/resend/client";
 import { ensurePortalAuthUser } from "../../services/portal-auth";
 import { computeSnapshotBodyComp } from "../body-comp";
+// #2 dashboard — compute-only TDEE breakdown (reuses the plan engine snapshot
+// builder + intake training sessions; no plan generated, no DB write).
+import { buildEngineSnapshot, intakeTrainingSessions } from "./plan";
+import { buildTrainingSessionFromIntake } from "../../services/training-modality";
+import { calculateTdee } from "../../engine";
+import type { DayType } from "../../engine/types";
 
 /** Client status filter values */
 const clientStatusSchema = z.enum(["active", "paused", "archived"]);
@@ -326,6 +332,76 @@ export const clientRouter = router({
         .single();
 
       return { client, latestSnapshot: snapshot };
+    }),
+
+  /**
+   * #2 dashboard — standalone energy-expenditure breakdown WITHOUT generating a
+   * plan. Reuses the plan engine's snapshot builder + the intake training
+   * session, then runs calculateTdee per DISTINCT day-type in the client's
+   * week_schedule. Returns the same per-day-type breakdown the engine produces
+   * inside generatePlan, exposed compute-only. Partner-scoped; no DB write, no
+   * migration.
+   */
+  estimateTdee: protectedProcedure
+    .input(z.object({ clientId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      const { data: client } = await ctx.supabase
+        .from("client")
+        .select("sex")
+        .eq("id", input.clientId)
+        .eq("partner_id", ctx.partnerId)
+        .is("deleted_at", null)
+        .single();
+      if (!client) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Cliente non trovato." });
+      }
+
+      const { data: snapshotRow } = await ctx.supabase
+        .from("client_snapshot")
+        .select("*")
+        .eq("client_id", input.clientId)
+        .order("taken_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (!snapshotRow) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "Nessuna misurazione per questo cliente — completa prima il modulo di intake.",
+        });
+      }
+
+      const clientSex = (client.sex as "male" | "female") ?? "male";
+      const snapshotRecord = snapshotRow as unknown as Record<string, unknown>;
+      const snapshot = buildEngineSnapshot(snapshotRecord, clientSex);
+      const trainingSession = buildTrainingSessionFromIntake(
+        intakeTrainingSessions(snapshotRecord),
+        snapshot.weekSchedule
+      );
+      const opts = trainingSession ? { trainingSession } : {};
+
+      // One representative TDEE per DISTINCT day-type (matches the meal-plan
+      // fan-out: generation produces one plan per distinct day-type).
+      const uniqueDayTypes = [...new Set(snapshot.weekSchedule)] as DayType[];
+      const byDayType = uniqueDayTypes.map((dayType) => {
+        const t = calculateTdee(snapshot, dayType, opts);
+        return {
+          dayType,
+          bmr: Math.round(t.bmr.bmrKcal),
+          neat: {
+            stepsKcal: Math.round(t.neat.stepsKcal),
+            occupationalKcal: Math.round(t.neat.occupationalKcal),
+            totalNeatKcal: Math.round(t.neat.totalNeatKcal),
+          },
+          tef: Math.round(t.tef.tefKcal),
+          exercise: {
+            exerciseKcal: Math.round(t.exercise.exerciseKcal),
+            methodUsed: t.exercise.methodUsed,
+          },
+          totalTdeeKcal: Math.round(t.totalTdeeKcal),
+        };
+      });
+
+      return { weekSchedule: snapshot.weekSchedule as DayType[], byDayType };
     }),
 
   /**
