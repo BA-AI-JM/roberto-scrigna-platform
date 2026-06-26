@@ -21,6 +21,7 @@ import { createClient } from "@supabase/supabase-js";
 import { createSupabaseServiceRole } from "../supabase/service";
 import { ensurePortalAuthUser } from "../../services/portal-auth";
 import { sendEmail as sendResendEmail } from "../resend/client";
+import { FEEDBACK_DUE_DAYS, FEEDBACK_CATCH_DAYS } from "../../server/plan-versioning";
 
 // ── Supabase service-role client for background jobs ────────────────────────
 
@@ -123,6 +124,7 @@ const TRIGGER_PRIORITY: Record<string, string> = {
   new_message: "medium",
   training_logged: "low",
   milestone_reached: "low",
+  feedback_requested: "medium",
 };
 
 async function createNotification(params: {
@@ -699,6 +701,177 @@ export const scanExpiringPlans = inngest.createFunction(
   }
 );
 
+// ── Feedback-reminder cadence (lifecycle-spine increment 1) ──────────────────
+
+/**
+ * onFeedbackRequestDue — clones the onCheckinDue shape. Fired (by scanFeedbackDue)
+ * ~21 days after a plan's start_date: emits a 'feedback_requested' notification to
+ * the coach and emails the client the existing check-in questionnaire (weight /
+ * scales / photos / adherence / notes). Idempotent: skips if a feedback_requested
+ * notification for this plan already exists today (no duplicate same-day).
+ */
+export const onFeedbackRequestDue = inngest.createFunction(
+  { id: "feedback-request-due", retries: 3, triggers: [{ event: "feedback/request-due" }] },
+  async ({ event, step }) => {
+    const d = event.data as EventData;
+    const { checkinId, clientId, clientName, partnerId, planId, planName } = d;
+
+    // Idempotency: at most one feedback_requested notification per plan per day.
+    const alreadyNotified = await step.run("check-feedback-dup", async () => {
+      const db = getServiceDb();
+      const today = new Date().toISOString().split("T")[0];
+      const { count } = await db
+        .from("notification")
+        .select("id", { count: "exact", head: true })
+        .eq("trigger", "feedback_requested")
+        .eq("metadata->>planId", planId)
+        .gte("created_at", today);
+      return (count ?? 0) > 0;
+    });
+    if (alreadyNotified) return;
+
+    await step.run("notify-feedback-requested", async () => {
+      await createNotification({
+        partnerId,
+        clientId,
+        trigger: "feedback_requested",
+        title: `Feedback richiesto — ${clientName}`,
+        body: `Sono passate circa 3 settimane dall'inizio del piano di ${clientName}. È stato richiesto un check-in di feedback per valutare un aggiornamento del piano.`,
+        metadata: { planId, planName, checkinId },
+      });
+    });
+
+    await step.run("email-feedback-request", async () => {
+      const db = getServiceDb();
+      const { data: checkinRow } = await db
+        .from("check_in")
+        .select("token")
+        .eq("id", checkinId)
+        .maybeSingle();
+
+      const email = await getClientEmail(clientId);
+      if (email) {
+        const checkinLink = checkinRow?.token
+          ? portalUrl(`/checkin/${checkinRow.token}`)
+          : portalUrl("/dashboard");
+
+        const html = emailWrapper(
+          "Com'è andato il tuo piano?",
+          `<h2 style="margin:0 0 12px;font-size:20px;color:#1a1a2e;">Com'è andato finora?</h2>
+<p style="margin:0 0 16px;font-size:14px;color:#374151;line-height:1.6;">
+  Ciao ${clientName},<br/>
+  sono passate circa 3 settimane dall'inizio del tuo piano. Raccontaci com'è andata: compila il check-in (peso, misure, foto, aderenza e note) così il tuo coach può aggiornare il piano sulla base dei tuoi progressi.
+</p>
+${btnHtml(checkinLink, "Compila il check-in")}`
+        );
+        await sendEmail(email, "Com'è andato il tuo piano? — Richiesta feedback", html);
+      }
+    });
+  }
+);
+
+/**
+ * scanFeedbackDue — daily cron. Finds active plans whose start_date is
+ * FEEDBACK_DUE_DAYS (≈21) ago (with a FEEDBACK_CATCH_DAYS window to recover from
+ * missed runs), creates/reuses the feedback check-in, and emits feedback/request-due.
+ * Idempotent: a plan that already has a feedback_requested notification is skipped;
+ * an in-flight (not-yet-handled) plan re-uses its pending check-in and re-emits.
+ *
+ * Note: keys off plan.start_date — dormant until start_date is populated.
+ */
+export const scanFeedbackDue = inngest.createFunction(
+  { id: "scan-feedback-due", retries: 2, triggers: [{ cron: "0 8 * * *" }] },
+  async ({ step }) => {
+    // Detect due plans + create/reuse their feedback check-ins inside one step,
+    // returning the events to emit. The actual emission uses step.sendEvent
+    // (below) so it is memoised/retry-safe and never double-queued.
+    const events = await step.run("find-feedback-due-plans", async () => {
+      const db = getServiceDb();
+      const dueEnd = new Date(Date.now() - FEEDBACK_DUE_DAYS * 86400000)
+        .toISOString()
+        .split("T")[0]; // start_date <= today − 21
+      const dueStart = new Date(Date.now() - (FEEDBACK_DUE_DAYS + FEEDBACK_CATCH_DAYS) * 86400000)
+        .toISOString()
+        .split("T")[0]; // start_date >= today − 28
+
+      const { data: plans } = await db
+        .from("plan")
+        .select("id, client_id, partner_id, name, start_date")
+        .eq("status", "active")
+        .gte("start_date", dueStart)
+        .lte("start_date", dueEnd)
+        .is("deleted_at", null);
+
+      const out: Array<{ name: string; data: Record<string, unknown> }> = [];
+
+      for (const plan of plans ?? []) {
+        // Done already: a feedback_requested notification for this plan exists.
+        const { count: notified } = await db
+          .from("notification")
+          .select("id", { count: "exact", head: true })
+          .eq("trigger", "feedback_requested")
+          .eq("metadata->>planId", plan.id);
+        if ((notified ?? 0) > 0) continue;
+
+        // Reuse a pending check-in for this plan if one exists (self-heals a
+        // partially-completed prior run); otherwise create the feedback check-in.
+        let checkinId: string | undefined;
+        const { data: existing } = await db
+          .from("check_in")
+          .select("id")
+          .eq("plan_id", plan.id)
+          .eq("status", "pending")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (existing?.id) {
+          checkinId = existing.id;
+        } else {
+          const dueDate = new Date(Date.now() + 7 * 86400000).toISOString().split("T")[0];
+          const { data: created } = await db
+            .from("check_in")
+            .insert({
+              client_id: plan.client_id,
+              partner_id: plan.partner_id,
+              plan_id: plan.id,
+              status: "pending",
+              due_date: dueDate,
+            })
+            .select("id")
+            .single();
+          checkinId = created?.id;
+        }
+        if (!checkinId) continue;
+
+        const { data: client } = await db
+          .from("client")
+          .select("full_name")
+          .eq("id", plan.client_id)
+          .single();
+
+        out.push({
+          name: "feedback/request-due",
+          data: {
+            checkinId,
+            clientId: plan.client_id,
+            clientName: client?.full_name ?? "Cliente",
+            partnerId: plan.partner_id,
+            planId: plan.id,
+            planName: plan.name,
+          },
+        });
+      }
+
+      return out;
+    });
+
+    if (events.length > 0) {
+      await step.sendEvent("emit-feedback-due", events);
+    }
+  }
+);
+
 // ── Export all functions ─────────────────────────────────────────────────────
 
 export const functions = [
@@ -710,4 +883,6 @@ export const functions = [
   scanOverdueInvoices,
   scanColdClients,
   scanExpiringPlans,
+  onFeedbackRequestDue,
+  scanFeedbackDue,
 ];
