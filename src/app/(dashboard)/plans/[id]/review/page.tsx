@@ -26,13 +26,13 @@ import type {
   DayTypePlanSummary,
 } from "../../../../../pdf/types";
 import type { SerializedPlanResult } from "../../../../../services/plan-generator";
-import { checkSupplementInteractions } from "../../../../../services/supplements";
 import { formatIngredientQuantity } from "../../../../../lib/ingredient-display";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { getQueryKey } from "@trpc/react-query";
 import { VersionsTab } from "@/components/plan/versions-tab";
-import { resolveRootPlanId, buildCreateVersionInput } from "@/components/plan/version-helpers";
+import { buildCreateVersionInput } from "@/components/plan/version-helpers";
+import { SupplementsEditor } from "@/components/plan/supplements-editor";
 
 // ── Review State ─────────────────────────────────────────────────────────────
 
@@ -226,23 +226,14 @@ export default function PlanReviewPage({
   const router = useRouter();
   const queryClient = useQueryClient();
 
-  // listVersions needs the chain root. getById doesn't expose clientId/rootPlanId,
-  // so resolve it: query by the current plan as root, and if it turns out to be a
-  // child (parentPlanId set), re-query with the real root.
-  const versionsQ1 = trpc.plan.listVersions.useQuery(
-    { rootPlanId: planId },
-    { enabled: Boolean(planId) }
-  );
-  const versionRoot = resolveRootPlanId(versionsQ1.data?.versions ?? [], planId);
-  const versionsQ2 = trpc.plan.listVersions.useQuery(
+  // PR #12: getById returns rootPlanId, so the chain resolves in ONE query.
+  const versionRoot = data?.rootPlanId ?? null;
+  const versionsQuery = trpc.plan.listVersions.useQuery(
     { rootPlanId: versionRoot ?? "" },
     { enabled: Boolean(versionRoot) }
   );
-  const versions = versionRoot
-    ? (versionsQ2.data?.versions ?? [])
-    : (versionsQ1.data?.versions ?? []);
-  const versionsLoading =
-    versionsQ1.isLoading || (Boolean(versionRoot) && versionsQ2.isLoading);
+  const versions = versionsQuery.data?.versions ?? [];
+  const versionsLoading = versionsQuery.isLoading;
 
   const createVersionMutation = trpc.plan.createVersion.useMutation({
     onSuccess: (res) => {
@@ -302,13 +293,10 @@ export default function PlanReviewPage({
     }));
   }, []);
 
-  const addSupplement = useCallback(() => {
+  const addSupplementEntries = useCallback((entries: SupplementEntry[]) => {
     setReview((prev) => ({
       ...prev,
-      supplements: [
-        ...prev.supplements,
-        { name: "", dosage: "", timing: "", rationale: "" },
-      ],
+      supplements: [...prev.supplements, ...entries],
     }));
   }, []);
 
@@ -786,8 +774,7 @@ export default function PlanReviewPage({
           supplements={review.supplements}
           onUpdate={updateSupplement}
           onRemove={removeSupplement}
-          onAdd={addSupplement}
-          cardStyle={cardStyle}
+          onAddEntries={addSupplementEntries}
         />
       )}
       {activeTab === "guidance" && (
@@ -1462,176 +1449,20 @@ function SupplementsTab({
   supplements,
   onUpdate,
   onRemove,
-  onAdd,
-  cardStyle,
+  onAddEntries,
 }: {
   supplements: SupplementEntry[];
   onUpdate: (index: number, field: keyof SupplementEntry, value: string) => void;
   onRemove: (index: number) => void;
-  onAdd: () => void;
-  cardStyle: React.CSSProperties;
+  onAddEntries: (entries: SupplementEntry[]) => void;
 }) {
-  const inputStyle: React.CSSProperties = {
-    width: "100%",
-    padding: "8px 10px",
-    border: "1px solid #d4d4d8",
-    borderRadius: "6px",
-    fontSize: "13px",
-    outline: "none",
-    color: "#18181b",
-    boxSizing: "border-box",
-  };
-
-  // Live interaction / synergy notes based on the current protocol.
-  const interactions = checkSupplementInteractions(supplements);
-  const INTERACTION_COLORS: Record<string, { bg: string; border: string; text: string; label: string }> = {
-    warning: { bg: "#fef9c3", border: "#fde047", text: "#854d0e", label: "Attenzione" },
-    info: { bg: "#eff6ff", border: "#bfdbfe", text: "#1d4ed8", label: "Timing" },
-    synergy: { bg: "#f0fdf4", border: "#bbf7d0", text: "#15803d", label: "Sinergia" },
-  };
-
   return (
-    <div>
-      {interactions.length > 0 && (
-        <div style={{ marginBottom: "16px", display: "grid", gap: "8px" }}>
-          {interactions.map((note, i) => {
-            const c = INTERACTION_COLORS[note.severity] ?? INTERACTION_COLORS.info!;
-            return (
-              <div
-                key={i}
-                style={{
-                  padding: "10px 14px",
-                  background: c.bg,
-                  border: `1px solid ${c.border}`,
-                  borderRadius: "10px",
-                  color: c.text,
-                  fontSize: "13px",
-                  lineHeight: 1.5,
-                }}
-              >
-                <span
-                  style={{
-                    display: "inline-block",
-                    padding: "1px 8px",
-                    borderRadius: "10px",
-                    background: "#ffffff",
-                    fontSize: "11px",
-                    fontWeight: 700,
-                    marginRight: "8px",
-                  }}
-                >
-                  {c.label}
-                </span>
-                <span style={{ fontWeight: 600 }}>
-                  {note.supplements.join(" + ")}:
-                </span>{" "}
-                {note.message}
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {supplements.length === 0 && (
-        <div style={{ ...cardStyle, color: "#71717a", fontSize: "14px" }}>
-          Nessun integratore nel protocollo. Aggiungine uno con il pulsante qui sotto.
-        </div>
-      )}
-
-      {supplements.map((s, i) => (
-        <div
-          key={i}
-          style={{ ...cardStyle, position: "relative" }}
-        >
-          <button
-            onClick={() => onRemove(i)}
-            title="Rimuovi"
-            style={{
-              position: "absolute",
-              top: "12px",
-              right: "12px",
-              border: "none",
-              background: "none",
-              color: "#dc2626",
-              cursor: "pointer",
-              fontSize: "16px",
-              fontWeight: 700,
-              lineHeight: 1,
-              padding: "2px 4px",
-            }}
-          >
-            ×
-          </button>
-
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-              gap: "12px",
-              marginBottom: "10px",
-            }}
-          >
-            <label style={{ fontSize: "12px", fontWeight: 600, color: "#71717a" }}>
-              Nome
-              <input
-                value={s.name}
-                onChange={(e) => onUpdate(i, "name", e.target.value)}
-                style={{ ...inputStyle, marginTop: "4px" }}
-              />
-            </label>
-            <label style={{ fontSize: "12px", fontWeight: 600, color: "#71717a" }}>
-              Dosaggio
-              <input
-                value={s.dosage}
-                onChange={(e) => onUpdate(i, "dosage", e.target.value)}
-                style={{ ...inputStyle, marginTop: "4px" }}
-              />
-            </label>
-          </div>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-              gap: "12px",
-            }}
-          >
-            <label style={{ fontSize: "12px", fontWeight: 600, color: "#71717a" }}>
-              Timing
-              <input
-                value={s.timing}
-                onChange={(e) => onUpdate(i, "timing", e.target.value)}
-                style={{ ...inputStyle, marginTop: "4px" }}
-              />
-            </label>
-            <label style={{ fontSize: "12px", fontWeight: 600, color: "#71717a" }}>
-              Razionale
-              <input
-                value={s.rationale ?? ""}
-                onChange={(e) => onUpdate(i, "rationale", e.target.value)}
-                style={{ ...inputStyle, marginTop: "4px" }}
-              />
-            </label>
-          </div>
-        </div>
-      ))}
-
-      <button
-        onClick={onAdd}
-        style={{
-          width: "100%",
-          padding: "14px",
-          border: "2px dashed #d4d4d8",
-          borderRadius: "12px",
-          backgroundColor: "transparent",
-          cursor: "pointer",
-          fontSize: "14px",
-          color: "#71717a",
-          fontWeight: 500,
-        }}
-      >
-        + Aggiungi Integratore
-      </button>
-    </div>
+    <SupplementsEditor
+      supplements={supplements}
+      onUpdate={onUpdate}
+      onRemove={onRemove}
+      onAddEntries={onAddEntries}
+    />
   );
 }
 

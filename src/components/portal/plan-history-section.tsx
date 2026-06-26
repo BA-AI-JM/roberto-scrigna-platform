@@ -1,61 +1,93 @@
 "use client";
 
 /**
- * "Storico piani" (client-facing) — STUB.
+ * "Storico piani" (client-facing) — real version history via portal.getPlanHistory.
  *
- * ⚠️ BACKEND FOLLOW-UP NEEDED: plan.listVersions is coach-only
- * (protectedProcedure); there is NO portal-scoped plan-history query yet. This
- * section renders the current active plan as the "Attivo" entry and notes that
- * full version history is coming. A `portal.getPlanHistory` clientProcedure
- * wrapper (partner-RLS-safe, scoped to ctx.clientId) is required to list prior
- * versions to the patient — NOT built here (UI lane only).
+ * PlanHistorySection fetches; PlanHistoryList is props-driven so it renders in
+ * node tests via renderToStaticMarkup.
  */
 
+import { trpc } from "@/lib/trpc/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { statusLabel, formatVersionDate } from "@/components/plan/version-helpers";
 
-export interface PlanHistorySectionProps {
-  activePlanName: string | null | undefined;
-  activePlanDate: string | null | undefined;
+export interface PlanHistoryVersion {
+  id: string;
+  versionLabel: string;
+  status: string;
+  isActive: boolean;
+  createdAt: string;
 }
 
-function formatDate(iso: string | null | undefined): string {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime())
-    ? "—"
-    : d.toLocaleDateString("it-IT", { day: "2-digit", month: "short", year: "numeric" });
-}
-
-export function PlanHistorySection({ activePlanName, activePlanDate }: PlanHistorySectionProps) {
+export function PlanHistoryList({
+  versions,
+  loading,
+  error,
+}: {
+  versions: PlanHistoryVersion[];
+  loading: boolean;
+  error: boolean;
+}) {
   return (
     <Card className="mb-6">
       <CardHeader>
         <CardTitle className="text-base">Storico piani</CardTitle>
       </CardHeader>
       <CardContent>
-        {activePlanName ? (
-          <div className="flex items-center justify-between gap-3 rounded-lg border p-3">
-            <div className="flex flex-col gap-0.5">
-              <span className="font-semibold">{activePlanName}</span>
-              <span className="text-xs text-muted-foreground">
-                Inizio: {formatDate(activePlanDate)}
-              </span>
-            </div>
-            <span
-              className="rounded-full px-2 py-0.5 text-xs font-semibold"
-              style={{ background: "#dcfce7", color: "#15803d" }}
-            >
-              Attivo
-            </span>
-          </div>
+        {loading ? (
+          <p className="text-sm text-muted-foreground">Caricamento dello storico…</p>
+        ) : error ? (
+          <p className="text-sm text-destructive">
+            Errore nel caricamento dello storico piani.
+          </p>
+        ) : versions.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Nessun piano ancora disponibile.</p>
         ) : (
-          <p className="text-sm text-muted-foreground">Nessun piano attivo.</p>
+          <ul className="flex flex-col gap-2">
+            {versions.map((v) => {
+              const meta = statusLabel(v.status);
+              return (
+                <li
+                  key={v.id}
+                  className="flex items-center justify-between gap-3 rounded-lg border p-3"
+                >
+                  <div className="flex flex-col gap-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-semibold">{v.versionLabel}</span>
+                      <span
+                        className="rounded-full px-2 py-0.5 text-xs font-semibold"
+                        style={{ background: meta.bg, color: meta.color }}
+                      >
+                        {meta.label}
+                      </span>
+                      {v.isActive && (
+                        <span className="text-xs font-medium text-green-700">
+                          Piano attuale
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-xs text-muted-foreground">
+                      {formatVersionDate(v.createdAt)}
+                    </span>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
         )}
-        <p className="mt-3 text-xs text-muted-foreground">
-          Lo storico delle versioni precedenti sarà disponibile a breve.
-        </p>
       </CardContent>
     </Card>
+  );
+}
+
+export function PlanHistorySection() {
+  const q = trpc.portal.getPlanHistory.useQuery();
+  return (
+    <PlanHistoryList
+      versions={q.data?.versions ?? []}
+      loading={q.isLoading}
+      error={q.isError}
+    />
   );
 }
 

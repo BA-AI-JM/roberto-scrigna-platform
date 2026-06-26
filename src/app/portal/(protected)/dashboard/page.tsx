@@ -945,8 +945,8 @@ export default function PortalDashboardPage() {
       {/* ── Active Plan ── */}
       <ActivePlanSection plan={plan} loading={planQuery.isLoading} />
 
-      {/* ── Storico piani (stub — full history needs a portal.getPlanHistory wrapper) ── */}
-      <PlanHistorySection activePlanName={plan?.name} activePlanDate={plan?.start_date} />
+      {/* ── Storico piani (real version history via portal.getPlanHistory) ── */}
+      <PlanHistorySection />
 
       {/* ── Check-in ── */}
       <CheckInSection data={checkIn} loading={checkInQuery.isLoading} />
