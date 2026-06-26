@@ -291,7 +291,7 @@ const previewWeekSchema = z.object({
  * Pull the per-day training sessions captured at intake (stored under
  * skinfold_data._intake.training_sessions) out of a client_snapshot row.
  */
-function intakeTrainingSessions(
+export function intakeTrainingSessions(
   snapshotRow: Record<string, unknown>
 ): Record<string, IntakeTrainingSession[]> | undefined {
   const skinfoldRaw = snapshotRow.skinfold_data as Record<string, unknown> | null;
@@ -303,7 +303,7 @@ function intakeTrainingSessions(
  * Map a raw client_snapshot DB row into a ClientSnapshot for the engine.
  * The snapshot row stores sex on the client table, so both are passed in.
  */
-function buildEngineSnapshot(
+export function buildEngineSnapshot(
   snapshotRow: Record<string, unknown>,
   clientSex: "male" | "female"
 ): ClientSnapshot {
