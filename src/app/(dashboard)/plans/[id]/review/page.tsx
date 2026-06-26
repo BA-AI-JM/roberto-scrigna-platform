@@ -34,6 +34,7 @@ import { VersionsTab } from "@/components/plan/versions-tab";
 import { buildCreateVersionInput } from "@/components/plan/version-helpers";
 import { SupplementsEditor } from "@/components/plan/supplements-editor";
 import { PlanNotesSection } from "@/components/plan/plan-notes-section";
+import { IngredientSwapList } from "@/components/plan/ingredient-swap";
 
 // ── Review State ─────────────────────────────────────────────────────────────
 
@@ -1129,6 +1130,31 @@ function MealsTab({
     onError: (err) => alert(`Errore: ${err.message}`),
   });
 
+  // #20 — item-level food swap. Alternatives come from the food catalogue
+  // (client-side, same category minus self). Keyed by `${dayType}::${slot}::${idx}`.
+  const { data: foodCatalogue } = trpc.plan.foodCatalogue.useQuery(undefined, {
+    staleTime: Infinity,
+  });
+  const [swappingItem, setSwappingItem] = useState<string | null>(null);
+  const [itemSwapResult, setItemSwapResult] = useState<
+    { name: string; grams: number; withinTolerance: boolean } | null
+  >(null);
+  const swapItemMutation = trpc.plan.swapMealItem.useMutation({
+    onSuccess: (res) => {
+      setItemSwapResult({
+        name: res.newFood.name,
+        grams: res.newFood.grams,
+        withinTolerance: res.withinTolerance,
+      });
+      // Let the confirmation render, then reload so rows show persisted grams.
+      setTimeout(() => window.location.reload(), 1400);
+    },
+    onError: (err) => {
+      setSwappingItem(null);
+      alert(`Errore: ${err.message}`);
+    },
+  });
+
   const plansWithMeals = dayTypePlans.filter((p) => p.mealPlan);
 
   if (plansWithMeals.length === 0) {
@@ -1143,6 +1169,28 @@ function MealsTab({
 
   return (
     <div>
+      {/* #20 — transient confirmation after an item swap (recalced grams + tolerance). */}
+      {itemSwapResult && (
+        <div
+          style={{
+            ...cardStyle,
+            display: "flex",
+            alignItems: "center",
+            gap: "10px",
+            fontSize: "13px",
+            backgroundColor: itemSwapResult.withinTolerance ? "#dcfce7" : "#fef9c3",
+            color: itemSwapResult.withinTolerance ? "#15803d" : "#854d0e",
+          }}
+        >
+          <span style={{ fontWeight: 700 }}>Alimento sostituito:</span>
+          <span>
+            {itemSwapResult.name} · {itemSwapResult.grams} g
+          </span>
+          <span style={{ fontWeight: 600 }}>
+            {itemSwapResult.withinTolerance ? "Entro tolleranza" : "Fuori tolleranza"}
+          </span>
+        </div>
+      )}
       {plansWithMeals.map((plan) => (
         <div key={plan.dayType} style={cardStyle}>
           <div
@@ -1279,37 +1327,26 @@ function MealsTab({
               >
                 {slot.primary.template.name}
               </p>
-              {slot.primary.scaledIngredients.length > 0 && (
-                <ul
-                  style={{
-                    margin: "0 0 6px 0",
-                    padding: 0,
-                    listStyle: "none",
-                  }}
-                >
-                  {slot.primary.scaledIngredients.map((ing, idx) => (
-                    <li
-                      key={idx}
-                      style={{
-                        fontSize: "13px",
-                        color: "#52525b",
-                        padding: "2px 0",
-                        display: "flex",
-                        justifyContent: "space-between",
-                        borderBottom:
-                          idx < slot.primary.scaledIngredients.length - 1
-                            ? "1px solid #f4f4f5"
-                            : "none",
-                      }}
-                    >
-                      <span>{ing.name}</span>
-                      <span style={{ fontWeight: 600, color: "#18181b" }}>
-                        {formatIngredientQuantity(ing.foodId, ing.grams)}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
+              {/* #20 — item-level swap: each ingredient row offers same-category alternatives. */}
+              <IngredientSwapList
+                ingredients={slot.primary.scaledIngredients}
+                catalogue={foodCatalogue}
+                pendingIndex={
+                  swappingItem && swappingItem.startsWith(`${plan.dayType}::${slot.slot}::`)
+                    ? Number(swappingItem.split("::")[2])
+                    : null
+                }
+                onSwap={(idx, newFoodId) => {
+                  setSwappingItem(`${plan.dayType}::${slot.slot}::${idx}`);
+                  swapItemMutation.mutate({
+                    planId,
+                    dayType: plan.dayType,
+                    slot: slot.slot,
+                    ingredientIndex: idx,
+                    newFoodId,
+                  });
+                }}
+              />
               {slot.substitutions.length > 0 && (() => {
                 const expandedKey = `${plan.dayType}::${slot.slot}`;
                 const isExpanded = expandedSlot === expandedKey;
