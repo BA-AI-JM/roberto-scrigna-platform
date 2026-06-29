@@ -172,6 +172,13 @@ export interface DayTypePlanSummary {
   hydration: HydrationTargets;
   /** Meal plan (if generated) */
   mealPlan?: DayMealPlan;
+  /**
+   * #18 → PDF: the client's representative training time for this (training)
+   * day-type, used to render the peri-workout timed box + Pre/Intra/Post
+   * grouping. ADDITIVE and display-only — sourced from intake at render time,
+   * NOT from the engine. Absent → no box (graceful), same as the coach card.
+   */
+  trainingTime?: { startTime?: string; endTime?: string };
 }
 
 // ── Complete Report Data ────────────────────────────────────────────────────

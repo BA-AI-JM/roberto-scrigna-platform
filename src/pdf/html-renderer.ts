@@ -15,6 +15,10 @@ import type {
 } from "./types";
 import { generateCSS, DAY_TYPE_COLOURS } from "./styles";
 import { formatIngredientQuantity } from "../lib/ingredient-display";
+// #18 → PDF: the same pure, framework-free peri-workout model the coach card
+// uses, so the PDF timed-session box mirrors it exactly (timed box + Pre/Intra/
+// Post grouping; intra is electrolyte guidance prose, never a generated meal).
+import { buildPeriWorkout, PERI_WORKOUT_GUIDANCE, type SlotLite } from "../components/plan/peri-workout-timing";
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -385,6 +389,42 @@ function renderMacroTable(plans: DayTypePlanSummary[]): string {
 }
 
 /**
+ * #18 — Render the peri-workout timed box + Pre/Intra/Post grouping for a
+ * training day that has a known training time. Mirrors PeriWorkoutTimingCard:
+ * a timed "Allenamento HH:MM–HH:MM" pill, then PRE (pre-workout meal or
+ * guidance), INTRA (electrolyte guidance prose only), POST (post-workout meal
+ * or guidance). Returns "" when there's no training time / not a training day
+ * (graceful — the normal meal list renders with no empty box).
+ */
+function renderPeriWorkout(plan: DayTypePlanSummary): string {
+  const slots: SlotLite[] = (plan.mealPlan?.slots ?? []).map((s) => ({
+    slot: s.slot,
+    mealName: s.primary?.template?.name,
+  }));
+  const m = buildPeriWorkout(plan.dayType, slots, plan.trainingTime);
+  if (!m.show) return "";
+
+  const g = PERI_WORKOUT_GUIDANCE;
+  const row = (label: string, window: string, detail: string, first = false) => `
+        <div style="padding:6px 0;${first ? "" : "border-top:1px solid #f1f1f4;"}">
+          <div style="font-size:11px;font-weight:600;color:#27272a;">${esc(label)} <span style="font-weight:400;color:#a1a1aa;">· ${esc(window)}</span></div>
+          <div style="font-size:11px;color:#71717a;">${esc(detail)}</div>
+        </div>`;
+
+  return `
+    <div style="border:1px solid #e4e4e7;border-radius:10px;padding:10px 12px;margin:10px 0;">
+      <div style="margin-bottom:6px;">
+        <span style="background:#18181b;color:#ffffff;border-radius:999px;padding:2px 10px;font-size:11px;font-weight:600;">Allenamento ${esc(m.clock)}</span>
+        <span style="font-size:11px;color:#a1a1aa;margin-left:6px;">Timing nutrizionale peri-workout</span>
+      </div>
+      ${row(g.pre.label, g.pre.window, m.preMeal ?? g.pre.text, true)}
+      ${row(g.intra.label, g.intra.window, g.intra.text)}
+      ${row(g.post.label, g.post.window, m.postMeal ?? g.post.text)}
+    </div>
+  `;
+}
+
+/**
  * Render a single day-type plan section.
  */
 function renderDayTypePlan(plan: DayTypePlanSummary, includeMealPlans: boolean): string {
@@ -394,6 +434,7 @@ function renderDayTypePlan(plan: DayTypePlanSummary, includeMealPlans: boolean):
     </div>
     ${renderTdeeBar(plan.tdee)}
     ${renderMacroCards(plan.macros)}
+    ${includeMealPlans ? renderPeriWorkout(plan) : ""}
     ${includeMealPlans && plan.mealPlan ? renderMealSlots(plan.mealPlan.slots) : ""}
   `;
 }

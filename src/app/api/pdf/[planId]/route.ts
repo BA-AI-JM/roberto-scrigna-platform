@@ -19,6 +19,10 @@ import { renderReportHtml } from "../../../../pdf/html-renderer";
 import { generatePdf } from "../../../../pdf/generator";
 import type { SerializedPlanResult } from "../../../../services/plan-generator";
 import type { PdfReportData } from "../../../../pdf/types";
+// #18 → PDF: representative training time from the client's intake, attached to
+// training-day plans so the renderer draws the peri-workout box (mirrors the
+// portal + coach card). Pure, framework-free helpers.
+import { firstTrainingTime, isTrainingDayType, type RawSession } from "../../../../components/plan/peri-workout-timing";
 
 export async function GET(
   _req: NextRequest,
@@ -70,7 +74,32 @@ export async function GET(
     );
   }
 
-  const reportData: PdfReportData = planBundle.reportData;
+  let reportData: PdfReportData = planBundle.reportData;
+
+  // 3b. #18 — enrich the (frozen) bundle with the client's current training time
+  // so training-day plans render the peri-workout timed box. Sourced from the
+  // latest snapshot's intake (display-only). Absent / RLS-blocked → no box
+  // (graceful) — the meal list renders unchanged.
+  const { data: snap } = await supabase
+    .from("client_snapshot")
+    .select("skinfold_data")
+    .eq("client_id", plan.client_id)
+    .order("taken_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const trainingSessions = (
+    (snap?.skinfold_data as { _intake?: { training_sessions?: Record<string, RawSession[]> } } | null)
+      ?._intake?.training_sessions
+  );
+  const trainingTime = firstTrainingTime(trainingSessions);
+  if (trainingTime.startTime) {
+    reportData = {
+      ...reportData,
+      dayTypePlans: reportData.dayTypePlans.map((p) =>
+        isTrainingDayType(p.dayType) ? { ...p, trainingTime } : p
+      ),
+    };
+  }
 
   // 4. Render HTML → PDF via Puppeteer
   let pdfBuffer: Uint8Array;
