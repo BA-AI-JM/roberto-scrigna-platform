@@ -2,21 +2,39 @@
 
 /**
  * #27 Stage 2 — "Progressi" tab: body composition + measurement trends (from
- * portal.getSnapshots), the patient's progress PHOTOS (display, from the same
- * query — PR #33), and the patient's documents (portal.getDocuments).
+ * portal.getSnapshots), the patient's progress PHOTOS (display + upload, from
+ * the same query — PR #33), and the patient's documents (portal.getDocuments).
  *
- * Photo UPLOAD is still gated behind storage-RLS migration 007 (clients can't
- * write the client-photos bucket yet) — see PHOTO_UPLOAD_ENABLED in the gallery.
+ * Photo UPLOAD is now enabled (storage-RLS migration 007 applied): the patient
+ * uploads front/side/back photos to their own client-photos/<pid>/<cid>/ folder
+ * and they are persisted via portal.addSnapshot — see PHOTO_UPLOAD_ENABLED.
  */
 
 import { trpc } from "@/lib/trpc/client";
 import { MeasurementsView, type MeasurementSnapshot } from "@/components/portal/measurements-view";
 import { DocumentsList, type PortalDocument } from "@/components/portal/documents-list";
-import { ProgressPhotosGallery, type PhotoSnapshot } from "@/components/portal/progress-photos-gallery";
+import {
+  ProgressPhotosGallery,
+  type PhotoSnapshot,
+  type SnapshotPhotoUrls,
+} from "@/components/portal/progress-photos-gallery";
 
 export default function PortalProgressPage() {
   const snapshotsQuery = trpc.portal.getSnapshots.useQuery({});
   const documentsQuery = trpc.portal.getDocuments.useQuery();
+  const profileQuery = trpc.portal.getMyProfile.useQuery();
+  const addSnapshot = trpc.portal.addSnapshot.useMutation();
+
+  // The patient's own identifiers, used to scope photo uploads to their folder.
+  const profile = profileQuery.data as { id?: string; partner?: { id?: string } | { id?: string }[] | null } | undefined;
+  const clientId = profile?.id ?? null;
+  const partnerRaw = profile?.partner;
+  const partnerId = Array.isArray(partnerRaw) ? partnerRaw[0]?.id ?? null : partnerRaw?.id ?? null;
+
+  const saveSnapshot = async (urls: SnapshotPhotoUrls) => {
+    await addSnapshot.mutateAsync(urls);
+    await snapshotsQuery.refetch();
+  };
 
   return (
     <div className="mx-auto w-full max-w-[640px] px-4 py-6 sm:px-6">
@@ -27,11 +45,14 @@ export default function PortalProgressPage() {
         loading={snapshotsQuery.isLoading}
       />
 
-      {/* Progress photos — DISPLAY from getSnapshots (PR #33). Upload stays gated
-          behind storage-RLS migration 007 (see PHOTO_UPLOAD_ENABLED). */}
+      {/* Progress photos — DISPLAY from getSnapshots (PR #33) + UPLOAD to the
+          patient's own client-photos/<pid>/<cid>/ folder (migration 007). */}
       <ProgressPhotosGallery
         snapshots={snapshotsQuery.data as PhotoSnapshot[] | undefined}
         loading={snapshotsQuery.isLoading}
+        partnerId={partnerId}
+        clientId={clientId}
+        saveSnapshot={saveSnapshot}
       />
 
       <DocumentsList
