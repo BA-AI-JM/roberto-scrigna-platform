@@ -49,6 +49,12 @@ describe("notificationMeta", () => {
     expect(notificationMeta("feedback_requested").label).toBe("Feedback richiesto");
     expect(notificationMeta("totally_unknown")).toEqual({ icon: "🔔", label: "totally_unknown" });
   });
+
+  test("#25 — plan_update_suggested has a clean label + icon (not the fallback)", () => {
+    const meta = notificationMeta("plan_update_suggested");
+    expect(meta.label).toBe("Aggiornamento piano suggerito");
+    expect(meta.icon).not.toBe("🔔");
+  });
 });
 
 describe("NotificationsPanel", () => {
