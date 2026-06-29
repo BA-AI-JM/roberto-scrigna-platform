@@ -29,6 +29,10 @@ import { createSupabaseServiceRole } from "../../lib/supabase/service";
 import { toClientPlanHistory, type RawPlanRow } from "../plan-versioning";
 import type { SupplementEntry } from "../../pdf/types";
 import { rateLimit, getClientIp } from "../../lib/rate-limit";
+// #18 → portal: representative per-week training time from the client's latest
+// intake (_intake.training_sessions). Pure, framework-free helper shared with
+// the coach card so the portal timed-session box mirrors it exactly.
+import { firstTrainingTime, type RawSession } from "../../components/plan/peri-workout-timing";
 
 // ── Shared Helpers ────────────────────────────────────────────────────────────
 
@@ -152,10 +156,28 @@ export const portalRouter = router({
     // supplement_protocol relation. Read what the coach actually set.
     const supplements = (planBundle?.supplements as SupplementEntry[] | undefined) ?? [];
 
+    // #18 → portal: expose the client's representative training time so the
+    // patient can render the same PeriWorkoutTimingCard the coach sees. Read it
+    // from the latest snapshot's intake (display-only; the engine ignores it).
+    // ADDITIVE + ctx.clientId-scoped. Absent training time → {} → no box.
+    const { data: snap } = await db
+      .from("client_snapshot")
+      .select("skinfold_data")
+      .eq("client_id", ctx.clientId)
+      .order("taken_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const trainingSessions = (
+      (snap?.skinfold_data as { _intake?: { training_sessions?: Record<string, RawSession[]> } } | null)
+        ?._intake?.training_sessions
+    );
+    const trainingTime = firstTrainingTime(trainingSessions);
+
     return {
       ...data,
       mealPlan: dayTypePlans as Array<{ dayType: string; label: string; mealPlan?: { withinTolerance: boolean; slots: Array<{ slot: string; primary: { template: { name: string }; scaledIngredients: Array<{ name: string; grams: number }>; actualMacros: { kcal: number; proteinG: number; carbsG: number; fatG: number } } }> } }>,
       supplements,
+      trainingTime,
     };
   }),
 

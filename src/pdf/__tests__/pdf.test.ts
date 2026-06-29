@@ -331,3 +331,40 @@ describe("HTML Renderer", () => {
     expect(footerCount).toBeGreaterThanOrEqual(3);
   });
 });
+
+// ── #18 Peri-workout timed box ───────────────────────────────────────────────
+
+describe("PDF peri-workout timed box (#18)", () => {
+  /** testReportData with a training time pinned onto the training day-type. */
+  const withTrainingTime: PdfReportData = {
+    ...testReportData,
+    dayTypePlans: testReportData.dayTypePlans.map((p) =>
+      p.dayType === "training" ? { ...p, trainingTime: { startTime: "18:00", endTime: "19:30" } } : p
+    ),
+  };
+
+  test("renders the timed box + Pre/Intra/Post grouping when a training time exists", () => {
+    const html = renderReportHtml(withTrainingTime);
+    expect(html).toContain("Timing nutrizionale peri-workout");
+    expect(html).toContain("Allenamento 18:00–19:30"); // the timed pill
+    expect(html).toContain("Pre-allenamento");
+    expect(html).toContain("Intra-allenamento"); // electrolyte guidance prose
+    expect(html).toContain("Post-allenamento");
+  });
+
+  test("omits the box entirely when there is no training time (graceful)", () => {
+    const html = renderReportHtml(testReportData); // training day, but no trainingTime
+    expect(html).not.toContain("Timing nutrizionale peri-workout");
+  });
+
+  test("a non-training day never shows the box, even if a time leaks onto it", () => {
+    const restWithTime: PdfReportData = {
+      ...testReportData,
+      dayTypePlans: testReportData.dayTypePlans
+        .filter((p) => p.dayType === "rest")
+        .map((p) => ({ ...p, trainingTime: { startTime: "18:00", endTime: "19:30" } })),
+    };
+    const html = renderReportHtml(restWithTime);
+    expect(html).not.toContain("Timing nutrizionale peri-workout");
+  });
+});
