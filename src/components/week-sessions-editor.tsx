@@ -24,6 +24,9 @@ export interface TrainingSession {
   modality: string;
   duration_min: number;
   rpe: number;
+  // #18 nutrient timing — optional clock time ("HH:MM"). Display-only.
+  startTime?: string;
+  endTime?: string;
 }
 
 /** Map of weekday index (0=Mon..6=Sun) → sessions for that day. */
@@ -217,6 +220,26 @@ export function WeekSessionsEditor({
                         <span>1</span>
                         <span>10</span>
                       </div>
+                    </div>
+
+                    {/* #18 nutrient timing — optional clock time (HH:MM). */}
+                    <div>
+                      <label className={labelCls}>Ora inizio</label>
+                      <input
+                        type="time"
+                        className={inputCls}
+                        value={session.startTime ?? ""}
+                        onChange={(e) => updateSession(dayIndex, si, "startTime", e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label className={labelCls}>Ora fine</label>
+                      <input
+                        type="time"
+                        className={inputCls}
+                        value={session.endTime ?? ""}
+                        onChange={(e) => updateSession(dayIndex, si, "endTime", e.target.value)}
+                      />
                     </div>
                   </div>
 

@@ -15,7 +15,7 @@
 
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { trpc } from "../../../../../lib/trpc/client";
 import type { DayType, MacroTargets } from "../../../../../engine/types";
 import { computeSlotDeviation as slotDeviation } from "../../../../../engine/meal-plan/types";
@@ -36,6 +36,8 @@ import { SupplementsEditor } from "@/components/plan/supplements-editor";
 import { PlanNotesSection } from "@/components/plan/plan-notes-section";
 import { IngredientSwapList } from "@/components/plan/ingredient-swap";
 import { PortionAdjustMenu } from "@/components/plan/portion-adjust-menu";
+import { PeriWorkoutTimingCard } from "@/components/plan/peri-workout-timing-card";
+import { firstTrainingTime, type RawSession } from "@/components/plan/peri-workout-timing";
 
 // ── Review State ─────────────────────────────────────────────────────────────
 
@@ -197,6 +199,21 @@ export default function PlanReviewPage({
     { id: planId },
     { enabled: Boolean(planId) }
   );
+
+  // #18 nutrient timing — read the client's per-day training time from the latest
+  // snapshot's _intake (display-only; drives the timed session box + grouping).
+  const clientId = data?.clientId;
+  const clientQuery = trpc.client.getById.useQuery(
+    { id: clientId ?? "" },
+    { enabled: Boolean(clientId), staleTime: Infinity }
+  );
+  const trainingTime = useMemo(() => {
+    const snap = clientQuery.data?.latestSnapshot as
+      | { skinfold_data?: { _intake?: { training_sessions?: Record<string, RawSession[]> } } }
+      | null
+      | undefined;
+    return firstTrainingTime(snap?.skinfold_data?._intake?.training_sessions);
+  }, [clientQuery.data]);
 
   // Approve mutation
   const approveMutation = trpc.plan.approve.useMutation({
@@ -784,7 +801,7 @@ export default function PlanReviewPage({
         />
       )}
       {activeTab === "meals" && (
-        <MealsTab dayTypePlans={review.dayTypePlans} cardStyle={cardStyle} planId={planId} />
+        <MealsTab dayTypePlans={review.dayTypePlans} cardStyle={cardStyle} planId={planId} trainingTime={trainingTime} />
       )}
       {activeTab === "supplements" && (
         <SupplementsTab
@@ -1106,10 +1123,12 @@ function MealsTab({
   dayTypePlans,
   cardStyle,
   planId,
+  trainingTime,
 }: {
   dayTypePlans: DayTypePlanSummary[];
   cardStyle: React.CSSProperties;
   planId: string;
+  trainingTime?: { startTime?: string; endTime?: string };
 }) {
   const adjustMutation = trpc.plan.adjustPortions.useMutation({
     onSuccess: (result) => {
@@ -1243,6 +1262,22 @@ function MealsTab({
               </>
             )}
           </div>
+
+          {/* #18 nutrient timing — timed session box + pre/intra/post grouping on
+              a training day when a time is set (else nothing). */}
+          {plan.mealPlan && (
+            <div style={{ marginBottom: "8px" }}>
+              <PeriWorkoutTimingCard
+                dayType={plan.dayType}
+                slots={plan.mealPlan.slots.map((sl) => ({
+                  slot: sl.slot,
+                  mealName: sl.primary?.template?.name,
+                }))}
+                startTime={trainingTime?.startTime}
+                endTime={trainingTime?.endTime}
+              />
+            </div>
+          )}
 
           {plan.mealPlan?.slots.map((slot) => {
             // Per-meal tolerance check (spec §10.8.3: ±5 g P, ±5 g F, ±10 g C, ±50 kcal)
