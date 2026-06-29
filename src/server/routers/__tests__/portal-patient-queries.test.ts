@@ -15,6 +15,7 @@ vi.mock("next/headers", () => ({ cookies: () => ({ get: () => undefined, getAll:
 const holder = vi.hoisted(() => ({
   db: null as unknown,
   inserted: [] as Array<{ table: string; payload: Record<string, unknown> }>,
+  selectCols: [] as string[], // captured column strings, to assert the widened SELECT
 }));
 vi.mock("../../../lib/supabase/service", () => ({
   createSupabaseServiceRole: () => holder.db,
@@ -46,7 +47,7 @@ function makeDb(tables: Record<string, Record<string, unknown>[]>) {
       };
       const result = () => (isCount ? { data: null, count: filtered().length, error: null } : { data: rows(), error: null });
       const b: Record<string, unknown> = {
-        select: (_cols?: unknown, opts?: { head?: boolean }) => { if (opts?.head) isCount = true; return b; },
+        select: (cols?: unknown, opts?: { head?: boolean }) => { if (typeof cols === "string") holder.selectCols.push(cols); if (opts?.head) isCount = true; return b; },
         insert: (payload: Record<string, unknown>) => {
           holder.inserted.push({ table, payload });
           return { select: () => ({ single: () => Promise.resolve({ data: { id: "new-id" }, error: null }) }) };
@@ -140,5 +141,46 @@ describe("portal.addSnapshot — progress-photo round-trip + scoping (#27)", () 
     expect(row.photo_front_url).toBeNull();
     expect(row.photo_side_url).toBeNull();
     expect(row.photo_back_url).toBeNull();
+  });
+});
+
+// ── getSnapshots photo-URL read (this PR) ─────────────────────────────────────
+describe("portal.getSnapshots — exposes progress-photo URLs + scoping (#27)", () => {
+  const SNAPS = [
+    { id: "s1", client_id: "cA", taken_at: "2026-01-02", weight_kg: 82, body_fat_pct: 18, lean_mass_kg: 64, fat_mass_kg: 18, photo_front_url: "client-photos/p/cA/front.jpg", photo_side_url: "client-photos/p/cA/side.jpg", photo_back_url: null },
+    { id: "s2", client_id: "cA", taken_at: "2026-01-09", weight_kg: 80, body_fat_pct: 16, lean_mass_kg: 65, fat_mass_kg: 15, photo_front_url: null, photo_side_url: null, photo_back_url: null },
+    { id: "s3", client_id: "cB", taken_at: "2026-01-10", weight_kg: 70, body_fat_pct: 24, lean_mass_kg: 50, fat_mass_kg: 17, photo_front_url: "client-photos/p/cB/front.jpg", photo_side_url: null, photo_back_url: null },
+  ];
+
+  test("the SELECT requests the three photo-URL columns (the widening)", async () => {
+    holder.db = makeDb({ client_snapshot: SNAPS });
+    holder.selectCols = [];
+    await caller("cA").getSnapshots({});
+    const sel = holder.selectCols.join(" | ");
+    expect(sel).toContain("photo_front_url");
+    expect(sel).toContain("photo_side_url");
+    expect(sel).toContain("photo_back_url");
+    // existing fields are NOT removed
+    expect(sel).toContain("weight_kg");
+    expect(sel).toContain("body_fat_pct");
+  });
+
+  test("returns photo URLs when present and null when absent, newest-first", async () => {
+    holder.db = makeDb({ client_snapshot: SNAPS });
+    const rows = await caller("cA").getSnapshots({});
+    expect(rows.map((r) => r.id)).toEqual(["s2", "s1"]); // newest-first, only cA
+    const s1 = rows.find((r) => r.id === "s1")!;
+    expect(s1.photo_front_url).toBe("client-photos/p/cA/front.jpg");
+    expect(s1.photo_back_url).toBeNull();
+    const s2 = rows.find((r) => r.id === "s2")!;
+    expect(s2.photo_front_url).toBeNull();
+  });
+
+  test("stays strictly client-scoped — client-B's snapshots never appear", async () => {
+    holder.db = makeDb({ client_snapshot: SNAPS });
+    const rows = await caller("cA").getSnapshots({});
+    expect(rows.some((r) => r.id === "s3")).toBe(false);
+    const bRows = await caller("cB").getSnapshots({});
+    expect(bRows.map((r) => r.id)).toEqual(["s3"]);
   });
 });
