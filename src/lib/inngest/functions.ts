@@ -22,6 +22,7 @@ import { createSupabaseServiceRole } from "../supabase/service";
 import { ensurePortalAuthUser } from "../../services/portal-auth";
 import { sendEmail as sendResendEmail } from "../resend/client";
 import { FEEDBACK_DUE_DAYS, FEEDBACK_CATCH_DAYS } from "../../server/plan-versioning";
+import { scanPlanUpdateHeuristicsCore } from "../../server/plan-update-heuristics";
 
 // ── Supabase service-role client for background jobs ────────────────────────
 
@@ -125,6 +126,7 @@ const TRIGGER_PRIORITY: Record<string, string> = {
   training_logged: "low",
   milestone_reached: "low",
   feedback_requested: "medium",
+  plan_update_suggested: "medium",
 };
 
 async function createNotification(params: {
@@ -872,6 +874,23 @@ export const scanFeedbackDue = inngest.createFunction(
   }
 );
 
+// ── N15: Plan-update heuristic (#25 Stage A) — weight-change → suggest regen ──
+// Daily scan. PROMPT LAYER ONLY: for each active plan whose client has lost
+// ≥10% bodyweight since the plan started, emit ONE COACH-SCOPED notification
+// (client_id = NULL) suggesting the coach regenerate the plan with a ~8.5%
+// calorie trim. It NEVER mutates a plan — the apply path is the existing #24
+// createVersion flow, run by the coach. Clones scanFeedbackDue's shape; the
+// signal logic + same-day idempotency live in the injectable core (testable).
+export const scanPlanUpdateHeuristics = inngest.createFunction(
+  { id: "scan-plan-update-heuristics", retries: 2, triggers: [{ cron: "0 8 * * *" }] },
+  async ({ step }) => {
+    const results = await step.run("scan-weight-change-regen", async () =>
+      scanPlanUpdateHeuristicsCore(getServiceDb()),
+    );
+    return { scanned: results.length, emitted: results.filter((r) => r.emitted).length };
+  },
+);
+
 // ── Export all functions ─────────────────────────────────────────────────────
 
 export const functions = [
@@ -885,4 +904,5 @@ export const functions = [
   scanExpiringPlans,
   onFeedbackRequestDue,
   scanFeedbackDue,
+  scanPlanUpdateHeuristics,
 ];

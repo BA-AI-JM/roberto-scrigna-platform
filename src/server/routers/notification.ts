@@ -30,7 +30,7 @@ import { TRPCError } from "@trpc/server";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
-/** All 12 notification trigger types */
+/** All notification trigger types */
 const notificationTriggerSchema = z.enum([
   "checkin_overdue",
   "checkin_completed",
@@ -44,6 +44,7 @@ const notificationTriggerSchema = z.enum([
   "new_message",
   "training_logged",
   "milestone_reached",
+  "plan_update_suggested",
 ]);
 
 /** Priority levels for notifications */
@@ -63,6 +64,7 @@ const TRIGGER_PRIORITY: Record<string, z.infer<typeof notificationPrioritySchema
   new_message: "medium",
   training_logged: "low",
   milestone_reached: "low",
+  plan_update_suggested: "medium",
 };
 
 /** Trigger-to-Italian label mapping */
@@ -79,6 +81,7 @@ const TRIGGER_LABELS: Record<string, string> = {
   new_message: "Nuovo messaggio",
   training_logged: "Allenamento registrato",
   milestone_reached: "Obiettivo raggiunto",
+  plan_update_suggested: "Aggiornamento piano suggerito",
 };
 
 // ── Router ───────────────────────────────────────────────────────────────────
