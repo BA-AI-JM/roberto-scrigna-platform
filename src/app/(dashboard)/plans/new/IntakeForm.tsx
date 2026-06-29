@@ -27,6 +27,10 @@ interface TrainingSession {
   modality: string;
   duration_min: number;
   rpe: number;
+  // #18 nutrient timing — optional clock time ("HH:MM"). Drives the timed
+  // session box + pre/intra/post grouping. Display-only; the engine ignores it.
+  startTime?: string;
+  endTime?: string;
 }
 
 // Indexed 0=Mon … 6=Sun
@@ -526,6 +530,29 @@ function Page5({
                           <span>10</span>
                         </div>
                       </FieldGroup>
+
+                      {/* #18 nutrient timing — optional clock time (HH:MM). */}
+                      <FieldGroup label="Ora inizio">
+                        <input
+                          type="time"
+                          className={s.input}
+                          value={session.startTime ?? ""}
+                          onChange={(e) =>
+                            updateSession(dayIndex, si, "startTime", e.target.value)
+                          }
+                        />
+                      </FieldGroup>
+
+                      <FieldGroup label="Ora fine">
+                        <input
+                          type="time"
+                          className={s.input}
+                          value={session.endTime ?? ""}
+                          onChange={(e) =>
+                            updateSession(dayIndex, si, "endTime", e.target.value)
+                          }
+                        />
+                      </FieldGroup>
                     </div>
 
                     <button
@@ -880,7 +907,11 @@ export default function IntakeForm() {
       const hasMedHistory = Object.values(medHistory).some((v) => v !== undefined);
 
       // Step 5: Training sessions — convert numeric keys to string keys for schema
-      const trainingSessions: Record<string, Array<{ modality: string; duration_min: number; rpe: number }>> = {};
+      // (#18: startTime/endTime ride through to _intake; the schema accepts them).
+      const trainingSessions: Record<
+        string,
+        Array<{ modality: string; duration_min: number; rpe: number; startTime?: string; endTime?: string }>
+      > = {};
       for (const [k, v] of Object.entries(form.weekSessions)) {
         if (v && v.length > 0) {
           trainingSessions[k] = v;

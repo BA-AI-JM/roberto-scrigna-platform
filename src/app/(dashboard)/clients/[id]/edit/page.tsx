@@ -323,9 +323,10 @@ export default function ClientEditPage() {
           : undefined;
 
         // Training sessions: serialize back to the intake shape (string keys).
+        // (#18: startTime/endTime ride through to _intake.)
         const trainingSessions: Record<
           string,
-          Array<{ modality: string; duration_min: number; rpe: number }>
+          Array<{ modality: string; duration_min: number; rpe: number; startTime?: string; endTime?: string }>
         > = {};
         for (const [k, v] of Object.entries(weekSessions)) {
           if (v && v.length > 0) trainingSessions[k] = v;
