@@ -2,17 +2,17 @@
 
 /**
  * #27 Stage 2 — "Progressi" tab: body composition + measurement trends (from
- * portal.getSnapshots) and the patient's documents (portal.getDocuments).
+ * portal.getSnapshots), the patient's progress PHOTOS (display, from the same
+ * query — PR #33), and the patient's documents (portal.getDocuments).
  *
- * Progress PHOTOS: deferred. getSnapshots doesn't yet return photo_*_url (needs a
- * 1-line select widening) for DISPLAY, and client photo UPLOAD needs the
- * storage-RLS migration — so photos show an "in arrivo" note for now. Measurements
- * + documents are the shipped value.
+ * Photo UPLOAD is still gated behind storage-RLS migration 007 (clients can't
+ * write the client-photos bucket yet) — see PHOTO_UPLOAD_ENABLED in the gallery.
  */
 
 import { trpc } from "@/lib/trpc/client";
 import { MeasurementsView, type MeasurementSnapshot } from "@/components/portal/measurements-view";
 import { DocumentsList, type PortalDocument } from "@/components/portal/documents-list";
+import { ProgressPhotosGallery, type PhotoSnapshot } from "@/components/portal/progress-photos-gallery";
 
 export default function PortalProgressPage() {
   const snapshotsQuery = trpc.portal.getSnapshots.useQuery({});
@@ -27,24 +27,12 @@ export default function PortalProgressPage() {
         loading={snapshotsQuery.isLoading}
       />
 
-      {/* Progress photos — display needs getSnapshots to expose photo_*_url; upload
-          needs the storage-RLS migration. Placeholder until both land. */}
-      <div
-        style={{
-          background: "#ffffff",
-          border: "1px solid #e2e8f0",
-          borderRadius: "14px",
-          padding: "20px",
-          marginBottom: "16px",
-        }}
-      >
-        <p style={{ fontSize: "16px", fontWeight: 700, color: "#1a1a2e", margin: "0 0 14px" }}>Foto dei progressi</p>
-        <div style={{ padding: "24px", textAlign: "center", color: "#9ca3af", background: "#f8fafc", borderRadius: "10px", border: "1px dashed #e2e8f0", fontSize: "13px" }}>
-          <div style={{ fontSize: "32px", marginBottom: "8px" }} aria-hidden>📸</div>
-          <div style={{ fontWeight: 600, color: "#6b7280", marginBottom: "4px" }}>In arrivo</div>
-          Presto potrai caricare e confrontare le foto dei tuoi progressi.
-        </div>
-      </div>
+      {/* Progress photos — DISPLAY from getSnapshots (PR #33). Upload stays gated
+          behind storage-RLS migration 007 (see PHOTO_UPLOAD_ENABLED). */}
+      <ProgressPhotosGallery
+        snapshots={snapshotsQuery.data as PhotoSnapshot[] | undefined}
+        loading={snapshotsQuery.isLoading}
+      />
 
       <DocumentsList
         documents={documentsQuery.data?.documents as PortalDocument[] | undefined}
