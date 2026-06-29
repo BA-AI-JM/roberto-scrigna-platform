@@ -522,7 +522,9 @@ export const portalRouter = router({
       const { data, error } = await db
         .from("client_snapshot")
         .select(
-          "id, taken_at, weight_kg, height_cm, body_fat_pct, lean_mass_kg, fat_mass_kg, notes"
+          // #27 — additively expose the progress-photo URLs (columns already exist;
+          // persisted by addSnapshot) so the Progressi page can DISPLAY the gallery.
+          "id, taken_at, weight_kg, height_cm, body_fat_pct, lean_mass_kg, fat_mass_kg, notes, photo_front_url, photo_side_url, photo_back_url"
         )
         .eq("client_id", ctx.clientId)
         .order("taken_at", { ascending: false })
