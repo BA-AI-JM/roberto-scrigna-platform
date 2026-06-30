@@ -347,7 +347,7 @@ export const portalRouter = router({
       // Training logs last 30 days for consistency
       db
         .from("training_log")
-        .select("logged_at, day_type, kcal_calculated")
+        .select("logged_at, day_type, kcal_calculated, kcal_override")
         .eq("client_id", ctx.clientId)
         .order("logged_at", { ascending: false })
         .limit(30),

@@ -470,7 +470,8 @@ export const trainingLogRouter = router({
         .select(
           `id, session_date, session_type, duration_min,
            perceived_effort, ocr_extracted, notes, created_at,
-           screenshot_urls`,
+           screenshot_urls,
+           kcal_estimated, kcal_calculated, kcal_override`,
           { count: "exact" }
         )
         .eq("client_id", input.clientId)
@@ -517,6 +518,36 @@ export const trainingLogRouter = router({
           ? JSON.parse(data.exercises) as z.infer<typeof exerciseEntrySchema>[]
           : data.exercises ?? [],
       };
+    }),
+
+  /**
+   * #10 (display-only) — set/clear a coach-entered manual per-session expenditure
+   * (kcal) for an unusual activity. Partner-scoped: only the session's own coach.
+   * Writes ONLY training_log.kcal_override. This is DISPLAY-ONLY — plan generation
+   * reads expenditure from the snapshot intake, NEVER from training_log, so this
+   * never changes a generated plan. Pass null to clear.
+   */
+  setSessionKcalOverride: protectedProcedure
+    .input(
+      z.object({
+        sessionId: z.string().uuid(),
+        kcalOverride: z.number().positive().max(10000).nullable(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { data, error } = await ctx.supabase
+        .from("training_log")
+        .update({ kcal_override: input.kcalOverride })
+        .eq("id", input.sessionId)
+        .eq("partner_id", ctx.partnerId) // partner-scope guard
+        .is("deleted_at", null)
+        .select("id, kcal_override, kcal_estimated, kcal_calculated")
+        .single();
+
+      if (error || !data) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Sessione non trovata." });
+      }
+      return data;
     }),
 
   /**
