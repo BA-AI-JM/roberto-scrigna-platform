@@ -18,6 +18,7 @@ import { portalRouter } from "./portal";
 import { planRouter } from "./plan";
 import { legalRouter } from "./legal";
 import { signatureRouter } from "./signature";
+import { feedbackRouter } from "./feedback";
 
 export const appRouter = router({
   auth: authRouter,
@@ -34,6 +35,7 @@ export const appRouter = router({
   plan: planRouter,
   legal: legalRouter,
   signature: signatureRouter,
+  feedback: feedbackRouter,
 });
 
 /** Type-safe router type for client-side usage */
