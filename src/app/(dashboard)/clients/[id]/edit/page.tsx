@@ -818,7 +818,14 @@ export default function ClientEditPage() {
               >
                 Scheda allenamento settimanale
               </div>
-              <WeekSessionsEditor value={weekSessions} onChange={setWeekSessions} />
+              <WeekSessionsEditor
+                value={weekSessions}
+                onChange={setWeekSessions}
+                bodyweightKg={
+                  parseFloat(snapshotForm.weightKg) ||
+                  ((data?.latestSnapshot as { weight_kg?: number } | null)?.weight_kg ?? null)
+                }
+              />
 
               {/* ── Nuova plicometria ────────────────────────────────── */}
               <div

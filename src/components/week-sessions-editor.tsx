@@ -17,6 +17,7 @@ import {
   groupedSportOptions,
   SPORT_TAXONOMY,
 } from "../engine/sport-taxonomy";
+import { SessionKcalRow } from "./training/session-kcal-row";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -65,12 +66,18 @@ export interface WeekSessionsEditorProps {
   onChange: (next: WeekSessions) => void;
   /** Optional helper line below the title. */
   hint?: string;
+  /** #10 — client bodyweight (kg) for the provisional per-session kcal estimate. */
+  bodyweightKg?: number | null;
+  /** #10 — saved kcal overrides keyed by "<dayIndex>:<sessionIndex>" (display-only). */
+  initialOverrides?: Record<string, number | null>;
 }
 
 export function WeekSessionsEditor({
   value,
   onChange,
   hint = "Aggiungi sessioni per ogni giorno di allenamento. I giorni senza sessioni sono considerati riposo.",
+  bodyweightKg = null,
+  initialOverrides,
 }: WeekSessionsEditorProps) {
   const setSessions = useCallback(
     (dayIndex: number, sessions: TrainingSession[]) => {
@@ -252,6 +259,15 @@ export function WeekSessionsEditor({
                     ✕
                   </button>
                 </div>
+
+                {/* #10 — provisional estimated kcal + optional per-session override
+                    (display-only; does NOT touch the generation-feeding values above). */}
+                <SessionKcalRow
+                  sessionId={`${dayIndex}:${si}`}
+                  session={session}
+                  bodyweightKg={bodyweightKg}
+                  initialOverride={initialOverrides?.[`${dayIndex}:${si}`] ?? null}
+                />
               </div>
             ))}
           </div>
