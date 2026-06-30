@@ -34,6 +34,7 @@ const TRIGGER_META: Record<string, { icon: string; label: string }> = {
   new_message: { icon: "✉️", label: "Nuovo messaggio" },
   training_logged: { icon: "🏋️", label: "Allenamento registrato" },
   milestone_reached: { icon: "🎯", label: "Traguardo raggiunto" },
+  plan_update_suggested: { icon: "📋", label: "Aggiornamento piano suggerito" },
 };
 
 export function notificationMeta(trigger: string): { icon: string; label: string } {

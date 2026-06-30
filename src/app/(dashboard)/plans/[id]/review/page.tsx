@@ -32,6 +32,13 @@ import { useQueryClient } from "@tanstack/react-query";
 import { getQueryKey } from "@trpc/react-query";
 import { VersionsTab } from "@/components/plan/versions-tab";
 import { buildCreateVersionInput } from "@/components/plan/version-helpers";
+import {
+  PlanUpdateBanner,
+  findPlanUpdateSuggestion,
+  formatKcalReductionPct,
+  suggestedNextVersionLabel,
+  type PlanNotificationLite,
+} from "@/components/plan/plan-update-banner";
 import { SupplementsEditor } from "@/components/plan/supplements-editor";
 import { PlanNotesSection } from "@/components/plan/plan-notes-section";
 import { IngredientSwapList } from "@/components/plan/ingredient-swap";
@@ -272,6 +279,19 @@ export default function PlanReviewPage({
     },
   });
 
+  // #25 surfacing — an unread coach "plan_update_suggested" notification for THIS
+  // plan (match metadata.planId) drives the regenerate banner. Backend (PR #35)
+  // already emits it; this is read-only matching, partner-scoped via the router.
+  const planUpdateNotifsQuery = trpc.notification.list.useQuery(
+    { trigger: "plan_update_suggested", unreadOnly: true, limit: 50 },
+    { enabled: Boolean(planId) }
+  );
+  const planUpdateSuggestion = findPlanUpdateSuggestion(
+    planUpdateNotifsQuery.data?.notifications as PlanNotificationLite[] | undefined,
+    planId
+  );
+  const nextVersionLabel = suggestedNextVersionLabel(versions.length);
+
   // Hydrate review state when plan data arrives
   useEffect(() => {
     if (!data?.planBundle) return;
@@ -454,6 +474,24 @@ export default function PlanReviewPage({
 
   return (
     <div style={{ padding: "32px", maxWidth: "1200px", margin: "0 auto" }}>
+      {/* #25 — coach suggestion banner (regenerate with reduced kcal). Shows only
+          when an unread plan_update_suggested notification matches this plan. */}
+      <PlanUpdateBanner
+        suggestion={planUpdateSuggestion}
+        nextVersionLabel={nextVersionLabel}
+        isRegenerating={createVersionMutation.isPending}
+        onRegenerate={() =>
+          createVersionMutation.mutate(
+            buildCreateVersionInput(
+              planId,
+              planUpdateSuggestion
+                ? `Aggiornamento suggerito: -${formatKcalReductionPct(planUpdateSuggestion.kcalReductionPct)}% kcal (calo peso ≥10%)`
+                : ""
+            )
+          )
+        }
+      />
+
       {/* Header */}
       <div
         style={{
