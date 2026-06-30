@@ -25,6 +25,7 @@ import { router, protectedProcedure, clientProcedure } from "../trpc";
 import { createSupabaseServiceRole } from "../../lib/supabase/service";
 import { getSignatureProvider, activeSignatureProviderName } from "../esign/factory";
 import { renderSignedEngagementLetterPdf } from "../signature-document";
+import { fillEngagementLetter } from "../legal-letter";
 import type { SignatureProviderDeps } from "../esign/types";
 
 const OPEN_STATUSES = ["pending", "sent", "viewed"] as const;
@@ -144,6 +145,90 @@ export const signatureRouter = router({
         throw new TRPCError({ code: "NOT_FOUND", message: "Richiesta non trovata." });
       }
       return data;
+    }),
+
+  /**
+   * The engagement-letter document for one of the client's OWN requests, readable
+   * BEFORE signing (returned regardless of status — that's the point: the in-app
+   * SES screen shows it pre-sign). Returns the per-client filled BODY (markdown)
+   * for display, NOT a PDF (the signed PDF is downloadSignedDocument, post-sign).
+   * Reuses the shared fillEngagementLetter helper — no duplicated placeholder logic.
+   * The contentHash is the version the request points at (frozen — a newer
+   * published version does not change an existing request's document).
+   */
+  getSignatureDocument: clientProcedure
+    .input(z.object({ requestId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      const db = createSupabaseServiceRole();
+
+      // Scope strictly to the caller; NO status filter (readable pre-sign).
+      const { data: req, error: reqErr } = await db
+        .from("signature_request")
+        .select("id, status, document_version_id, partner_id")
+        .eq("id", input.requestId)
+        .eq("client_id", ctx.clientId)
+        .single();
+      if (reqErr || !req) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Richiesta non trovata." });
+      }
+
+      const { data: version, error: verErr } = await db
+        .from("legal_document_version")
+        .select(
+          "legal_document_id, version_number, version_label, language, body_md, content_hash"
+        )
+        .eq("id", req.document_version_id)
+        .single();
+      if (verErr || !version) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Documento non trovato." });
+      }
+
+      const { data: docRow } = await db
+        .from("legal_document")
+        .select("name")
+        .eq("id", version.legal_document_id)
+        .single();
+      const { data: client } = await db
+        .from("client")
+        .select("full_name")
+        .eq("id", ctx.clientId)
+        .single();
+      const { data: partner } = await db
+        .from("partner")
+        .select("full_name")
+        .eq("id", req.partner_id)
+        .single();
+
+      const practitionerName = (partner?.full_name as string | undefined) ?? "Roberto Scrigna";
+      const patientName = (client?.full_name as string | undefined) ?? "";
+
+      const generatedDate = new Intl.DateTimeFormat("it-IT", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      }).format(new Date());
+
+      // Same shared fill + placeholder-detection as legal.generateEngagementLetter.
+      const filled = fillEngagementLetter(version.body_md as string, {
+        client_full_name: patientName,
+        professional_name: practitionerName,
+        generated_date: generatedDate,
+      });
+
+      return {
+        requestId: req.id as string,
+        status: req.status as string,
+        documentName: (docRow?.name as string | undefined) ?? "Lettera di Incarico",
+        versionNumber: version.version_number as number,
+        versionLabel: (version.version_label as string | null) ?? `v${version.version_number}`,
+        language: version.language as string,
+        contentHash: version.content_hash as string,
+        bodyMd: filled.filledMd,
+        practitionerName,
+        patientName,
+        missingTokens: filled.missingTokens,
+        pendingPlaceholders: filled.pendingPlaceholders,
+      };
     }),
 
   /**
