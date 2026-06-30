@@ -27,6 +27,7 @@
 import { z } from "zod/v4";
 import { router, protectedProcedure } from "../trpc";
 import { TRPCError } from "@trpc/server";
+import { resolveReminderSettings } from "../reminder-due";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -45,6 +46,8 @@ const notificationTriggerSchema = z.enum([
   "training_logged",
   "milestone_reached",
   "plan_update_suggested",
+  "feedback_requested",
+  "body_comp_due",
 ]);
 
 /** Priority levels for notifications */
@@ -65,6 +68,8 @@ const TRIGGER_PRIORITY: Record<string, z.infer<typeof notificationPrioritySchema
   training_logged: "low",
   milestone_reached: "low",
   plan_update_suggested: "medium",
+  feedback_requested: "medium",
+  body_comp_due: "medium",
 };
 
 /** Trigger-to-Italian label mapping */
@@ -82,6 +87,8 @@ const TRIGGER_LABELS: Record<string, string> = {
   training_logged: "Allenamento registrato",
   milestone_reached: "Obiettivo raggiunto",
   plan_update_suggested: "Aggiornamento piano suggerito",
+  feedback_requested: "Feedback richiesto",
+  body_comp_due: "Misurazioni da aggiornare",
 };
 
 // ── Router ───────────────────────────────────────────────────────────────────
@@ -273,6 +280,92 @@ export const notificationRouter = router({
       }
 
       return { success: true };
+    }),
+
+  /**
+   * Build #07 — per-client reminder cadence. Get the coach's reminder settings
+   * for one of their clients; returns sensible DEFAULTS when unset (check-in
+   * every 21 days = today's behaviour; body-comp 0 = off; enabled).
+   * Contract: { checkInEveryDays, bodyCompEveryDays, enabled }.
+   */
+  getReminderSettings: protectedProcedure
+    .input(z.object({ clientId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      // Partner-scope: the client must belong to this partner.
+      const { data: client } = await ctx.supabase
+        .from("client")
+        .select("id")
+        .eq("id", input.clientId)
+        .eq("partner_id", ctx.partnerId)
+        .is("deleted_at", null)
+        .maybeSingle();
+      if (!client) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Cliente non trovato." });
+      }
+
+      const { data: row } = await ctx.supabase
+        .from("client_reminder_settings")
+        .select("check_in_every_days, body_comp_every_days, reminders_enabled")
+        .eq("client_id", input.clientId)
+        .maybeSingle();
+
+      const s = resolveReminderSettings(row);
+      return {
+        checkInEveryDays: s.checkInEveryDays,
+        bodyCompEveryDays: s.bodyCompEveryDays,
+        enabled: s.enabled,
+      };
+    }),
+
+  /**
+   * Build #07 — update a client's reminder cadence. Partner-scoped; ranges
+   * validated (check-in 1–90; body-comp 0–90 where 0 = off). Upserts one row
+   * per client. Cannot set another partner's client.
+   */
+  updateReminderSettings: protectedProcedure
+    .input(
+      z.object({
+        clientId: z.string().uuid(),
+        checkInEveryDays: z.number().int().min(1).max(90),
+        bodyCompEveryDays: z.number().int().min(0).max(90), // 0 = off
+        enabled: z.boolean(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { data: client } = await ctx.supabase
+        .from("client")
+        .select("id")
+        .eq("id", input.clientId)
+        .eq("partner_id", ctx.partnerId)
+        .is("deleted_at", null)
+        .maybeSingle();
+      if (!client) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Cliente non trovato." });
+      }
+
+      const { error } = await ctx.supabase
+        .from("client_reminder_settings")
+        .upsert(
+          {
+            client_id: input.clientId,
+            check_in_every_days: input.checkInEveryDays,
+            body_comp_every_days: input.bodyCompEveryDays,
+            reminders_enabled: input.enabled,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "client_id" }
+        );
+      if (error) {
+        console.error("[router/notification.updateReminderSettings]", error);
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Errore nell'aggiornamento. Riprova." });
+      }
+
+      return {
+        success: true,
+        checkInEveryDays: input.checkInEveryDays,
+        bodyCompEveryDays: input.bodyCompEveryDays,
+        enabled: input.enabled,
+      };
     }),
 
   /**
