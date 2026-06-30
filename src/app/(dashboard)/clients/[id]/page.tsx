@@ -18,6 +18,7 @@ import { totalDataPoints, type TrendSeries } from "@/components/charts/TrendChar
 import { ClientPhotoGallery } from "@/components/client-photo-gallery";
 import { FeedbackCard, type FeedbackCheckin } from "@/components/client/feedback-card";
 import { NotificationsPanel, type NotificationItem } from "@/components/client/notifications-panel";
+import { ReminderSettingsCard } from "@/components/client/reminder-settings-card";
 import { EnergyPanel, type EnergyEstimate } from "@/components/client/energy-panel";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -1311,6 +1312,9 @@ export default function ClientDetailPage() {
           isLoading={notifLoading}
           isError={notifError}
         />
+
+        {/* 2.5 · Reminder settings (#07) — per-client check-in + body-comp cadence */}
+        <ReminderSettingsCard clientId={clientId} />
 
         {/* 3 · Demographics / medical (+ medications) / lifestyle / goal / training */}
         <PanoramicaTab
