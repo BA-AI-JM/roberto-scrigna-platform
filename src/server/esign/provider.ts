@@ -24,13 +24,16 @@
  *     retained as the legally binding copy.
  */
 
-/** Lifecycle of a signature request, normalised across providers. */
+/** Lifecycle of a signature request, normalised across providers (mirrors the
+ *  signature_request.status CHECK in migration 010). */
 export type SignatureStatus =
-  | "created" // request created, signer not yet notified/started
-  | "pending" // sent to signer, awaiting signature
+  | "pending" // created, awaiting signature (internal SES default)
+  | "sent" // dispatched to the signer (external providers)
+  | "viewed" // signer opened the document (external providers)
   | "signed" // completed — signed document available
   | "declined" // signer refused
   | "expired" // request lapsed
+  | "cancelled" // withdrawn before signing
   | "error"; // provider-side failure
 
 export interface Signer {
@@ -45,8 +48,14 @@ export interface CreateSignatureRequestInput {
   documentVersionId: string;
   /** Our client.id the letter was generated for. */
   clientId: string;
-  /** The generated, filled engagement-letter PDF to be signed. */
-  pdf: Uint8Array;
+  /** Our partner.id that owns the request. */
+  partnerId: string;
+  /**
+   * The generated, filled letter PDF to be signed. Required by EXTERNAL providers
+   * (uploaded for signing); the internal SES provider regenerates on demand and
+   * ignores it, so it is optional here.
+   */
+  pdf?: Uint8Array;
   /** Human-facing title shown in the signing UI. */
   title: string;
   /** ISO language for the signing UI (e.g. "it"). */
