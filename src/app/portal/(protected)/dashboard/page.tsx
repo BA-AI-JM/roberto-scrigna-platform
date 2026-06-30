@@ -410,6 +410,24 @@ export default function PortalDashboardPage() {
         <div style={{ fontSize: "13px", color: "#6b7280" }}>Registra un nuovo allenamento o consulta lo storico.</div>
       </Link>
 
+      {/* ── Urgent feedback / injury (#28) — quiet secondary action, not the hero ── */}
+      <Link
+        href="/portal/feedback"
+        style={{
+          display: "block",
+          padding: "16px 20px",
+          background: "#ffffff",
+          border: "1px solid #e2e8f0",
+          borderRadius: "14px",
+          marginBottom: "16px",
+          textDecoration: "none",
+          color: "#1a1a2e",
+        }}
+      >
+        <div style={{ fontSize: "15px", fontWeight: 700, marginBottom: "4px" }}>🩹 Feedback urgente o infortunio</div>
+        <div style={{ fontSize: "13px", color: "#6b7280" }}>Segnala qualcosa che non può aspettare il prossimo check-in.</div>
+      </Link>
+
       <div style={{ marginTop: "8px", padding: "16px", textAlign: "center", fontSize: "12px", color: "#d1d5db" }}>
         Roberto Scrigna — Nutrizione Sportiva · Portale Clienti
       </div>
