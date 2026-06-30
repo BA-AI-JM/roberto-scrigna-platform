@@ -55,6 +55,41 @@ describe("ActivePlanView (full Piano)", () => {
   });
 });
 
+describe("ActivePlanView — #18 peri-workout timing card", () => {
+  test("renders the timed box for a training day when a training time is set", () => {
+    const html = renderToStaticMarkup(
+      createElement(ActivePlanView, {
+        plan: { ...PLAN, trainingTime: { startTime: "18:00", endTime: "19:30" } },
+        loading: false,
+      })
+    );
+    expect(html).toContain('data-testid="peri-workout-timing"');
+    expect(html).toContain("Allenamento 18:00–19:30");
+    expect(html).toContain("Pre-allenamento");
+    expect(html).toContain("Post-allenamento");
+  });
+
+  test("renders NO box when the training time is absent ({} / undefined)", () => {
+    const html = renderToStaticMarkup(
+      createElement(ActivePlanView, { plan: { ...PLAN, trainingTime: {} }, loading: false })
+    );
+    expect(html).not.toContain('data-testid="peri-workout-timing"');
+    // The normal meal list is still rendered.
+    expect(html).toContain("Pancake proteici");
+  });
+
+  test("renders NO box on a non-training day even when a time exists", () => {
+    const restPlan: ActivePlan = {
+      ...PLAN,
+      mealPlan: [{ ...PLAN.mealPlan![0]!, dayType: "rest", label: "Giorno di riposo" }],
+      trainingTime: { startTime: "18:00", endTime: "19:30" },
+    };
+    const html = renderToStaticMarkup(createElement(ActivePlanView, { plan: restPlan, loading: false }));
+    expect(html).not.toContain('data-testid="peri-workout-timing"');
+    expect(html).toContain("Pancake proteici");
+  });
+});
+
 describe("PlanSummaryCard (home)", () => {
   test("renders name + macro pills + a link to the full plan", () => {
     const html = renderToStaticMarkup(createElement(PlanSummaryCard, { plan: PLAN, loading: false }));

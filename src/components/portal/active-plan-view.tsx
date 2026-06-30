@@ -9,6 +9,7 @@
 
 import Link from "next/link";
 import { formatIngredientQuantity } from "@/lib/ingredient-display";
+import { PeriWorkoutTimingCard } from "@/components/plan/peri-workout-timing-card";
 
 // ── Helpers / styles (self-contained) ────────────────────────────────────────
 function formatDate(iso: string | null | undefined): string {
@@ -67,6 +68,9 @@ export type ActivePlan = {
   daily_targets?: Record<string, unknown> | null;
   meals_per_day?: number | null;
   mealPlan?: DayTypeMealPlan[] | null;
+  // #18 → portal: representative training time so the patient sees the same
+  // PeriWorkoutTimingCard the coach does. Additive; {} / absent → no box.
+  trainingTime?: { startTime?: string; endTime?: string } | null;
   notes?: string | null;
   supplements?: Array<{
     name: string;
@@ -153,7 +157,7 @@ export function ActivePlanView({ plan, loading }: { plan: ActivePlan | null | un
         </div>
       ) : null}
 
-      {Array.isArray(plan.mealPlan) && plan.mealPlan.length > 0 && <MealPlanSection dayTypePlans={plan.mealPlan} />}
+      {Array.isArray(plan.mealPlan) && plan.mealPlan.length > 0 && <MealPlanSection dayTypePlans={plan.mealPlan} trainingTime={plan.trainingTime} />}
       {Array.isArray(plan.supplements) && plan.supplements.length > 0 && <SupplementSection supplements={plan.supplements} />}
 
       {plan.notes && (
@@ -219,7 +223,13 @@ export function PlanSummaryCard({ plan, loading }: { plan: ActivePlan | null | u
   );
 }
 
-function MealPlanSection({ dayTypePlans }: { dayTypePlans: DayTypeMealPlan[] }) {
+function MealPlanSection({
+  dayTypePlans,
+  trainingTime,
+}: {
+  dayTypePlans: DayTypeMealPlan[];
+  trainingTime?: { startTime?: string; endTime?: string } | null;
+}) {
   const plansWithMeals = dayTypePlans.filter((p) => p.mealPlan && p.mealPlan.slots.length > 0);
   if (plansWithMeals.length === 0) return null;
 
@@ -230,6 +240,21 @@ function MealPlanSection({ dayTypePlans }: { dayTypePlans: DayTypeMealPlan[] }) 
         <div key={dayPlan.dayType} style={{ marginBottom: "20px" }}>
           <div style={{ fontSize: "13px", fontWeight: 600, color: "#6b7280", marginBottom: "8px", textTransform: "uppercase", letterSpacing: "0.05em" }}>
             {dayPlan.label}
+          </div>
+          {/* #18 nutrient timing — the same timed session box + pre/intra/post
+              grouping the coach sees, on a training day when a time is set
+              (else the component renders nothing, leaving the normal meal list). */}
+          <div style={{ marginBottom: "10px" }}>
+            <PeriWorkoutTimingCard
+              compact
+              dayType={dayPlan.dayType}
+              slots={dayPlan.mealPlan!.slots.map((sl) => ({
+                slot: sl.slot,
+                mealName: sl.primary?.template?.name,
+              }))}
+              startTime={trainingTime?.startTime}
+              endTime={trainingTime?.endTime}
+            />
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
             {dayPlan.mealPlan!.slots.map((slot) => {
