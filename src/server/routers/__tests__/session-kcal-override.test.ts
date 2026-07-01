@@ -22,7 +22,12 @@ const holder = vi.hoisted(() => ({
 }));
 
 import { trainingLogRouter } from "../training-log";
-import { generateWeeklyPlan, type ClientSnapshot } from "@/engine";
+import {
+  generateWeeklyPlan,
+  type ClientSnapshot,
+  type ExerciseSession,
+  type PlanOptions,
+} from "@/engine";
 
 const SESSION = "11111111-1111-4111-8111-111111111111";
 const CID = "22222222-2222-4222-8222-222222222222";
@@ -132,6 +137,19 @@ describe("trainingLog.list read surface", () => {
 });
 
 // ── NON-PLAN-MOVING invariant ──────────────────────────────────────────────────
+//
+// The display-only kcal_override lives on training_log. Generation NEVER reads
+// training_log: plan.ts builds the engine's exercise-expenditure input from the
+// snapshot intake (skinfold_data._intake.training_sessions → intakeTrainingSessions
+// → PlanOptions.perDayTrainingSession, an ExerciseSession[]). So the ONLY way the
+// override could move a plan is if the engine read a kcal_override off the session
+// objects it actually consumes. These tests drive that REAL consumed surface:
+//   • positive control — varying a field the engine DOES read (kcalEstimate on a
+//     session_estimate session) changes the plan, proving the input path is live
+//     (so the invariant below is discriminating, not a constant-output tautology);
+//   • invariant — attaching a kcal_override to those same consumed session objects
+//     leaves the bundle byte-identical, proving the engine ignores the column.
+// If someone wired training_log.kcal_override into generation, the invariant FAILS.
 describe("invariant: a session kcal override does NOT move the plan", () => {
   const snap: ClientSnapshot = {
     sex: "male",
@@ -142,13 +160,28 @@ describe("invariant: a session kcal override does NOT move the plan", () => {
     occupationalLevel: "sedentary",
     weekSchedule: ["training", "rest", "training", "rest", "training", "rest", "rest"],
   };
+  // A real exercise-expenditure input for the training day at index 0 — exactly
+  // the shape plan.ts feeds generateWeeklyPlan from the snapshot intake.
+  const session = (extra?: Record<string, unknown>): ExerciseSession =>
+    ({ method: "session_estimate", durationMin: 60, kcalEstimate: 500, ...extra }) as ExerciseSession;
+  const withSession = (s: ExerciseSession): PlanOptions => ({
+    perDayTrainingSession: [s, null, null, null, null, null, null],
+  });
 
-  test("the generated bundle is byte-identical with vs without a kcal_override present", () => {
-    const baseline = generateWeeklyPlan(snap);
-    // kcal_override lives on training_log, which is NOT part of the generator's
-    // input (snapshot + options). Even attaching one to the snapshot is ignored —
-    // the generator only consumes its declared fields. Proof of "display-only".
-    const withOverride = generateWeeklyPlan({ ...snap, kcal_override: 999 } as ClientSnapshot);
+  test("positive control: the consumed exercise-session surface DOES move the plan", () => {
+    const low = generateWeeklyPlan(snap, withSession(session({ kcalEstimate: 200 })));
+    const high = generateWeeklyPlan(snap, withSession(session({ kcalEstimate: 900 })));
+    // If this fails, perDayTrainingSession isn't a live input and the invariant
+    // below would be a vacuous constant-output check.
+    expect(JSON.stringify(high)).not.toBe(JSON.stringify(low));
+  });
+
+  test("invariant: a kcal_override on the consumed session objects is IGNORED (byte-identical)", () => {
+    const baseline = generateWeeklyPlan(snap, withSession(session()));
+    // Same session, now carrying the training_log.kcal_override column — exactly how
+    // an accidental training_log→intake join would surface it on the consumed object.
+    // Expenditure must come from the session's real fields, never kcal_override.
+    const withOverride = generateWeeklyPlan(snap, withSession(session({ kcal_override: 999 })));
     expect(JSON.stringify(withOverride)).toBe(JSON.stringify(baseline));
   });
 });
