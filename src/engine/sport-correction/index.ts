@@ -58,6 +58,11 @@ export { getSportProfile, CATEGORY_PROFILE } from "./stage6-met";
 /**
  * Run the Sport Correction Protocol pipeline.
  *
+ * SHELVED — this HR-zone expenditure engine is complete + tested (64 tests) but is
+ * NOT wired into plan generation (generation never populates ExerciseSession.scpData;
+ * it uses the MET path in exercise.ts). Its only live call site colours a logged
+ * session's displayed kcal, never a prescription. See docs/SCP-HR-ZONE-ENGINE-SHELVED.md.
+ *
  * Returns a complete SCPResult for Tier 1 inputs (HR zones + sport profile).
  * Returns null for Tier 2/3 — the caller should use the legacy Keytel/MET path.
  *
