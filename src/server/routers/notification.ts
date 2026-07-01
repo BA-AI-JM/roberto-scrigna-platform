@@ -229,61 +229,11 @@ export const notificationRouter = router({
     return { success: true };
   }),
 
-  /**
-   * Get notification settings for the partner.
-   */
-  getSettings: protectedProcedure.query(async ({ ctx }) => {
-    const { data } = await ctx.supabase
-      .from("notification_settings")
-      .select("*")
-      .eq("partner_id", ctx.partnerId)
-      .single();
-
-    // Return defaults if no settings exist
-    const triggers = notificationTriggerSchema.options;
-    const defaults = Object.fromEntries(
-      triggers.map((t) => [t, { enabled: true, email: true, inApp: true }])
-    );
-
-    return {
-      triggers: data?.triggers ?? defaults,
-      labels: TRIGGER_LABELS,
-      priorities: TRIGGER_PRIORITY,
-    };
-  }),
-
-  /**
-   * Update notification settings.
-   */
-  updateSettings: protectedProcedure
-    .input(
-      z.object({
-        triggers: z.record(
-          z.string(),
-          z.object({
-            enabled: z.boolean(),
-            email: z.boolean(),
-            inApp: z.boolean(),
-          })
-        ),
-      })
-    )
-    .mutation(async ({ ctx, input }) => {
-      const { error } = await ctx.supabase
-        .from("notification_settings")
-        .upsert({
-          partner_id: ctx.partnerId,
-          triggers: input.triggers,
-          updated_at: new Date().toISOString(),
-        });
-
-      if (error) {
-        console.error("[router/notification.updateSettings]", error);
-        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Errore nell'aggiornamento. Riprova." });
-      }
-
-      return { success: true };
-    }),
+  // NOTE (chore/deadcode): notification.getSettings + updateSettings were removed
+  // here — 0 callers across all of src (the #07 per-client reminder settings,
+  // getReminderSettings/updateReminderSettings wired via src/lib/reminders/,
+  // superseded them). The `notification_settings` table is now unreferenced by any
+  // code → DROP candidate for a future migration (James applies schema changes).
 
   /**
    * Build #07 — per-client reminder cadence. Get the coach's reminder settings
