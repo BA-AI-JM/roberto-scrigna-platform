@@ -54,9 +54,14 @@ CREATE POLICY client_reminder_settings_client_read ON client_reminder_settings
     client_id IN (SELECT id FROM client WHERE auth_user_id = auth.uid())
   );
 
--- ── Allow the net-new 'body_comp_due' notification trigger ───────────────────
+-- ── Allow the net-new reminder/feedback notification triggers ────────────────
 -- The trigger CHECK is the inline constraint notification_trigger_check; drop and
--- re-create it with the full existing value list plus 'body_comp_due' (idempotent).
+-- re-create it with the full existing value list. This list carries the UNION of
+-- every net-new trigger added by the parallel unmerged migrations —
+-- 'body_comp_due' (this #07 migration) AND 'urgent_feedback' (013 / #28) — so that
+-- 012 and 013 are ORDER-INDEPENDENT: whichever is applied last, both values survive
+-- and neither ADD CONSTRAINT fails against a row the other migration already wrote.
+-- (idempotent: DROP IF EXISTS + ADD.)
 ALTER TABLE notification DROP CONSTRAINT IF EXISTS notification_trigger_check;
 ALTER TABLE notification ADD CONSTRAINT notification_trigger_check CHECK (trigger IN (
   'checkin_overdue', 'checkin_completed', 'weight_deviation', 'low_adherence',
@@ -64,7 +69,7 @@ ALTER TABLE notification ADD CONSTRAINT notification_trigger_check CHECK (trigge
   'task_due_today', 'task_overdue', 'new_message',
   'training_logged', 'milestone_reached',
   'feedback_requested', 'plan_update_suggested',
-  'body_comp_due'
+  'body_comp_due', 'urgent_feedback'
 ));
 
 -- ── Verification (read-only; safe to run after apply) ─────────────────────────
@@ -73,3 +78,4 @@ ALTER TABLE notification ADD CONSTRAINT notification_trigger_check CHECK (trigge
 -- SELECT tablename, policyname, cmd FROM pg_policies
 --   WHERE tablename = 'client_reminder_settings' ORDER BY policyname;
 -- SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = 'notification_trigger_check';
+--   → the returned value list MUST include BOTH 'body_comp_due' AND 'urgent_feedback'.
