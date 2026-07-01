@@ -72,9 +72,14 @@ CREATE POLICY urgent_feedback_partner_update ON urgent_feedback
     partner_id IN (SELECT id FROM partner WHERE auth_user_id = auth.uid())
   );
 
--- ── Allow the 'urgent_feedback' notification trigger (the coach alert) ────────
+-- ── Allow the reminder/feedback notification triggers (the coach alert) ───────
 -- The coach is notified via the existing notification table (priority 'urgent'),
--- so the #2 per-client feed surfaces it. Add the new trigger value to the CHECK.
+-- so the #2 per-client feed surfaces it. Rebuild the CHECK with the full value
+-- list. This list carries the UNION of every net-new trigger added by the parallel
+-- unmerged migrations — 'urgent_feedback' (this #28 migration) AND 'body_comp_due'
+-- (012 / #07) — so that 012 and 013 are ORDER-INDEPENDENT: whichever is applied
+-- last, both values survive and neither ADD CONSTRAINT fails against a row the
+-- other migration already wrote.
 ALTER TABLE notification DROP CONSTRAINT IF EXISTS notification_trigger_check;
 ALTER TABLE notification ADD CONSTRAINT notification_trigger_check CHECK (trigger IN (
   'checkin_overdue', 'checkin_completed', 'weight_deviation', 'low_adherence',
@@ -82,7 +87,7 @@ ALTER TABLE notification ADD CONSTRAINT notification_trigger_check CHECK (trigge
   'task_due_today', 'task_overdue', 'new_message',
   'training_logged', 'milestone_reached',
   'feedback_requested', 'plan_update_suggested',
-  'urgent_feedback'
+  'body_comp_due', 'urgent_feedback'
 ));
 
 -- ── Verification (read-only; safe to run after apply) ─────────────────────────
@@ -91,3 +96,4 @@ ALTER TABLE notification ADD CONSTRAINT notification_trigger_check CHECK (trigge
 -- SELECT tablename, policyname, cmd FROM pg_policies
 --   WHERE tablename = 'urgent_feedback' ORDER BY policyname;
 -- SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = 'notification_trigger_check';
+--   → the returned value list MUST include BOTH 'body_comp_due' AND 'urgent_feedback'.
