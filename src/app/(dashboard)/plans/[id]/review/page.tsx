@@ -429,10 +429,8 @@ export default function PlanReviewPage({
   if (isLoading || !planId) {
     return (
       <div
+        className="coach-container"
         style={{
-          padding: "32px",
-          maxWidth: "1200px",
-          margin: "0 auto",
           textAlign: "center",
           color: "#71717a",
         }}
@@ -446,7 +444,7 @@ export default function PlanReviewPage({
 
   if (error) {
     return (
-      <div style={{ padding: "32px", maxWidth: "1200px", margin: "0 auto" }}>
+      <div className="coach-container">
         <a
           href="/plans"
           style={{ fontSize: "13px", color: "#71717a", textDecoration: "none" }}
@@ -473,7 +471,7 @@ export default function PlanReviewPage({
   const energyTheme = ENERGY_THEMES[review.energyBalance] ?? ENERGY_THEMES.maintenance!;
 
   return (
-    <div style={{ padding: "32px", maxWidth: "1200px", margin: "0 auto" }}>
+    <div className="coach-container">
       {/* #25 — coach suggestion banner (regenerate with reduced kcal). Shows only
           when an unread plan_update_suggested notification matches this plan. */}
       <PlanUpdateBanner
@@ -498,6 +496,8 @@ export default function PlanReviewPage({
           display: "flex",
           justifyContent: "space-between",
           alignItems: "flex-start",
+          flexWrap: "wrap",
+          gap: "16px",
           marginBottom: "24px",
         }}
       >
@@ -512,8 +512,12 @@ export default function PlanReviewPage({
           >
             ← Torna ai Piani
           </a>
+          <p className="mb-1 mt-1 text-xs font-medium uppercase tracking-wide text-brand-deep">
+            Piano Nutrizionale
+          </p>
           <h1
-            style={{ fontSize: "24px", fontWeight: 700, marginTop: "4px", marginBottom: "4px" }}
+            className="text-ink"
+            style={{ fontSize: "24px", fontWeight: 500, letterSpacing: "-0.01em", marginTop: "4px", marginBottom: "4px" }}
           >
             Revisione Piano{review.clientName ? `: ${review.clientName}` : ""}
           </h1>
@@ -532,7 +536,7 @@ export default function PlanReviewPage({
               {energyTheme.label}
             </span>
             {review.weeklyAvgKcal > 0 && (
-              <span style={{ fontSize: "13px", color: "#71717a" }}>
+              <span className="tnum" style={{ fontSize: "13px", color: "#71717a" }}>
                 {review.weeklyAvgKcal.toLocaleString("it-IT")} kcal/giorno media
               </span>
             )}
@@ -1060,6 +1064,7 @@ function MacrosTab({
                     {c.k}
                   </div>
                   <div
+                    className="tnum"
                     style={{
                       fontSize: c.strong ? "15px" : "13px",
                       fontWeight: c.strong ? 700 : 600,
@@ -1108,7 +1113,7 @@ function MacrosTab({
                   flexWrap: "wrap",
                 }}
               >
-                <span style={{ fontWeight: 700 }}>
+                <span className="tnum" style={{ fontWeight: 700 }}>
                   Energy Availability: {ea} kcal/kg massa magra
                 </span>
                 <span
@@ -1130,6 +1135,7 @@ function MacrosTab({
           })()}
 
           <div
+            className="tnum"
             style={{
               fontSize: "12px",
               color: "#71717a",
@@ -1375,7 +1381,7 @@ function MealsTab({
                     </span>
                   )}
                 </span>
-                <span style={{ fontSize: "12px", color: "#71717a" }}>
+                <span className="tnum" style={{ fontSize: "12px", color: "#71717a" }}>
                   {Math.round(slot.primary.actualMacros.kcal)} kcal &middot; P{" "}
                   {Math.round(slot.primary.actualMacros.proteinG)}g &middot; C{" "}
                   {Math.round(slot.primary.actualMacros.carbsG)}g &middot; F{" "}
@@ -1474,7 +1480,7 @@ function MealsTab({
                                 >
                                   {sub.template.name}
                                 </div>
-                                <div style={{ fontSize: "11px", color: "#71717a" }}>
+                                <div className="tnum" style={{ fontSize: "11px", color: "#71717a" }}>
                                   {Math.round(sub.actualMacros.kcal)} kcal · P{" "}
                                   {Math.round(sub.actualMacros.proteinG)}g · C{" "}
                                   {Math.round(sub.actualMacros.carbsG)}g · F{" "}
@@ -1620,7 +1626,7 @@ function MonitoringTab({
         >
           Frequenza Check-in
         </p>
-        <p style={{ fontSize: "18px", fontWeight: 700, margin: 0, color: "#18181b" }}>
+        <p className="tnum" style={{ fontSize: "18px", fontWeight: 700, margin: 0, color: "#18181b" }}>
           Ogni {monitoring.checkInFrequencyDays} giorni
         </p>
       </div>
@@ -1713,6 +1719,7 @@ function StatCard({ label, value }: { label: string; value: string }) {
         {label}
       </p>
       <p
+        className="tnum"
         style={{ fontSize: "20px", fontWeight: 700, margin: 0, color: "#18181b" }}
       >
         {value}
@@ -1756,6 +1763,7 @@ function MacroCard({
       </p>
       <p style={{ margin: 0 }}>
         <span
+          className="tnum"
           style={{
             fontSize: "22px",
             fontWeight: 700,
@@ -1820,7 +1828,7 @@ function DailyTotalsTable({
       >
         Target Giornalieri
       </h3>
-      <div style={{ overflowX: "auto" }}>
+      <div className="table-scroll">
         <table
           style={{
             width: "100%",
@@ -1900,7 +1908,7 @@ function MacroValueCell({
   return (
     <td style={{ padding: "10px 12px", textAlign: "right", verticalAlign: "top" }}>
       <div style={{ whiteSpace: "nowrap" }}>
-        <span style={{ fontSize: "18px", fontWeight: 700, color: colour }}>
+        <span className="tnum" style={{ fontSize: "18px", fontWeight: 700, color: colour }}>
           {value}
         </span>
         <span

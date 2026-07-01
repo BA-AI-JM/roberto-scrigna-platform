@@ -397,11 +397,8 @@ export default function ClientEditPage() {
   if (isLoading) {
     return (
       <div
+        className="coach-container"
         style={{
-          padding: "32px",
-          maxWidth: "800px",
-          margin: "0 auto",
-          fontFamily: "system-ui, -apple-system, sans-serif",
           color: "#9ca3af",
           textAlign: "center",
           paddingTop: "80px",
@@ -414,14 +411,7 @@ export default function ClientEditPage() {
 
   if (isError || !data) {
     return (
-      <div
-        style={{
-          padding: "32px",
-          maxWidth: "800px",
-          margin: "0 auto",
-          fontFamily: "system-ui, -apple-system, sans-serif",
-        }}
-      >
+      <div className="coach-container">
         <Link href={`/clients/${clientId}`} style={{ fontSize: "14px", color: "#6b7280", textDecoration: "none" }}>
           ← Torna al cliente
         </Link>
@@ -443,14 +433,8 @@ export default function ClientEditPage() {
   }
 
   return (
-    <div
-      style={{
-        padding: "32px",
-        maxWidth: "800px",
-        margin: "0 auto",
-        fontFamily: "system-ui, -apple-system, sans-serif",
-      }}
-    >
+    <div className="coach-container">
+      <div className="mx-auto max-w-3xl">
       {/* Back link */}
       <Link
         href={`/clients/${clientId}`}
@@ -468,7 +452,8 @@ export default function ClientEditPage() {
 
       {/* Header */}
       <div style={{ marginTop: "20px", marginBottom: "28px" }}>
-        <h1 style={{ fontSize: "26px", fontWeight: 700, margin: 0, color: "#1a1a2e" }}>
+        <p className="mb-1 text-xs font-medium uppercase tracking-wide text-brand-deep">Cliente</p>
+        <h1 style={{ fontSize: "26px", fontWeight: 500, letterSpacing: "-0.01em", margin: 0, color: "#0f1729" }}>
           Modifica cliente
         </h1>
         <p style={{ color: "#6b7280", marginTop: "4px", fontSize: "14px" }}>
@@ -487,11 +472,11 @@ export default function ClientEditPage() {
             marginBottom: "20px",
           }}
         >
-          <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#1a1a2e", marginBottom: "20px", marginTop: 0 }}>
+          <h2 style={{ fontSize: "16px", fontWeight: 500, color: "#0f1729", marginBottom: "20px", marginTop: 0 }}>
             Dati anagrafici
           </h2>
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "16px", marginBottom: "16px" }}>
+          <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <FormField label="Nome completo *">
               <input
                 type="text"
@@ -608,7 +593,7 @@ export default function ClientEditPage() {
             }}
           >
             <div>
-              <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#1a1a2e", margin: 0 }}>
+              <h2 style={{ fontSize: "16px", fontWeight: 500, color: "#0f1729", margin: 0 }}>
                 Aggiorna scheda
               </h2>
               <p style={{ fontSize: "13px", color: "#6b7280", marginTop: "4px" }}>
@@ -637,7 +622,7 @@ export default function ClientEditPage() {
 
           {addSnapshot && (
             <>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "16px", marginBottom: "16px" }}>
+              <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <FormField label="Peso (kg)">
                   <input
                     type="number"
@@ -672,7 +657,7 @@ export default function ClientEditPage() {
                 Circonferenze (cm) — opzionali
               </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "16px" }}>
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
                 <FormField label="Vita">
                   <input type="number" step="0.1" value={snapshotForm.waist}
                     onChange={(e) => setSnapshotForm((f) => ({ ...f, waist: e.target.value }))}
@@ -729,7 +714,7 @@ export default function ClientEditPage() {
               >
                 Obiettivo
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "16px", marginBottom: "16px" }}>
+              <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <FormField label="Obiettivo principale">
                   <select
                     value={goalForm.goal}
@@ -902,6 +887,7 @@ export default function ClientEditPage() {
           </button>
         </div>
       </form>
+      </div>
     </div>
   );
 }
@@ -927,7 +913,7 @@ function PhotosCard({ clientId }: { clientId: string }) {
       }}
     >
       <div style={{ marginBottom: "16px" }}>
-        <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#1a1a2e", margin: 0 }}>
+        <h2 style={{ fontSize: "16px", fontWeight: 500, color: "#0f1729", margin: 0 }}>
           Foto cliente
         </h2>
         <p style={{ fontSize: "13px", color: "#6b7280", marginTop: "4px" }}>

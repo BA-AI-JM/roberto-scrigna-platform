@@ -37,7 +37,7 @@ function InvalidTokenState() {
           padding: "60px 40px",
           background: "#ffffff",
           borderRadius: "16px",
-          border: "1px solid #fecaca",
+          border: "0.5px solid #fecaca",
           maxWidth: "480px",
         }}
       >
@@ -45,8 +45,8 @@ function InvalidTokenState() {
         <h2
           style={{
             fontSize: "22px",
-            fontWeight: 700,
-            color: "#1a1a2e",
+            fontWeight: 500,
+            color: "var(--ink)",
             marginBottom: "12px",
           }}
         >
@@ -96,19 +96,20 @@ function ScaleInput({
       <label style={{ fontSize: "14px", fontWeight: 600, color: "#1a1a2e", display: "block", marginBottom: "8px" }}>
         {label}
       </label>
-      <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", alignItems: "center" }}>
         <span style={{ fontSize: "12px", color: "#6b7280", minWidth: "60px" }}>{lowLabel}</span>
         {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
           <button
             key={n}
             type="button"
             onClick={() => onChange(n)}
+            className="tnum"
             style={{
               width: "36px",
               height: "36px",
-              borderRadius: "8px",
-              border: value === n ? "2px solid #1a1a2e" : "1px solid #e2e8f0",
-              backgroundColor: value === n ? "#1a1a2e" : "#ffffff",
+              borderRadius: "6px",
+              border: value === n ? "2px solid var(--brand)" : "1px solid #e2e8f0",
+              backgroundColor: value === n ? "var(--brand)" : "#ffffff",
               color: value === n ? "#ffffff" : "#374151",
               fontSize: "14px",
               fontWeight: 600,
@@ -141,7 +142,7 @@ function SliderInput({
   return (
     <div style={{ marginBottom: "24px" }}>
       <label style={{ fontSize: "14px", fontWeight: 600, color: "#1a1a2e", display: "block", marginBottom: "8px" }}>
-        {label}: <span style={{ color: "#3b82f6" }}>{value}{suffix}</span>
+        {label}: <span className="tnum" style={{ color: "var(--brand-deep)" }}>{value}{suffix}</span>
       </label>
       <input
         type="range"
@@ -149,9 +150,9 @@ function SliderInput({
         max={100}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
-        style={{ width: "100%", accentColor: "#1a1a2e" }}
+        style={{ width: "100%", accentColor: "var(--brand)" }}
       />
-      <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: "#9ca3af" }}>
+      <div className="tnum" style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: "#9ca3af" }}>
         <span>0{suffix}</span>
         <span>100{suffix}</span>
       </div>
@@ -267,12 +268,12 @@ export default function PublicCheckinPage() {
             padding: "60px 40px",
             background: "#ffffff",
             borderRadius: "16px",
-            border: "1px solid #e2e8f0",
+            border: "0.5px solid var(--border)",
             maxWidth: "480px",
           }}
         >
-          <div style={{ fontSize: "64px", marginBottom: "20px" }}>&#10003;</div>
-          <h1 style={{ fontSize: "24px", fontWeight: 700, color: "#1a1a2e", marginBottom: "12px" }}>
+          <div style={{ fontSize: "64px", marginBottom: "20px", color: "var(--brand)" }}>&#10003;</div>
+          <h1 style={{ fontSize: "24px", fontWeight: 500, color: "var(--ink)", marginBottom: "12px" }}>
             Check-in inviato!
           </h1>
           <p style={{ fontSize: "16px", color: "#6b7280", lineHeight: 1.6 }}>
@@ -291,10 +292,11 @@ export default function PublicCheckinPage() {
         fontFamily: "system-ui, -apple-system, sans-serif",
       }}
     >
-      <div style={{ maxWidth: "640px", margin: "0 auto", padding: "32px 16px" }}>
+      <div className="portal-container">
         {/* Header */}
         <div style={{ textAlign: "center", marginBottom: "32px" }}>
-          <h1 style={{ fontSize: "24px", fontWeight: 700, color: "#1a1a2e", marginBottom: "8px" }}>
+          <p className="mb-1 text-xs font-medium uppercase tracking-wide text-brand-deep">Check-in</p>
+          <h1 style={{ fontSize: "24px", fontWeight: 500, color: "var(--ink)", marginBottom: "8px" }}>
             Check-in Settimanale
           </h1>
           <p style={{ color: "#6b7280", fontSize: "15px" }}>
@@ -307,13 +309,13 @@ export default function PublicCheckinPage() {
           <div
             style={{
               background: "#ffffff",
-              border: "1px solid #e2e8f0",
-              borderRadius: "12px",
+              border: "0.5px solid var(--border)",
+              borderRadius: "16px",
               padding: "24px",
               marginBottom: "20px",
             }}
           >
-            <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#1a1a2e", marginBottom: "20px" }}>
+            <h2 style={{ fontSize: "16px", fontWeight: 500, color: "var(--ink)", marginBottom: "20px" }}>
               Misurazioni
             </h2>
 
@@ -339,8 +341,8 @@ export default function PublicCheckinPage() {
               />
             </div>
 
-            <div style={{ display: "flex", gap: "16px" }}>
-              <div style={{ flex: 1 }}>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
                 <label style={{ fontSize: "14px", fontWeight: 600, color: "#1a1a2e", display: "block", marginBottom: "6px" }}>
                   Vita (cm)
                 </label>
@@ -360,7 +362,7 @@ export default function PublicCheckinPage() {
                   }}
                 />
               </div>
-              <div style={{ flex: 1 }}>
+              <div>
                 <label style={{ fontSize: "14px", fontWeight: 600, color: "#1a1a2e", display: "block", marginBottom: "6px" }}>
                   Fianchi (cm)
                 </label>
@@ -387,13 +389,13 @@ export default function PublicCheckinPage() {
           <div
             style={{
               background: "#ffffff",
-              border: "1px solid #e2e8f0",
-              borderRadius: "12px",
+              border: "0.5px solid var(--border)",
+              borderRadius: "16px",
               padding: "24px",
               marginBottom: "20px",
             }}
           >
-            <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#1a1a2e", marginBottom: "20px" }}>
+            <h2 style={{ fontSize: "16px", fontWeight: 500, color: "var(--ink)", marginBottom: "20px" }}>
               Benessere
             </h2>
 
@@ -438,13 +440,13 @@ export default function PublicCheckinPage() {
           <div
             style={{
               background: "#ffffff",
-              border: "1px solid #e2e8f0",
-              borderRadius: "12px",
+              border: "0.5px solid var(--border)",
+              borderRadius: "16px",
               padding: "24px",
               marginBottom: "20px",
             }}
           >
-            <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#1a1a2e", marginBottom: "20px" }}>
+            <h2 style={{ fontSize: "16px", fontWeight: 500, color: "var(--ink)", marginBottom: "20px" }}>
               Aderenza
             </h2>
 
@@ -466,13 +468,13 @@ export default function PublicCheckinPage() {
           <div
             style={{
               background: "#ffffff",
-              border: "1px solid #e2e8f0",
-              borderRadius: "12px",
+              border: "0.5px solid var(--border)",
+              borderRadius: "16px",
               padding: "24px",
               marginBottom: "28px",
             }}
           >
-            <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#1a1a2e", marginBottom: "12px" }}>
+            <h2 style={{ fontSize: "16px", fontWeight: 500, color: "var(--ink)", marginBottom: "12px" }}>
               Note aggiuntive
             </h2>
             <textarea
@@ -517,12 +519,12 @@ export default function PublicCheckinPage() {
             style={{
               width: "100%",
               padding: "16px",
-              backgroundColor: submitting ? "#6b7280" : "#1a1a2e",
+              backgroundColor: submitting ? "#6b7280" : "var(--brand)",
               color: "#ffffff",
               border: "none",
               borderRadius: "12px",
               fontSize: "16px",
-              fontWeight: 700,
+              fontWeight: 600,
               cursor: submitting ? "not-allowed" : "pointer",
               transition: "opacity 0.15s",
             }}

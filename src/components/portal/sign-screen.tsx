@@ -28,8 +28,10 @@ import {
 } from "@/lib/signature/sign-state";
 
 // ── styles ────────────────────────────────────────────────────────────────────
-const shell: CSSProperties = { margin: "0 auto", width: "100%", maxWidth: "680px", padding: "24px 16px 96px" };
-const card: CSSProperties = { background: C.white, border: `1px solid ${C.border}`, borderRadius: "18px", padding: "20px", marginBottom: "16px" };
+// Page width/centering is handled by the shared `portal-container` utility (see
+// Frame) so the reading column widens gracefully on desktop instead of staying a
+// lonely fixed 680px. Cards: hairline border + soft radius, no heavy shadow.
+const card: CSSProperties = { background: C.white, border: `0.5px solid ${C.border}`, borderRadius: "16px", padding: "20px", marginBottom: "16px" };
 const h1: CSSProperties = { fontSize: "22px", fontWeight: 500, color: C.ink, margin: "0 0 4px" };
 const muted: CSSProperties = { fontSize: "13px", fontWeight: 400, color: C.slateSoft, margin: 0 };
 const gapStyle: CSSProperties = { background: C.amberWash, color: C.amberDeep, borderRadius: "4px", padding: "0 4px", fontWeight: 500 };
@@ -243,7 +245,7 @@ export function SignScreen({ requestId }: { requestId: string }) {
             </h1>
           </div>
           <p style={{ fontSize: "14px", fontWeight: 400, color: C.tealDeep, margin: "0 0 4px" }}>{version}</p>
-          <p style={{ fontSize: "13px", fontWeight: 400, color: C.tealDeep, margin: "0 0 2px" }}>
+          <p className="tnum" style={{ fontSize: "13px", fontWeight: 400, color: C.tealDeep, margin: "0 0 2px" }}>
             Firmato il {formatAcceptedAt(acceptedAt)}
           </p>
           <p style={{ fontSize: "12px", fontWeight: 400, color: C.slate, margin: "0 0 16px" }}>{acceptanceMethodLabel(method)}</p>
@@ -310,6 +312,7 @@ export function SignScreen({ requestId }: { requestId: string }) {
     <Frame>
       {/* Header */}
       <div style={{ marginBottom: "16px" }}>
+        <p className="mb-1 text-xs font-medium uppercase tracking-wide text-brand-deep">Firma documento</p>
         <h1 style={h1}>{doc?.documentName ?? "Lettera d'incarico"}</h1>
         <p style={muted}>
           {doc ? (
@@ -404,7 +407,7 @@ export function SignScreen({ requestId }: { requestId: string }) {
 
 function Frame({ children }: { children: ReactNode }) {
   return (
-    <div className="sign-screen" style={shell}>
+    <div className="sign-screen portal-container">
       <style>{homeCss}</style>
       {children}
     </div>

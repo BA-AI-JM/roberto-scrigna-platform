@@ -42,10 +42,10 @@ export default function RegisterPage() {
 
   if (success) {
     return (
-      <div className="rounded-xl border bg-white p-8 shadow-sm">
+      <div className="rounded-xl border-[0.5px] bg-white p-8 shadow-sm">
         <div className="text-center">
           <div className="mx-auto mb-4 text-4xl">✉️</div>
-          <h1 className="text-xl font-semibold">Controlla la tua email</h1>
+          <h1 className="text-xl font-medium text-ink">Controlla la tua email</h1>
           <p className="mt-2 text-sm text-zinc-500">
             Abbiamo inviato un link di conferma a <strong>{email}</strong>.
             Clicca sul link per attivare il tuo account.
@@ -56,9 +56,12 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="rounded-xl border bg-white p-8 shadow-sm">
+    <div className="rounded-xl border-[0.5px] bg-white p-8 shadow-sm">
       <div className="mb-6 text-center">
-        <h1 className="text-2xl font-semibold tracking-tight">Crea account</h1>
+        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-brand text-2xl font-medium text-white">
+          RS
+        </div>
+        <h1 className="text-2xl font-medium tracking-tight text-ink">Crea account</h1>
         <p className="mt-1 text-sm text-zinc-500">Registrazione professionista</p>
       </div>
 
@@ -74,7 +77,7 @@ export default function RegisterPage() {
             onChange={(e) => setFullName(e.target.value)}
             required
             disabled={loading}
-            className="w-full rounded-lg border border-zinc-300 px-4 py-3 text-sm outline-none focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900 disabled:opacity-50"
+            className="w-full rounded-md border border-zinc-300 px-4 py-3 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand disabled:opacity-50"
             placeholder="Roberto Scrigna"
           />
         </div>
@@ -90,7 +93,7 @@ export default function RegisterPage() {
             onChange={(e) => setEmail(e.target.value)}
             required
             disabled={loading}
-            className="w-full rounded-lg border border-zinc-300 px-4 py-3 text-sm outline-none focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900 disabled:opacity-50"
+            className="w-full rounded-md border border-zinc-300 px-4 py-3 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand disabled:opacity-50"
             placeholder="roberto@example.com"
             autoComplete="email"
           />
@@ -107,7 +110,7 @@ export default function RegisterPage() {
             onChange={(e) => setPassword(e.target.value)}
             required
             disabled={loading}
-            className="w-full rounded-lg border border-zinc-300 px-4 py-3 text-sm outline-none focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900 disabled:opacity-50"
+            className="w-full rounded-md border border-zinc-300 px-4 py-3 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand disabled:opacity-50"
             placeholder="Minimo 6 caratteri"
             autoComplete="new-password"
           />

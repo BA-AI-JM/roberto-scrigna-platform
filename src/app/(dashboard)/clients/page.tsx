@@ -128,10 +128,8 @@ export default function ClientsPage() {
 
   return (
     <div
+      className="coach-container"
       style={{
-        padding: "32px",
-        maxWidth: "1200px",
-        margin: "0 auto",
         fontFamily: "system-ui, -apple-system, sans-serif",
       }}
     >
@@ -145,7 +143,8 @@ export default function ClientsPage() {
         }}
       >
         <div>
-          <h1 style={{ fontSize: "26px", fontWeight: 700, margin: 0 }}>Clienti</h1>
+          <p className="mb-1 text-xs font-medium uppercase tracking-wide text-brand-deep">Roberto Scrigna</p>
+          <h1 style={{ fontSize: "26px", fontWeight: 500, letterSpacing: "-0.01em", margin: 0, color: "#0f1729" }}>Clienti</h1>
           <p style={{ color: "#6b7280", marginTop: "4px", fontSize: "14px" }}>
             Gestisci i tuoi clienti e i loro piani nutrizionali
           </p>
@@ -306,7 +305,7 @@ export default function ClientsPage() {
                     </div>
                   )}
                   <div style={{ fontSize: "12px", color: "#9ca3af" }}>
-                    Iscritto il {formatDate(client.created_at)}
+                    Iscritto il <span className="tnum">{formatDate(client.created_at)}</span>
                   </div>
                 </div>
               ))}
@@ -321,7 +320,8 @@ export default function ClientsPage() {
                 overflow: "hidden",
               }}
             >
-              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <div className="table-scroll">
+              <table style={{ width: "100%", borderCollapse: "collapse", minWidth: "640px" }}>
                 <thead>
                   <tr style={{ background: "#f8fafc" }}>
                     {["Cliente", "Email", "Stato", "Iscritto il", ""].map((h) => (
@@ -377,7 +377,7 @@ export default function ClientsPage() {
                       <td style={{ padding: "14px 16px" }}>
                         <StatusBadge status={client.status} />
                       </td>
-                      <td style={{ padding: "14px 16px", fontSize: "14px", color: "#6b7280" }}>
+                      <td className="tnum" style={{ padding: "14px 16px", fontSize: "14px", color: "#6b7280" }}>
                         {formatDate(client.created_at)}
                       </td>
                       <td
@@ -403,6 +403,7 @@ export default function ClientsPage() {
                   ))}
                 </tbody>
               </table>
+              </div>
               <div
                 style={{
                   padding: "12px 16px",
@@ -411,7 +412,7 @@ export default function ClientsPage() {
                   color: "#9ca3af",
                 }}
               >
-                {total} {total === 1 ? "cliente" : "clienti"} trovati
+                <span className="tnum">{total}</span> {total === 1 ? "cliente" : "clienti"} trovati
               </div>
             </div>
           )}
@@ -443,7 +444,7 @@ export default function ClientsPage() {
               >
                 Precedente
               </button>
-              <span style={{ fontSize: "13px", color: "#6b7280" }}>
+              <span className="tnum" style={{ fontSize: "13px", color: "#6b7280" }}>
                 Pagina {page + 1} di {totalPages}
               </span>
               <button

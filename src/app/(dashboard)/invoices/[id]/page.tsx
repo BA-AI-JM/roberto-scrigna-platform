@@ -107,14 +107,7 @@ function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
 
 function InvoiceLoading() {
   return (
-    <div
-      style={{
-        padding: "32px",
-        maxWidth: "860px",
-        margin: "0 auto",
-        fontFamily: "system-ui, -apple-system, sans-serif",
-      }}
-    >
+    <div className="coach-container" style={{ maxWidth: "860px" }}>
       <div
         style={{
           height: "16px",
@@ -229,14 +222,7 @@ export default function InvoiceDetailPage() {
 
   if (fetchError || !invoiceRaw) {
     return (
-      <div
-        style={{
-          padding: "32px",
-          maxWidth: "860px",
-          margin: "0 auto",
-          fontFamily: "system-ui, -apple-system, sans-serif",
-        }}
-      >
+      <div className="coach-container" style={{ maxWidth: "860px" }}>
         <Link
           href="/invoices"
           style={{
@@ -264,7 +250,7 @@ export default function InvoiceDetailPage() {
           <h2
             style={{
               fontSize: "18px",
-              fontWeight: 700,
+              fontWeight: 500,
               color: "#374151",
               margin: 0,
             }}
@@ -319,14 +305,7 @@ export default function InvoiceDetailPage() {
   const isBusy = updateStatus.isPending || deleteInvoice.isPending;
 
   return (
-    <div
-      style={{
-        padding: "32px",
-        maxWidth: "860px",
-        margin: "0 auto",
-        fontFamily: "system-ui, -apple-system, sans-serif",
-      }}
-    >
+    <div className="coach-container" style={{ maxWidth: "860px" }}>
       {/* Breadcrumb */}
       <Link
         href="/invoices"
@@ -362,12 +341,14 @@ export default function InvoiceDetailPage() {
           }}
         >
           <div>
+            <p className="mb-1 text-xs font-medium uppercase tracking-wide text-brand-deep">Fattura</p>
             <h1
+              className="tnum"
               style={{
                 fontSize: "22px",
-                fontWeight: 700,
+                fontWeight: 500,
                 margin: 0,
-                color: "#1a1a2e",
+                color: "#0f1729",
               }}
             >
               {invoice.invoice_number}
@@ -466,7 +447,7 @@ export default function InvoiceDetailPage() {
         <h2
           style={{
             fontSize: "15px",
-            fontWeight: 700,
+            fontWeight: 500,
             marginTop: 0,
             marginBottom: "20px",
           }}
@@ -474,6 +455,7 @@ export default function InvoiceDetailPage() {
           Voci
         </h2>
 
+        <div className="table-scroll">
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr>
@@ -525,6 +507,7 @@ export default function InvoiceDetailPage() {
                     {li.description}
                   </td>
                   <td
+                    className="tnum"
                     style={{
                       padding: "12px 0",
                       fontSize: "14px",
@@ -536,6 +519,7 @@ export default function InvoiceDetailPage() {
                     {li.quantity}
                   </td>
                   <td
+                    className="tnum"
                     style={{
                       padding: "12px 0",
                       fontSize: "14px",
@@ -547,6 +531,7 @@ export default function InvoiceDetailPage() {
                     {formatCurrency(li.unitPriceCents, invoice.currency)}
                   </td>
                   <td
+                    className="tnum"
                     style={{
                       padding: "12px 0",
                       fontSize: "14px",
@@ -566,6 +551,7 @@ export default function InvoiceDetailPage() {
             )}
           </tbody>
         </table>
+        </div>
 
         {/* Totals */}
         <div
@@ -582,6 +568,7 @@ export default function InvoiceDetailPage() {
               Subtotale
             </span>
             <span
+              className="tnum"
               style={{
                 fontSize: "14px",
                 fontWeight: 600,
@@ -597,6 +584,7 @@ export default function InvoiceDetailPage() {
               IVA ({invoice.tax_pct}%)
             </span>
             <span
+              className="tnum"
               style={{
                 fontSize: "14px",
                 fontWeight: 600,
@@ -615,11 +603,12 @@ export default function InvoiceDetailPage() {
               borderTop: "2px solid #1a1a2e",
             }}
           >
-            <span style={{ fontSize: "16px", fontWeight: 700 }}>Totale</span>
+            <span style={{ fontSize: "16px", fontWeight: 600 }}>Totale</span>
             <span
+              className="tnum"
               style={{
                 fontSize: "16px",
-                fontWeight: 700,
+                fontWeight: 600,
                 color: "#1a1a2e",
                 minWidth: "120px",
                 textAlign: "right",

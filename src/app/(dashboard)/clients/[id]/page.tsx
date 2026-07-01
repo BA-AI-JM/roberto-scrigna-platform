@@ -329,13 +329,13 @@ function OverviewCard({ title, children }: { title: string; children: ReactNode 
       style={{
         marginTop: "20px",
         background: "#ffffff",
-        border: "1px solid #e2e8f0",
+        border: "0.5px solid #e2e8f0",
         borderRadius: "12px",
         overflow: "hidden",
       }}
     >
       <div style={{ padding: "20px 24px", borderBottom: "1px solid #f1f5f9" }}>
-        <h3 style={{ fontSize: "15px", fontWeight: 700, color: "#1a1a2e", margin: 0 }}>{title}</h3>
+        <h3 style={{ fontSize: "15px", fontWeight: 500, color: "#1a1a2e", margin: 0 }}>{title}</h3>
       </div>
       {children}
     </div>
@@ -533,7 +533,7 @@ function PanoramicaTab({
         }}
       >
         <div style={{ padding: "20px 24px", borderBottom: "1px solid #f1f5f9" }}>
-          <h3 style={{ fontSize: "15px", fontWeight: 700, color: "#1a1a2e", margin: 0 }}>
+          <h3 style={{ fontSize: "15px", fontWeight: 500, color: "#1a1a2e", margin: 0 }}>
             Ultima misurazione
           </h3>
         </div>
@@ -548,7 +548,7 @@ function PanoramicaTab({
               }}
             >
               <div style={{ fontSize: "12px", color: "#9ca3af", marginBottom: "4px" }}>{label}</div>
-              <div style={{ fontSize: "15px", fontWeight: 600, color: "#1a1a2e" }}>{value}</div>
+              <div className="tnum" style={{ fontSize: "15px", fontWeight: 600, color: "#1a1a2e" }}>{value}</div>
             </div>
           ))}
         </div>
@@ -597,13 +597,13 @@ function PhotoSection({ clientId }: { clientId: string }) {
       style={{
         marginTop: "20px",
         background: "#ffffff",
-        border: "1px solid #e2e8f0",
+        border: "0.5px solid #e2e8f0",
         borderRadius: "12px",
         overflow: "hidden",
       }}
     >
       <div style={{ padding: "20px 24px", borderBottom: "1px solid #f1f5f9" }}>
-        <h3 style={{ fontSize: "15px", fontWeight: 700, color: "#1a1a2e", margin: 0 }}>
+        <h3 style={{ fontSize: "15px", fontWeight: 500, color: "#1a1a2e", margin: 0 }}>
           Foto cliente
         </h3>
       </div>
@@ -679,11 +679,12 @@ function PianiTab({ clientId }: { clientId: string }) {
     <div
       style={{
         background: "#ffffff",
-        border: "1px solid #e2e8f0",
+        border: "0.5px solid #e2e8f0",
         borderRadius: "12px",
         overflow: "hidden",
       }}
     >
+      <div className="table-scroll">
       <table style={{ width: "100%", borderCollapse: "collapse" }}>
         <thead>
           <tr style={{ background: "#f8fafc" }}>
@@ -716,7 +717,7 @@ function PianiTab({ clientId }: { clientId: string }) {
                   borderBottom: idx < plans.length - 1 ? "1px solid #f1f5f9" : "none",
                 }}
               >
-                <td style={{ padding: "14px 16px", fontSize: "14px", fontWeight: 600, color: "#1a1a2e" }}>
+                <td className="tnum" style={{ padding: "14px 16px", fontSize: "14px", fontWeight: 600, color: "#1a1a2e" }}>
                   {plan.name}
                   {plan.weeklyAvgKcal > 0 && (
                     <span style={{ fontWeight: 400, color: "#9ca3af", marginLeft: "8px", fontSize: "13px" }}>
@@ -763,6 +764,7 @@ function PianiTab({ clientId }: { clientId: string }) {
           })}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }
@@ -921,6 +923,7 @@ function CheckinTab({ clientId }: { clientId: string }) {
           overflow: "hidden",
         }}
       >
+      <div className="table-scroll">
       <table style={{ width: "100%", borderCollapse: "collapse" }}>
         <thead>
           <tr style={{ background: "#f8fafc" }}>
@@ -956,19 +959,19 @@ function CheckinTab({ clientId }: { clientId: string }) {
                 <td style={{ padding: "14px 16px", fontSize: "14px", color: "#6b7280" }}>
                   {formatDate(checkinData.completed_at as string ?? checkinData.created_at as string)}
                 </td>
-                <td style={{ padding: "14px 16px", fontSize: "14px", fontWeight: 600, color: "#1a1a2e" }}>
+                <td className="tnum" style={{ padding: "14px 16px", fontSize: "14px", fontWeight: 600, color: "#1a1a2e" }}>
                   {checkinData.weight_kg != null ? `${checkinData.weight_kg} kg` : "—"}
                   {checkinData.weight_flagged === true && (
                     <span style={{ marginLeft: "6px", color: "#ef4444", fontSize: "12px" }}>⚠</span>
                   )}
                 </td>
-                <td style={{ padding: "14px 16px", fontSize: "14px", color: "#374151" }}>
+                <td className="tnum" style={{ padding: "14px 16px", fontSize: "14px", color: "#374151" }}>
                   {checkinData.energy_level != null ? `${checkinData.energy_level}/10` : "—"}
                 </td>
-                <td style={{ padding: "14px 16px", fontSize: "14px", color: "#374151" }}>
+                <td className="tnum" style={{ padding: "14px 16px", fontSize: "14px", color: "#374151" }}>
                   {checkinData.sleep_quality != null ? `${checkinData.sleep_quality}/10` : "—"}
                 </td>
-                <td style={{ padding: "14px 16px", fontSize: "14px", color: "#374151" }}>
+                <td className="tnum" style={{ padding: "14px 16px", fontSize: "14px", color: "#374151" }}>
                   {checkinData.adherence_pct != null ? `${checkinData.adherence_pct}%` : "—"}
                 </td>
                 <td style={{ padding: "14px 16px", fontSize: "13px", color: "#6b7280" }}>
@@ -979,6 +982,7 @@ function CheckinTab({ clientId }: { clientId: string }) {
           })}
         </tbody>
       </table>
+      </div>
       </div>
     </div>
   );
@@ -1054,11 +1058,8 @@ export default function ClientDetailPage() {
   if (isLoading) {
     return (
       <div
+        className="coach-container"
         style={{
-          padding: "32px",
-          maxWidth: "1100px",
-          margin: "0 auto",
-          fontFamily: "system-ui, -apple-system, sans-serif",
           color: "#9ca3af",
           textAlign: "center",
           paddingTop: "80px",
@@ -1071,14 +1072,7 @@ export default function ClientDetailPage() {
 
   if (isError || !data) {
     return (
-      <div
-        style={{
-          padding: "32px",
-          maxWidth: "1100px",
-          margin: "0 auto",
-          fontFamily: "system-ui, -apple-system, sans-serif",
-        }}
-      >
+      <div className="coach-container">
         <Link
           href="/clients"
           style={{ fontSize: "14px", color: "#6b7280", textDecoration: "none" }}
@@ -1105,14 +1099,7 @@ export default function ClientDetailPage() {
   const { client, latestSnapshot } = data;
 
   return (
-    <div
-      style={{
-        padding: "32px",
-        maxWidth: "1100px",
-        margin: "0 auto",
-        fontFamily: "system-ui, -apple-system, sans-serif",
-      }}
-    >
+    <div className="coach-container">
       {/* Back link */}
       <Link
         href="/clients"
@@ -1133,8 +1120,9 @@ export default function ClientDetailPage() {
         }}
       >
         <div>
+          <p className="mb-1 text-xs font-medium uppercase tracking-wide text-brand-deep">Profilo cliente</p>
           <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "8px" }}>
-            <h1 style={{ fontSize: "28px", fontWeight: 700, margin: 0, color: "#1a1a2e" }}>
+            <h1 style={{ fontSize: "28px", fontWeight: 500, letterSpacing: "-0.01em", margin: 0, color: "#0f1729" }}>
               {client.full_name}
             </h1>
             <StatusBadge status={client.status} />
@@ -1453,7 +1441,7 @@ function SnapshotHistoryTab({ clientId }: { clientId: string }) {
           alignItems: "center",
         }}
       >
-        <h3 style={{ fontSize: "15px", fontWeight: 700, color: "#1a1a2e", margin: 0 }}>
+        <h3 style={{ fontSize: "15px", fontWeight: 500, color: "#1a1a2e", margin: 0 }}>
           Cronologia misurazioni ({snapshots.length})
         </h3>
         <Link
@@ -1480,6 +1468,7 @@ function SnapshotHistoryTab({ clientId }: { clientId: string }) {
           overflow: "hidden",
         }}
       >
+        <div className="table-scroll">
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ background: "#f8fafc" }}>
@@ -1527,6 +1516,7 @@ function SnapshotHistoryTab({ clientId }: { clientId: string }) {
 
                   {/* Peso + delta */}
                   <td
+                    className="tnum"
                     style={{
                       padding: "14px 16px",
                       fontSize: "14px",
@@ -1556,29 +1546,29 @@ function SnapshotHistoryTab({ clientId }: { clientId: string }) {
                   </td>
 
                   {/* Grasso % */}
-                  <td style={{ padding: "14px 16px", fontSize: "14px", color: "#374151" }}>
+                  <td className="tnum" style={{ padding: "14px 16px", fontSize: "14px", color: "#374151" }}>
                     {snap.body_fat_pct != null ? `${snap.body_fat_pct}%` : "—"}
                   </td>
 
                   {/* Massa magra */}
-                  <td style={{ padding: "14px 16px", fontSize: "14px", color: "#374151" }}>
+                  <td className="tnum" style={{ padding: "14px 16px", fontSize: "14px", color: "#374151" }}>
                     {snap.lean_mass_kg != null ? `${snap.lean_mass_kg}` : "—"}
                   </td>
 
                   {/* Massa grassa */}
-                  <td style={{ padding: "14px 16px", fontSize: "14px", color: "#374151" }}>
+                  <td className="tnum" style={{ padding: "14px 16px", fontSize: "14px", color: "#374151" }}>
                     {snap.fat_mass_kg != null ? `${snap.fat_mass_kg}` : "—"}
                   </td>
 
                   {/* BMR */}
-                  <td style={{ padding: "14px 16px", fontSize: "14px", color: "#374151" }}>
+                  <td className="tnum" style={{ padding: "14px 16px", fontSize: "14px", color: "#374151" }}>
                     {snap.bmr_kcal != null
                       ? `${Math.round(snap.bmr_kcal)} kcal`
                       : "—"}
                   </td>
 
                   {/* Passi */}
-                  <td style={{ padding: "14px 16px", fontSize: "14px", color: "#374151" }}>
+                  <td className="tnum" style={{ padding: "14px 16px", fontSize: "14px", color: "#374151" }}>
                     {snap.daily_steps != null
                       ? snap.daily_steps.toLocaleString("it-IT")
                       : "—"}
@@ -1588,6 +1578,7 @@ function SnapshotHistoryTab({ clientId }: { clientId: string }) {
             })}
           </tbody>
         </table>
+        </div>
       </div>
 
       {!hasAnyBodyComp && (
@@ -1661,7 +1652,7 @@ function BodyCompositionPanel({
     <div
       style={{
         background: "#ffffff",
-        border: "1px solid #e2e8f0",
+        border: "0.5px solid #e2e8f0",
         borderRadius: "12px",
         overflow: "hidden",
         marginTop: "16px",
@@ -1678,7 +1669,7 @@ function BodyCompositionPanel({
           flexWrap: "wrap",
         }}
       >
-        <h3 style={{ fontSize: "15px", fontWeight: 700, color: "#1a1a2e", margin: 0 }}>
+        <h3 style={{ fontSize: "15px", fontWeight: 500, color: "#1a1a2e", margin: 0 }}>
           Composizione corporea
         </h3>
         {!anyData && (
@@ -1707,6 +1698,7 @@ function BodyCompositionPanel({
               {c.label}
             </div>
             <div
+              className="tnum"
               style={{
                 fontSize: "15px",
                 fontWeight: 600,

@@ -54,7 +54,10 @@ export default function SettingsPage() {
   return (
     <div className="mx-auto max-w-2xl space-y-8">
       <div>
-        <h1 className="text-3xl font-semibold tracking-tight text-zinc-900">
+        <p className="mb-1 text-xs font-medium uppercase tracking-wide text-brand-deep">
+          Roberto Scrigna
+        </p>
+        <h1 className="text-3xl font-medium tracking-tight text-ink">
           Impostazioni
         </h1>
         <p className="mt-1 text-sm text-zinc-500">
@@ -63,9 +66,9 @@ export default function SettingsPage() {
       </div>
 
       {/* Profile section */}
-      <section className="rounded-xl border border-zinc-200 bg-white">
+      <section className="rounded-xl border-[0.5px] border-zinc-200 bg-white">
         <div className="border-b border-zinc-200 px-6 py-4">
-          <h2 className="text-base font-semibold text-zinc-900">Profilo</h2>
+          <h2 className="text-base font-medium text-ink">Profilo</h2>
         </div>
         <div className="space-y-4 px-6 py-5">
           <div>
@@ -97,9 +100,9 @@ export default function SettingsPage() {
       </section>
 
       {/* Password section */}
-      <section className="rounded-xl border border-zinc-200 bg-white">
+      <section className="rounded-xl border-[0.5px] border-zinc-200 bg-white">
         <div className="border-b border-zinc-200 px-6 py-4">
-          <h2 className="text-base font-semibold text-zinc-900">Sicurezza</h2>
+          <h2 className="text-base font-medium text-ink">Sicurezza</h2>
         </div>
         <div className="px-6 py-5">
           <p className="mb-4 text-sm text-zinc-600">
@@ -130,9 +133,9 @@ export default function SettingsPage() {
       </section>
 
       {/* Notifications section */}
-      <section className="rounded-xl border border-zinc-200 bg-white">
+      <section className="rounded-xl border-[0.5px] border-zinc-200 bg-white">
         <div className="border-b border-zinc-200 px-6 py-4">
-          <h2 className="text-base font-semibold text-zinc-900">Notifiche</h2>
+          <h2 className="text-base font-medium text-ink">Notifiche</h2>
         </div>
         <div className="px-6 py-5">
           <p className="mb-4 text-sm text-zinc-600">

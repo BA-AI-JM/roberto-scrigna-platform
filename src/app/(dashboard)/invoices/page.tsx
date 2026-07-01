@@ -117,7 +117,7 @@ function SummaryCard({
       <div style={{ fontSize: "13px", opacity: 0.7, marginBottom: "8px" }}>
         {label}
       </div>
-      <div style={{ fontSize: "24px", fontWeight: 700 }}>{value}</div>
+      <div className="tnum" style={{ fontSize: "24px", fontWeight: 500 }}>{value}</div>
     </div>
   );
 }
@@ -180,14 +180,7 @@ export default function InvoicesPage() {
   const { data: summary } = trpc.invoice.getSummary.useQuery();
 
   return (
-    <div
-      style={{
-        padding: "32px",
-        maxWidth: "1200px",
-        margin: "0 auto",
-        fontFamily: "system-ui, -apple-system, sans-serif",
-      }}
-    >
+    <div className="coach-container">
       {/* Header */}
       <div
         style={{
@@ -198,7 +191,8 @@ export default function InvoicesPage() {
         }}
       >
         <div>
-          <h1 style={{ fontSize: "26px", fontWeight: 700, margin: 0 }}>
+          <p className="mb-1 text-xs font-medium uppercase tracking-wide text-brand-deep">Roberto Scrigna</p>
+          <h1 style={{ fontSize: "26px", fontWeight: 500, letterSpacing: "-0.01em", margin: 0, color: "#0f1729" }}>
             Fatture
           </h1>
           <p style={{ color: "#6b7280", marginTop: "4px", fontSize: "14px" }}>
@@ -338,6 +332,7 @@ export default function InvoicesPage() {
                 overflow: "hidden",
               }}
             >
+              <div className="table-scroll">
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <thead>
                   <tr style={{ background: "#f8fafc" }}>
@@ -415,6 +410,7 @@ export default function InvoicesPage() {
                           {row.client?.full_name ?? "—"}
                         </td>
                         <td
+                          className="tnum"
                           style={{
                             padding: "14px 16px",
                             fontSize: "14px",
@@ -424,6 +420,7 @@ export default function InvoicesPage() {
                           {formatDate(row.issued_date)}
                         </td>
                         <td
+                          className="tnum"
                           style={{
                             padding: "14px 16px",
                             fontSize: "14px",
@@ -434,10 +431,11 @@ export default function InvoicesPage() {
                           {formatDate(row.due_date)}
                         </td>
                         <td
+                          className="tnum"
                           style={{
                             padding: "14px 16px",
                             fontSize: "14px",
-                            fontWeight: 600,
+                            fontWeight: 500,
                             color: "#1a1a2e",
                           }}
                         >
@@ -474,6 +472,7 @@ export default function InvoicesPage() {
                   })}
                 </tbody>
               </table>
+              </div>
             </div>
           )}
         </>

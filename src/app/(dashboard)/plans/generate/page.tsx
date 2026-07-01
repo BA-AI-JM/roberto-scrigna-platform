@@ -539,7 +539,7 @@ export default function GeneratePlanPage() {
   };
 
   return (
-    <div style={{ padding: "32px", maxWidth: "800px", margin: "0 auto" }}>
+    <div className="coach-container max-w-[820px]">
       {/* Header */}
       <div style={{ marginBottom: "28px" }}>
         <a
@@ -548,13 +548,17 @@ export default function GeneratePlanPage() {
         >
           ← Torna ai Piani
         </a>
+        <p className="mb-1 mt-2 text-xs font-medium uppercase tracking-wide text-brand-deep">
+          Piani nutrizionali
+        </p>
         <h1
+          className="text-ink"
           style={{
             fontSize: "24px",
-            fontWeight: 700,
-            marginTop: "8px",
+            fontWeight: 500,
+            letterSpacing: "-0.01em",
+            marginTop: 0,
             marginBottom: 0,
-            color: "#18181b",
           }}
         >
           Genera Piano Nutrizionale
@@ -782,7 +786,7 @@ export default function GeneratePlanPage() {
                     }
                     style={{ flex: 1, accentColor: "#18181b" }}
                   />
-                  <span style={{ fontSize: "13px", fontWeight: 600, color: "#18181b", minWidth: "80px", textAlign: "right" }}>
+                  <span className="tnum" style={{ fontSize: "13px", fontWeight: 600, color: "#18181b", minWidth: "80px", textAlign: "right" }}>
                     {effectiveDeficitKcal ?? goalRate.dailyDeficitKcal} kcal
                   </span>
                   {form.deficitOverride != null && (
@@ -1178,15 +1182,16 @@ function WeekStructureCard({
         </div>
       </div>
 
-      {/* Calendar grid */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(7, 1fr)",
-          gap: "6px",
-          marginBottom: "14px",
-        }}
-      >
+      {/* Calendar grid — horizontal scroll on narrow screens so the 7 day cells never crush */}
+      <div style={{ overflowX: "auto", marginBottom: "14px" }}>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(7, 1fr)",
+            gap: "6px",
+            minWidth: "520px",
+          }}
+        >
         {weekSchedule.map((dt, i) => {
           const c = DAY_TYPE_COLORS[dt];
           return (
@@ -1229,12 +1234,14 @@ function WeekStructureCard({
             </div>
           );
         })}
+        </div>
       </div>
 
       {/* Per-day sessions for training days */}
       <div style={{ marginBottom: "14px" }}>
         <label style={labelStyle}>Attività per giorno (solo giorni ON)</label>
-        <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+        <div style={{ overflowX: "auto" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "6px", minWidth: "440px" }}>
           {weekSchedule.map((dt, i) => {
             if (!isTrainingLikeDayType(dt)) return null;
             const sessions = perDaySessions[i] ?? [];
@@ -1305,6 +1312,7 @@ function WeekStructureCard({
               </div>
             );
           })}
+          </div>
         </div>
       </div>
 
@@ -1320,12 +1328,14 @@ function WeekStructureCard({
         <label style={labelStyle}>
           Dispendio energetico settimanale {weekPreviewFetching ? "· aggiornamento…" : ""}
         </label>
+        <div className="table-scroll">
         <div
           style={{
             border: "1px solid #e4e4e7",
             borderRadius: "8px",
             overflow: "hidden",
             fontSize: "12px",
+            minWidth: "480px",
           }}
         >
           <div
@@ -1365,9 +1375,9 @@ function WeekStructureCard({
               <div style={{ color: DAY_TYPE_COLORS[d.dayType].text }}>
                 {DAY_TYPE_LABELS[d.dayType]}
               </div>
-              <div style={{ textAlign: "right" }}>{d.tdeeKcal || "—"}</div>
-              <div style={{ textAlign: "right" }}>{d.exerciseKcal || "—"}</div>
-              <div style={{ textAlign: "right", fontWeight: 600 }}>
+              <div className="tnum" style={{ textAlign: "right" }}>{d.tdeeKcal || "—"}</div>
+              <div className="tnum" style={{ textAlign: "right" }}>{d.exerciseKcal || "—"}</div>
+              <div className="tnum" style={{ textAlign: "right", fontWeight: 600 }}>
                 {d.targetKcal || "—"}
               </div>
             </div>
@@ -1386,11 +1396,12 @@ function WeekStructureCard({
             >
               <div>Media</div>
               <div>—</div>
-              <div style={{ textAlign: "right" }}>{weekPreview.weeklyAverageTdeeKcal}</div>
+              <div className="tnum" style={{ textAlign: "right" }}>{weekPreview.weeklyAverageTdeeKcal}</div>
               <div style={{ textAlign: "right" }}>—</div>
-              <div style={{ textAlign: "right" }}>{weekPreview.weeklyAverageKcal}</div>
+              <div className="tnum" style={{ textAlign: "right" }}>{weekPreview.weeklyAverageKcal}</div>
             </div>
           )}
+        </div>
         </div>
       </div>
     </div>
@@ -1449,7 +1460,8 @@ function MacroOverridesCard({
         Imposta un valore in grammi per fissare quel macronutriente su quel tipo di giorno.
       </p>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+      <div style={{ overflowX: "auto" }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: "8px", minWidth: "440px" }}>
         {presentDayTypes.map((dt) => {
           const row = macroOverrides[dt];
           const formula = formulaPreview[dt];
@@ -1532,6 +1544,7 @@ function MacroOverridesCard({
           );
         })}
       </div>
+      </div>
 
       {/* Hidden labelStyle reference to satisfy linter when unused */}
       <span style={{ ...labelStyle, display: "none" }} />
@@ -1547,7 +1560,7 @@ function Stat({ label, value }: { label: string; value: string }) {
       <div style={{ fontSize: "10px", color: "#9ca3af", marginBottom: "2px", textTransform: "uppercase", letterSpacing: "0.04em" }}>
         {label}
       </div>
-      <div style={{ fontSize: "14px", fontWeight: 700, color: "#18181b" }}>
+      <div className="tnum" style={{ fontSize: "14px", fontWeight: 700, color: "#18181b" }}>
         {value}
       </div>
     </div>

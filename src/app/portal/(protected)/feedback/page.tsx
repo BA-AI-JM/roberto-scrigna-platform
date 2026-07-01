@@ -9,11 +9,14 @@ import { UrgentFeedbackScreen } from "@/components/portal/urgent-feedback-form";
 
 export default function PortalFeedbackPage() {
   return (
-    <div className="mx-auto w-full max-w-[640px] px-4 py-6 sm:px-6">
-      <h1 style={{ fontSize: "22px", fontWeight: 700, color: "#1a1a2e", margin: "0 0 6px" }}>Feedback urgente</h1>
-      <p style={{ fontSize: "13px", color: "#6b7280", margin: "0 0 20px", lineHeight: 1.5 }}>
-        Segnala un infortunio o qualcosa che non può aspettare il prossimo check-in. Roberto verrà avvisato.
-      </p>
+    <div className="portal-container">
+      <header className="mb-6 lg:mb-8">
+        <p className="mb-1 text-xs font-medium uppercase tracking-wide text-brand-deep">Assistenza</p>
+        <h1 className="text-2xl font-medium tracking-tight text-ink lg:text-3xl">Feedback urgente</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Segnala un infortunio o qualcosa che non può aspettare il prossimo check-in. Roberto verrà avvisato.
+        </p>
+      </header>
       <UrgentFeedbackScreen />
     </div>
   );

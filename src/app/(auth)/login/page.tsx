@@ -69,12 +69,12 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="rounded-xl border bg-white p-8 shadow-sm">
+    <div className="rounded-xl border-[0.5px] bg-white p-8 shadow-sm">
       <div className="mb-6 text-center">
-        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-zinc-900 text-2xl text-white">
+        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-brand text-2xl font-medium text-white">
           RS
         </div>
-        <h1 className="text-2xl font-semibold tracking-tight">Accedi</h1>
+        <h1 className="text-2xl font-medium tracking-tight text-ink">Accedi</h1>
         <p className="mt-1 text-sm text-zinc-500">
           Roberto Scrigna — Nutrition Platform
         </p>
@@ -97,7 +97,7 @@ export default function LoginPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 disabled={loading}
-                className="w-full rounded-lg border border-zinc-300 px-4 py-3 text-sm outline-none focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900 disabled:opacity-50"
+                className="w-full rounded-md border border-zinc-300 px-4 py-3 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand disabled:opacity-50"
                 placeholder="roberto@example.com"
                 autoComplete="email"
                 autoFocus
@@ -118,7 +118,7 @@ export default function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 disabled={loading}
-                className="w-full rounded-lg border border-zinc-300 px-4 py-3 text-sm outline-none focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900 disabled:opacity-50"
+                className="w-full rounded-md border border-zinc-300 px-4 py-3 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand disabled:opacity-50"
                 placeholder="••••••••"
                 autoComplete="current-password"
               />
@@ -133,7 +133,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading || !email || !password}
-              className="w-full rounded-lg bg-zinc-900 px-4 py-3 text-sm font-semibold text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
+              className="w-full rounded-md bg-brand px-4 py-3 text-sm font-medium text-white hover:bg-brand-deep disabled:cursor-not-allowed disabled:opacity-50"
             >
               {loading ? "Accesso in corso…" : "Accedi"}
             </button>
@@ -148,7 +148,7 @@ export default function LoginPage() {
                 setResetError("");
                 setResetSuccess(false);
               }}
-              className="text-sm text-zinc-500 underline-offset-2 hover:text-zinc-800 hover:underline"
+              className="text-sm text-accent-blue underline-offset-2 hover:text-brand-deep hover:underline"
             >
               Password dimenticata?
             </button>
@@ -167,7 +167,7 @@ export default function LoginPage() {
                   setShowReset(false);
                   setResetSuccess(false);
                 }}
-                className="w-full rounded-lg border border-zinc-200 px-4 py-3 text-sm font-medium text-zinc-600 hover:bg-zinc-50"
+                className="w-full rounded-md border-[0.5px] border-zinc-200 px-4 py-3 text-sm font-medium text-zinc-600 hover:bg-zinc-50"
               >
                 Torna al login
               </button>
@@ -192,7 +192,7 @@ export default function LoginPage() {
                     onChange={(e) => setResetEmail(e.target.value)}
                     required
                     disabled={resetLoading}
-                    className="w-full rounded-lg border border-zinc-300 px-4 py-3 text-sm outline-none focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900 disabled:opacity-50"
+                    className="w-full rounded-md border border-zinc-300 px-4 py-3 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand disabled:opacity-50"
                     placeholder="roberto@example.com"
                     autoComplete="email"
                     autoFocus
@@ -208,7 +208,7 @@ export default function LoginPage() {
                 <button
                   type="submit"
                   disabled={resetLoading || !resetEmail}
-                  className="w-full rounded-lg bg-zinc-900 px-4 py-3 text-sm font-semibold text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="w-full rounded-md bg-brand px-4 py-3 text-sm font-medium text-white hover:bg-brand-deep disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {resetLoading ? "Invio in corso…" : "Invia link di recupero"}
                 </button>
@@ -219,7 +219,7 @@ export default function LoginPage() {
                     setShowReset(false);
                     setResetError("");
                   }}
-                  className="w-full rounded-lg border border-zinc-200 px-4 py-3 text-sm font-medium text-zinc-600 hover:bg-zinc-50"
+                  className="w-full rounded-md border-[0.5px] border-zinc-200 px-4 py-3 text-sm font-medium text-zinc-600 hover:bg-zinc-50"
                 >
                   Torna al login
                 </button>
