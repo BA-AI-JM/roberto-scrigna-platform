@@ -10,6 +10,12 @@ import { createSupabaseServiceRole } from "../../lib/supabase/service";
 import { sendEmail } from "../../lib/resend/client";
 import { ensurePortalAuthUser } from "../../services/portal-auth";
 import { computeSnapshotBodyComp } from "../body-comp";
+// #5 retroactive snapshot editing — shared column derivation + changed-only diff.
+import {
+  deriveSnapshotColumns,
+  diffSnapshotColumns,
+  type SnapshotIntakeInput,
+} from "../snapshot-fields";
 // #2 dashboard — compute-only TDEE breakdown (reuses the plan engine snapshot
 // builder + intake training sessions; no plan generated, no DB write).
 import { buildEngineSnapshot, intakeTrainingSessions } from "./plan";
@@ -648,6 +654,151 @@ export const clientRouter = router({
       }
 
       return { snapshotId: snapshot?.id };
+    }),
+
+  /**
+   * #5 — Retroactively edit a past client_snapshot (correct a mis-typed
+   * measurement). PARTNER-scoped. Merges the provided fields over the snapshot's
+   * existing intake, re-derives every column (recomputing body composition), and
+   * appends an immutable snapshot_edit_audit row of the changed-only before->after.
+   *
+   * NON-PLAN-MOVING: this only rewrites the client_snapshot row. Generated plans
+   * are frozen JSONB bundles (plan.daily_targets, copied at generation); nothing
+   * re-derives a plan from the snapshot, so an edit never retro-changes a plan.
+   */
+  editSnapshot: protectedProcedure
+    .input(
+      z.object({
+        snapshotId: z.string().uuid(),
+        fields: createSnapshotSchema.omit({ clientId: true }),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      // 1. Fetch the snapshot (RLS-bound to this partner's clients).
+      const { data: existing, error: fetchError } = await ctx.supabase
+        .from("client_snapshot")
+        .select(
+          "id, client_id, age_years, weight_kg, height_cm, daily_steps, occupational_level, week_schedule, skinfold_data, body_fat_method, body_fat_pct, lean_mass_kg, fat_mass_kg, bmr_kcal, notes"
+        )
+        .eq("id", input.snapshotId)
+        .single();
+
+      if (fetchError || !existing) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Rilevazione non trovata." });
+      }
+
+      // 2. Explicit partner-scope gate: the snapshot's client must belong to this
+      // partner (defends the mocked/service paths where RLS isn't the enforcer).
+      const { data: clientRow, error: clientError } = await ctx.supabase
+        .from("client")
+        .select("id, sex")
+        .eq("id", existing.client_id as string)
+        .eq("partner_id", ctx.partnerId)
+        .is("deleted_at", null)
+        .single();
+
+      if (clientError || !clientRow) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Rilevazione non trovata." });
+      }
+
+      // 3. Merge the provided fields over the snapshot's existing intake, so a
+      // partial edit (e.g. just weight) preserves everything else.
+      const existingIntake = ((existing.skinfold_data as Record<string, unknown> | null)
+        ?._intake ?? {}) as Record<string, unknown>;
+      const f = input.fields;
+      const merged: SnapshotIntakeInput = {
+        weightKg: f.weightKg ?? (existing.weight_kg as number | null) ?? undefined,
+        heightCm: f.heightCm ?? (existing.height_cm as number | null) ?? undefined,
+        circumferences:
+          (f.circumferences as SnapshotIntakeInput["circumferences"]) ??
+          (existingIntake.circumferences as SnapshotIntakeInput["circumferences"]) ??
+          undefined,
+        skinfolds:
+          (f.skinfolds as SnapshotIntakeInput["skinfolds"]) ??
+          (existingIntake.skinfolds as SnapshotIntakeInput["skinfolds"]) ??
+          undefined,
+        medicalHistory:
+          (f.medicalHistory as SnapshotIntakeInput["medicalHistory"]) ??
+          (existingIntake.medical_history as SnapshotIntakeInput["medicalHistory"]) ??
+          undefined,
+        trainingSessions:
+          (f.trainingSessions as SnapshotIntakeInput["trainingSessions"]) ??
+          (existingIntake.training_sessions as SnapshotIntakeInput["trainingSessions"]) ??
+          undefined,
+        occupationalLevel:
+          f.occupationalLevel ??
+          (existing.occupational_level as SnapshotIntakeInput["occupationalLevel"]) ??
+          undefined,
+        lifestyle:
+          (f.lifestyle as SnapshotIntakeInput["lifestyle"]) ??
+          (existingIntake.lifestyle as SnapshotIntakeInput["lifestyle"]) ??
+          undefined,
+        goal:
+          (f.goal as SnapshotIntakeInput["goal"]) ??
+          (existingIntake.goal as SnapshotIntakeInput["goal"]) ??
+          undefined,
+      };
+
+      // 4. Re-derive every column (recomputes body composition). age_years is
+      // preserved from the original measurement (retroactive correction semantics).
+      const derived = deriveSnapshotColumns(merged, {
+        ageYears: (existing.age_years as number | null) ?? null,
+        clientSex: (clientRow.sex as "male" | "female" | null) ?? null,
+      });
+
+      // 5. Changed-only before -> after diff for the audit trail.
+      const changed = diffSnapshotColumns(
+        existing as Record<string, unknown>,
+        derived
+      );
+
+      // 6. Update the snapshot in place.
+      const { data: updated, error: updateError } = await ctx.supabase
+        .from("client_snapshot")
+        .update({ ...derived, updated_at: new Date().toISOString() })
+        .eq("id", input.snapshotId)
+        .select(
+          "id, client_id, weight_kg, height_cm, age_years, daily_steps, occupational_level, week_schedule, skinfold_data, body_fat_method, body_fat_pct, lean_mass_kg, fat_mass_kg, bmr_kcal, notes"
+        )
+        .single();
+
+      if (updateError || !updated) {
+        console.error("[router/client.editSnapshot] update:", updateError);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Errore nel salvataggio. Riprova tra poco.",
+        });
+      }
+
+      // 7. Append the immutable audit row (only when something actually changed).
+      // NOTE: the update (step 6) and this insert are two statements, not one
+      // transaction. Update-first is deliberate: the snapshot is the source of
+      // truth; on the rare audit-insert failure we surface an error rather than
+      // silently mutate without a trail.
+      if (Object.keys(changed).length > 0) {
+        const { error: auditError } = await ctx.supabase
+          .from("snapshot_edit_audit")
+          .insert({
+            snapshot_id: input.snapshotId,
+            client_id: existing.client_id as string,
+            edited_by: ctx.userId,
+            changed_fields: changed,
+          });
+
+        if (auditError) {
+          console.error("[router/client.editSnapshot] audit:", auditError);
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Modifica salvata ma audit non registrato. Riprova.",
+          });
+        }
+      }
+
+      // 8. Return the updated snapshot incl. the recomputed body composition.
+      return {
+        snapshot: updated,
+        changedFields: Object.keys(changed),
+      };
     }),
 
   /**
