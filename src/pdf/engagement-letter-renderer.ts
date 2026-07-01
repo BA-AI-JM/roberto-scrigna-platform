@@ -19,6 +19,25 @@ export interface EngagementLetterRenderData {
   language: string;
   /** When true, shows a "BOZZA / ANTEPRIMA" banner (not a signed document). */
   draft?: boolean;
+  /**
+   * When present, renders the SIGNED copy: a "FIRMATO" stamp instead of the draft
+   * banner, plus an SES acceptance attestation block. Used by the internal SES
+   * provider's on-demand regeneration.
+   */
+  signature?: SignatureStamp;
+}
+
+/** Internal-SES acceptance details stamped onto the signed letter (KB §11 / eIDAS SES). */
+export interface SignatureStamp {
+  signerName: string;
+  /** Codice fiscale, when held (n/d otherwise). */
+  signerCodiceFiscale?: string | null;
+  /** ISO timestamp the patient accepted. */
+  acceptedAt: string;
+  versionNumber: number;
+  contentHash: string;
+  /** e.g. "in_app_ses". */
+  method: string;
 }
 
 // ── Markdown subset → HTML ──────────────────────────────────────────────────────
@@ -81,12 +100,38 @@ export function letterMarkdownToHtml(md: string): string {
 
 // ── Renderer ──────────────────────────────────────────────────────────────────
 
-export function renderEngagementLetterHtml(data: EngagementLetterRenderData): string {
-  const { bodyMd, documentName, versionLabel, language, draft = true } = data;
-  const bodyHtml = letterMarkdownToHtml(bodyMd);
+function formatStampDateTime(iso: string): string {
+  return new Intl.DateTimeFormat("it-IT", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    timeZoneName: "short",
+  }).format(new Date(iso));
+}
 
-  const draftBanner = draft
-    ? `<div class="draft-banner">BOZZA / ANTEPRIMA — documento non firmato. La sottoscrizione avviene tramite firma elettronica (eIDAS).</div>`
+export function renderEngagementLetterHtml(data: EngagementLetterRenderData): string {
+  const { bodyMd, documentName, versionLabel, language, signature, draft = true } = data;
+  const bodyHtml = letterMarkdownToHtml(bodyMd);
+  const signed = !!signature;
+
+  const topBanner = signed
+    ? `<div class="signed-banner">FIRMATO — accettato elettronicamente (Firma Elettronica Semplice, eIDAS)</div>`
+    : draft
+      ? `<div class="draft-banner">BOZZA / ANTEPRIMA — documento non firmato. La sottoscrizione avviene tramite firma elettronica (eIDAS).</div>`
+      : "";
+
+  const attestation = signature
+    ? `<div class="attestation">
+        <div class="attestation-title">Attestazione di accettazione</div>
+        <p>Documento accettato elettronicamente da <strong>${esc(signature.signerName)}</strong>,
+        C.F. ${esc(signature.signerCodiceFiscale || "n/d")}, il ${esc(formatStampDateTime(signature.acceptedAt))},
+        versione ${signature.versionNumber}, hash <span class="mono">${esc(signature.contentHash)}</span>
+        &mdash; Firma Elettronica Semplice (SES) ai sensi del Reg. (UE) n. 910/2014 (eIDAS).</p>
+        <p class="attestation-method">Metodo: ${esc(signature.method)}.</p>
+      </div>`
     : "";
 
   return `<!DOCTYPE html>
@@ -140,6 +185,38 @@ export function renderEngagementLetterHtml(data: EngagementLetterRenderData): st
       color: #92400e;
     }
 
+    .signed-banner {
+      margin: 16px 0 8px;
+      padding: 8px 14px;
+      background: #f0fdf4;
+      border: 1px solid #15803d;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #14532d;
+      letter-spacing: 0.04em;
+    }
+
+    .attestation {
+      margin-top: 20px;
+      padding: 14px 16px;
+      background: #f0fdf4;
+      border-left: 3px solid #15803d;
+      border-radius: 0 6px 6px 0;
+      font-size: 11px;
+      color: #14532d;
+      line-height: 1.6;
+    }
+    .attestation-title {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 6px;
+    }
+    .attestation-method { margin-top: 6px; color: #166534; }
+    .mono { font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace; font-size: 10px; word-break: break-all; }
+
     .body { margin-top: 12px; line-height: 1.6; }
     .body h1 { font-size: 19px; font-weight: 800; margin: 18px 0 4px; letter-spacing: -0.4px; }
     .body h2 { font-size: 14px; font-weight: 700; margin: 16px 0 4px; }
@@ -183,15 +260,17 @@ export function renderEngagementLetterHtml(data: EngagementLetterRenderData): st
     </div>
   </header>
 
-  ${draftBanner}
+  ${topBanner}
 
   <div class="body">
     ${bodyHtml}
   </div>
 
+  ${attestation}
+
   <footer class="footer">
     <strong>Roberto Scrigna</strong> &mdash; Nutrizionista &amp; Personal Trainer<br />
-    I campi evidenziati in rosso restano da completare prima della firma.
+    ${signed ? "Copia firmata elettronicamente (SES, eIDAS)." : "I campi evidenziati in rosso restano da completare prima della firma."}
   </footer>
 
 </div>
