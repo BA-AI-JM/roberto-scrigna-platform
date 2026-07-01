@@ -1183,6 +1183,21 @@ export default function ClientDetailPage() {
           >
             Genera Piano
           </Link>
+          <Link
+            href={`/clients/${clientId}/lettera`}
+            style={{
+              padding: "9px 18px",
+              backgroundColor: "#ffffff",
+              color: "#1a1a2e",
+              border: "1px solid #e2e8f0",
+              borderRadius: "8px",
+              textDecoration: "none",
+              fontSize: "14px",
+              fontWeight: 600,
+            }}
+          >
+            Lettera di incarico
+          </Link>
           {client.status !== "archived" && (
             <button
               onClick={handleInvite}
