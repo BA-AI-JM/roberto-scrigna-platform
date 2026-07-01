@@ -3,7 +3,8 @@
 /**
  * #27 Stage 1 — "Piano" tab: the patient's full active plan (meals, supplements,
  * coach notes — no coach math). Reuses ActivePlanView over the existing
- * getActivePlan query. Mobile-first single column.
+ * getActivePlan query. Responsive: a warm reading column on mobile that widens
+ * gracefully on desktop (portal-container); branded header.
  */
 
 import { trpc } from "@/lib/trpc/client";
@@ -13,10 +14,12 @@ export default function PortalPlanPage() {
   const planQuery = trpc.portal.getActivePlan.useQuery();
 
   return (
-    <div className="mx-auto w-full max-w-[640px] px-4 py-6 sm:px-6">
-      <h1 style={{ fontSize: "22px", fontWeight: 700, color: "#1a1a2e", margin: "0 0 16px" }}>
-        Il mio piano
-      </h1>
+    <div className="portal-container">
+      <header className="mb-6 lg:mb-8">
+        <p className="mb-1 text-xs font-medium uppercase tracking-wide text-brand-deep">Il tuo percorso</p>
+        <h1 className="text-2xl font-medium tracking-tight text-ink lg:text-3xl">Il mio piano</h1>
+        <p className="mt-1 text-sm text-muted-foreground">Pasti, integratori e note del tuo nutrizionista.</p>
+      </header>
       <ActivePlanView
         plan={planQuery.data as ActivePlan | null | undefined}
         loading={planQuery.isLoading}

@@ -43,8 +43,8 @@ export default async function PortalProtectedLayout({
 
   return (
     <>
-      {/* Bottom-nav clearance (the fixed nav is ~64px + safe-area). */}
-      <div style={{ paddingBottom: "80px" }}>{children}</div>
+      {/* Nav clearance: bottom tab bar on mobile, pinned top nav on desktop. */}
+      <div className="pb-20 lg:pb-0 lg:pt-14">{children}</div>
       <PortalBottomNav />
       <Toaster position="top-center" />
     </>

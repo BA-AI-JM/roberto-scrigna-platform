@@ -83,7 +83,7 @@ function KpiCard({
         </div>
       ) : (
         <>
-          <div style={{ fontSize: "28px", fontWeight: 700 }}>{value}</div>
+          <div className="tnum" style={{ fontSize: "28px", fontWeight: 500 }}>{value}</div>
           {trend && (
             <div
               style={{
@@ -451,14 +451,7 @@ export default function DashboardPage() {
   const overviewLoading = overviewQuery.isLoading;
 
   return (
-    <div
-      style={{
-        padding: "32px",
-        maxWidth: "1400px",
-        margin: "0 auto",
-        fontFamily: "system-ui, -apple-system, sans-serif",
-      }}
-    >
+    <div className="coach-container">
       {/* Header */}
       <div
         style={{
@@ -469,10 +462,9 @@ export default function DashboardPage() {
         }}
       >
         <div>
-          <h1 style={{ fontSize: "26px", fontWeight: 700, margin: 0 }}>Dashboard</h1>
-          <p style={{ color: "#6b7280", marginTop: "4px", fontSize: "14px" }}>
-            Panoramica operativa — Roberto Scrigna
-          </p>
+          <p className="mb-1 text-xs font-medium uppercase tracking-wide text-brand-deep">Roberto Scrigna</p>
+          <h1 style={{ fontSize: "26px", fontWeight: 500, letterSpacing: "-0.01em", margin: 0, color: "#0f1729" }}>Dashboard</h1>
+          <p style={{ color: "#6b7280", marginTop: "4px", fontSize: "14px" }}>Panoramica operativa</p>
         </div>
         <div style={{ display: "flex", gap: "12px" }}>
           <Link
@@ -654,7 +646,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Two-column layout: Revenue + Pipeline */}
-      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "24px", marginBottom: "32px" }}>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[2fr_1fr]" style={{ marginBottom: "32px" }}>
         <div
           style={{
             background: "#ffffff",
