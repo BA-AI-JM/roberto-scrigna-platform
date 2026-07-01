@@ -73,20 +73,16 @@ CREATE POLICY signature_request_client_read ON signature_request
     client_id IN (SELECT id FROM client WHERE auth_user_id = auth.uid())
   );
 
--- Client may ACCEPT (update -> signed) their OWN not-yet-signed request, and
--- nothing else: USING gates which rows (own + not signed), WITH CHECK gates the
--- new row (own + becomes 'signed'). The freeze trigger blocks any later change.
+-- NO client UPDATE policy — intentional. The ONLY acceptance path is the
+-- server-side service-role router (signature.acceptSignature), which bypasses RLS
+-- and authoritatively stamps status='signed' + accepted_by=<authenticated client>.
+-- A prior version granted a client-direct UPDATE (accept -> signed), but its
+-- WITH CHECK did not pin partner_id / document_version_id / accepted_by, so a
+-- JWT-armed client could, in the same accept, reassign the request into another
+-- partner's tenant scope or forge the acceptor. With RLS enabled and no client
+-- UPDATE policy, such a write is default-denied outright. DROP any previously
+-- applied instance so re-running converges to the hardened state (idempotent).
 DROP POLICY IF EXISTS signature_request_client_accept ON signature_request;
-CREATE POLICY signature_request_client_accept ON signature_request
-  FOR UPDATE TO authenticated
-  USING (
-    client_id IN (SELECT id FROM client WHERE auth_user_id = auth.uid())
-    AND status IN ('pending', 'sent', 'viewed')
-  )
-  WITH CHECK (
-    client_id IN (SELECT id FROM client WHERE auth_user_id = auth.uid())
-    AND status = 'signed'
-  );
 
 -- ── Verification (read-only; safe to run after apply) ─────────────────────────
 -- SELECT table_name FROM information_schema.tables
