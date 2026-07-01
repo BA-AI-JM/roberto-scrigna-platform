@@ -23,6 +23,12 @@ import { ensurePortalAuthUser } from "../../services/portal-auth";
 import { sendEmail as sendResendEmail } from "../resend/client";
 import { FEEDBACK_DUE_DAYS, FEEDBACK_CATCH_DAYS } from "../../server/plan-versioning";
 import { scanPlanUpdateHeuristicsCore } from "../../server/plan-update-heuristics";
+import {
+  resolveReminderSettings,
+  checkInReminderDue,
+  bodyCompReminderDue,
+  type ReminderSettings,
+} from "../../server/reminder-due";
 
 // ── Supabase service-role client for background jobs ────────────────────────
 
@@ -31,6 +37,21 @@ function getServiceDb() {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
+}
+
+// ── Helper: per-client reminder settings (Build #07) ────────────────────────
+// Service-role read; returns resolved defaults when a client has no row (so
+// existing clients keep today's behaviour: check-in every 21 days, body-comp off).
+async function loadReminderSettings(
+  db: ReturnType<typeof getServiceDb>,
+  clientId: string
+): Promise<ReminderSettings> {
+  const { data } = await db
+    .from("client_reminder_settings")
+    .select("check_in_every_days, body_comp_every_days, reminders_enabled")
+    .eq("client_id", clientId)
+    .maybeSingle();
+  return resolveReminderSettings(data);
 }
 
 // ── Helper: send email via Resend ───────────────────────────────────────────
@@ -789,24 +810,34 @@ export const scanFeedbackDue = inngest.createFunction(
     // (below) so it is memoised/retry-safe and never double-queued.
     const events = await step.run("find-feedback-due-plans", async () => {
       const db = getServiceDb();
-      const dueEnd = new Date(Date.now() - FEEDBACK_DUE_DAYS * 86400000)
+      // Build #07: per-client check-in cadence. Widen the candidate window to cover
+      // any configured cadence (1..90 days, + catch); each plan is then gated below
+      // by its client's checkInEveryDays. For a default client (21 days) the gate
+      // reproduces the original [today−28, today−21] window EXACTLY → no change.
+      const MAX_EVERY_DAYS = 90;
+      const wideStart = new Date(Date.now() - (MAX_EVERY_DAYS + FEEDBACK_CATCH_DAYS) * 86400000)
         .toISOString()
-        .split("T")[0]; // start_date <= today − 21
-      const dueStart = new Date(Date.now() - (FEEDBACK_DUE_DAYS + FEEDBACK_CATCH_DAYS) * 86400000)
-        .toISOString()
-        .split("T")[0]; // start_date >= today − 28
+        .split("T")[0];
+      const today = new Date().toISOString().split("T")[0];
 
       const { data: plans } = await db
         .from("plan")
         .select("id, client_id, partner_id, name, start_date")
         .eq("status", "active")
-        .gte("start_date", dueStart)
-        .lte("start_date", dueEnd)
+        .gte("start_date", wideStart)
+        .lte("start_date", today)
         .is("deleted_at", null);
 
       const out: Array<{ name: string; data: Record<string, unknown> }> = [];
 
       for (const plan of plans ?? []) {
+        // Build #07: respect this client's cadence + enabled flag. Default settings
+        // (21 days, enabled) reproduce the prior behaviour exactly.
+        const settings = await loadReminderSettings(db, plan.client_id);
+        if (!checkInReminderDue(settings, plan.start_date, FEEDBACK_CATCH_DAYS, Date.now())) {
+          continue;
+        }
+
         // Done already: a feedback_requested notification for this plan exists.
         const { count: notified } = await db
           .from("notification")
@@ -891,6 +922,116 @@ export const scanPlanUpdateHeuristics = inngest.createFunction(
   },
 );
 
+// ── Build #07: body-composition reminders (net-new, opt-in) ──────────────────
+// Reminds a client to update their body-composition measurements every
+// body_comp_every_days days since their LAST snapshot. Opt-in: only clients with
+// reminders_enabled = true AND body_comp_every_days > 0 are considered, so
+// existing clients (no settings row, default 0 = off) are never reminded.
+export const scanBodyCompDue = inngest.createFunction(
+  { id: "scan-body-comp-due", retries: 2, triggers: [{ cron: "0 11 * * *" }] },
+  async ({ step }) => {
+    const due = await step.run("find-body-comp-due", async () => {
+      const db = getServiceDb();
+      const nowMs = Date.now();
+
+      const { data: rows } = await db
+        .from("client_reminder_settings")
+        .select("client_id, body_comp_every_days, reminders_enabled")
+        .eq("reminders_enabled", true)
+        .gt("body_comp_every_days", 0);
+
+      const out: Array<{
+        clientId: string;
+        partnerId: string;
+        clientName: string;
+        email: string | null;
+        everyDays: number;
+      }> = [];
+
+      for (const row of rows ?? []) {
+        const everyDays = row.body_comp_every_days as number;
+
+        // Anchor on the most recent body-composition snapshot.
+        const { data: snap } = await db
+          .from("client_snapshot")
+          .select("taken_at")
+          .eq("client_id", row.client_id)
+          .order("taken_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        // Snapshot-anchored dedup: the most recent body_comp_due reminder (if any).
+        const { data: lastReminder } = await db
+          .from("notification")
+          .select("created_at")
+          .eq("trigger", "body_comp_due")
+          .eq("client_id", row.client_id)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        const due = bodyCompReminderDue({
+          settings: { enabled: row.reminders_enabled as boolean, bodyCompEveryDays: everyDays },
+          lastSnapshotDate: (snap?.taken_at as string | null) ?? null,
+          lastReminderAt: (lastReminder?.created_at as string | null) ?? null,
+          nowMs,
+        });
+        if (!due) continue;
+
+        const { data: client } = await db
+          .from("client")
+          .select("full_name, partner_id, email, status, deleted_at")
+          .eq("id", row.client_id)
+          .single();
+        if (!client || client.status !== "active" || client.deleted_at) continue;
+
+        out.push({
+          clientId: row.client_id as string,
+          partnerId: client.partner_id as string,
+          clientName: (client.full_name as string) ?? "Cliente",
+          email: (client.email as string | null) ?? null,
+          everyDays,
+        });
+      }
+
+      return out;
+    });
+
+    // Split notify + email into separate steps so an email retry never re-creates
+    // the in-app notification (mirrors onFeedbackRequestDue).
+    for (const c of due) {
+      await step.run(`notify-body-comp-${c.clientId}`, async () => {
+        await createNotification({
+          partnerId: c.partnerId,
+          clientId: c.clientId,
+          trigger: "body_comp_due",
+          title: `Misurazioni composizione corporea per ${c.clientName}`,
+          body: `Sono passati ${c.everyDays} giorni dall'ultima rilevazione della composizione corporea di ${c.clientName}.`,
+          metadata: { everyDays: c.everyDays },
+        });
+      });
+
+      const email = c.email;
+      if (email) {
+        await step.run(`email-body-comp-${c.clientId}`, async () => {
+          const html = emailWrapper(
+            "È il momento di aggiornare le misurazioni",
+            `<h2 style="margin:0 0 12px;font-size:20px;color:#1a1a2e;">Aggiorna le tue misurazioni</h2>
+<p style="margin:0 0 16px;font-size:14px;color:#374151;line-height:1.6;">
+  Ciao ${c.clientName},<br/>
+  sono passati ${c.everyDays} giorni dall'ultima rilevazione della composizione corporea. Registra peso e misure aggiornate per aiutare il tuo coach a tarare il piano.
+</p>
+${btnHtml(portalUrl("/progress"), "Aggiorna le misurazioni")}`
+          );
+          await sendEmail(email, "È il momento di aggiornare le misurazioni", html);
+        });
+      }
+    }
+
+    return { reminded: due.length };
+  },
+);
+
 // ── Export all functions ─────────────────────────────────────────────────────
 
 export const functions = [
@@ -905,4 +1046,5 @@ export const functions = [
   onFeedbackRequestDue,
   scanFeedbackDue,
   scanPlanUpdateHeuristics,
+  scanBodyCompDue,
 ];
