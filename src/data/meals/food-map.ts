@@ -13,11 +13,8 @@
  *             cocoa/honey/jam/soy used in trace amounts) → all-zero macros
  */
 
-import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
 import type { FoodItem } from "../types";
-import { parseFoodV3Csv } from "../parser";
+import { FOOD_DATA } from "./food-data.generated";
 
 export interface FoodMapEntry {
   /** v3 "Food Name" to resolve, or null for the zero-sentinel. */
@@ -111,19 +108,16 @@ export interface ResolvedFood {
   via: "exact" | "sub" | "zero";
 }
 
-// Load + index the v3 DB once at module init (Fruit-preferred dedup done in
-// parseFoodV3Csv). Path: src/data/meals/ → ../Macro_Database_v3_FINAL.csv.
-const CSV_PATH = join(
-  dirname(fileURLToPath(import.meta.url)),
-  "..",
-  "Macro_Database_v3_FINAL.csv"
-);
-
+// The v3 food DB is BUNDLED as a generated module (food-data.generated.ts) so it
+// ships inside the JS bundle — no runtime readFileSync of an import.meta.url-computed
+// path (which Next's file tracer can't resolve → ENOENT on the Vercel serverless
+// function → plan.generate/foodCatalogue 500). Fruit-preferred dedup is already baked
+// in (parseFoodV3Csv was run at generation time). Regenerate after editing the CSV:
+//   bun run scripts/gen-food-data.ts   (a test asserts it matches a fresh CSV parse)
 let _byName: Map<string, FoodItem> | null = null;
 function foodByName(): Map<string, FoodItem> {
   if (_byName) return _byName;
-  const items = parseFoodV3Csv(readFileSync(CSV_PATH, "utf8"));
-  _byName = new Map(items.map((it) => [it.name, it]));
+  _byName = new Map(FOOD_DATA.map((it) => [it.name, it]));
   return _byName;
 }
 
