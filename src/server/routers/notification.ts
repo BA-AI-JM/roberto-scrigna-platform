@@ -48,6 +48,7 @@ const notificationTriggerSchema = z.enum([
   "plan_update_suggested",
   "feedback_requested",
   "body_comp_due",
+  "urgent_feedback",
 ]);
 
 /** Priority levels for notifications */
@@ -70,6 +71,7 @@ const TRIGGER_PRIORITY: Record<string, z.infer<typeof notificationPrioritySchema
   plan_update_suggested: "medium",
   feedback_requested: "medium",
   body_comp_due: "medium",
+  urgent_feedback: "urgent",
 };
 
 /** Trigger-to-Italian label mapping */
@@ -89,6 +91,7 @@ const TRIGGER_LABELS: Record<string, string> = {
   plan_update_suggested: "Aggiornamento piano suggerito",
   feedback_requested: "Feedback richiesto",
   body_comp_due: "Misurazioni da aggiornare",
+  urgent_feedback: "Feedback urgente / Infortunio",
 };
 
 // ── Router ───────────────────────────────────────────────────────────────────
