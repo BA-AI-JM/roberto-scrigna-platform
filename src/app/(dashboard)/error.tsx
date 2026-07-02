@@ -101,7 +101,7 @@ export default function DashboardError({
             style={{
               marginTop: "16px",
               fontSize: "11px",
-              color: "#d1d5db",
+              color: "#6b7280",
               fontFamily: "monospace",
             }}
           >

@@ -65,7 +65,7 @@ function emailWrapper(title: string, body: string): string {
         <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;">
           <tr>
             <td style="background:#1a1a2e;padding:24px 32px;">
-              <p style="margin:0;font-size:13px;color:#9ca3af;">Roberto Scrigna — Nutrizione Sportiva</p>
+              <p style="margin:0;font-size:13px;color:#6b7280;">Roberto Scrigna — Nutrizione Sportiva</p>
             </td>
           </tr>
           <tr>
@@ -2068,7 +2068,7 @@ export const planRouter = router({
 </p>
 ${macroTable}
 ${btnHtml(portalUrl("/login"), "Visualizza il piano")}
-<p style="margin:20px 0 0;font-size:12px;color:#9ca3af;line-height:1.5;">
+<p style="margin:20px 0 0;font-size:12px;color:#6b7280;line-height:1.5;">
   Hai domande? Rispondi a questa email o contatta direttamente il tuo coach.
 </p>`
       );

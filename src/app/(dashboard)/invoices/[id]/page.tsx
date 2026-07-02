@@ -92,7 +92,7 @@ function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
           width: "140px",
           flexShrink: 0,
           fontSize: "13px",
-          color: "#9ca3af",
+          color: "#6b7280",
           fontWeight: 500,
         }}
       >
@@ -467,7 +467,7 @@ export default function InvoiceDetailPage() {
                     padding: "8px 0",
                     fontSize: "12px",
                     fontWeight: 600,
-                    color: "#9ca3af",
+                    color: "#6b7280",
                     textTransform: "uppercase",
                     letterSpacing: "0.05em",
                     borderBottom: "1px solid #e2e8f0",
@@ -486,7 +486,7 @@ export default function InvoiceDetailPage() {
                   style={{
                     padding: "24px 0",
                     textAlign: "center",
-                    color: "#9ca3af",
+                    color: "#6b7280",
                     fontSize: "14px",
                   }}
                 >
@@ -684,7 +684,7 @@ export default function InvoiceDetailPage() {
                 border: "1px solid #e2e8f0",
                 borderRadius: "8px",
                 background: "transparent",
-                color: "#9ca3af",
+                color: "#6b7280",
                 cursor: isBusy ? "not-allowed" : "pointer",
                 fontSize: "13px",
                 opacity: isBusy ? 0.6 : 1,

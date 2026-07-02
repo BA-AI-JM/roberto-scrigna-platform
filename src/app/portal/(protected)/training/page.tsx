@@ -237,7 +237,7 @@ export default function PortalTrainingLogPage() {
               onChange={(e) => setForm((f) => ({ ...f, rpe: parseInt(e.target.value, 10) }))}
               style={{ width: "100%", marginTop: "8px" }}
             />
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", color: "#9ca3af" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", color: "#6b7280" }}>
               <span>1</span><span>10</span>
             </div>
           </div>
@@ -265,7 +265,7 @@ export default function PortalTrainingLogPage() {
               hint="Trascina lo screenshot dell'allenamento o clicca per caricare"
             />
           ) : (
-            <p style={{ fontSize: "12px", color: "#9ca3af" }}>Caricamento del profilo…</p>
+            <p style={{ fontSize: "12px", color: "#6b7280" }}>Caricamento del profilo…</p>
           )}
         </div>
 
@@ -325,9 +325,9 @@ export default function PortalTrainingLogPage() {
           Storico
         </h2>
 
-        {logsLoading && <p style={{ fontSize: "13px", color: "#9ca3af" }}>Caricamento…</p>}
+        {logsLoading && <p style={{ fontSize: "13px", color: "#6b7280" }}>Caricamento…</p>}
         {!logsLoading && logs.length === 0 && (
-          <p style={{ fontSize: "13px", color: "#9ca3af" }}>
+          <p style={{ fontSize: "13px", color: "#6b7280" }}>
             Ancora nessun allenamento registrato.
           </p>
         )}

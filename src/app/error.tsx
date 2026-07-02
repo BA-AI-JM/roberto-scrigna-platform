@@ -103,7 +103,7 @@ export default function RootError({
             style={{
               marginTop: "20px",
               fontSize: "11px",
-              color: "#d1d5db",
+              color: "#6b7280",
               fontFamily: "monospace",
             }}
           >

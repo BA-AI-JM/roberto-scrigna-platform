@@ -128,6 +128,24 @@
   textarea {
     font-variant-numeric: tabular-nums lining-nums;
   }
+  /* WCAG 2.4.7 — a visible, branded keyboard-focus ring on every interactive
+     element. Some legacy inline styles set `outline: none`; a stylesheet outline
+     can't override an inline one, so inputs/buttons/links also get a box-shadow
+     ring (not suppressed by inline `outline:none`) — focus stays visible. */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+  a:focus-visible,
+  button:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible,
+  [role="button"]:focus-visible,
+  [role="tab"]:focus-visible,
+  [role="switch"]:focus-visible {
+    box-shadow: 0 0 0 2px var(--ring);
+  }
   /* Respect reduced-motion app-wide — refinement, not decoration. */
   @media (prefers-reduced-motion: reduce) {
     *,

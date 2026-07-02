@@ -110,7 +110,7 @@ export function ActivePlanView({ plan, loading }: { plan: ActivePlan | null | un
         <div style={{ padding: "28px", background: "#f8fafc", borderRadius: "10px", textAlign: "center", border: "1px dashed #cbd5e1" }}>
           <div style={{ fontSize: "32px", marginBottom: "12px" }}>📋</div>
           <p style={{ fontSize: "15px", fontWeight: 600, color: "#374151", margin: "0 0 6px" }}>Nessun piano attivo</p>
-          <p style={{ fontSize: "13px", color: "#9ca3af", margin: 0 }}>Il tuo nutrizionista sta preparando il tuo piano.</p>
+          <p style={{ fontSize: "13px", color: "#6b7280", margin: 0 }}>Il tuo nutrizionista sta preparando il tuo piano.</p>
         </div>
       </div>
     );
@@ -150,7 +150,7 @@ export function ActivePlanView({ plan, loading }: { plan: ActivePlan | null | un
             targets[key] != null ? (
               <div key={key} style={{ flex: "1 1 80px", minWidth: "70px", textAlign: "center" }}>
                 <div style={{ fontSize: "20px", fontWeight: 700, color: "#1a1a2e" }}>{String(targets[key] ?? "")}{unit}</div>
-                <div style={{ fontSize: "11px", color: "#9ca3af", marginTop: "2px" }}>{label}</div>
+                <div style={{ fontSize: "11px", color: "#6b7280", marginTop: "2px" }}>{label}</div>
               </div>
             ) : null
           )}
@@ -186,7 +186,7 @@ export function PlanSummaryCard({ plan, loading }: { plan: ActivePlan | null | u
     return (
       <div style={cardStyle}>
         <p style={{ ...sectionTitle, marginBottom: "12px" }}>Piano Attivo</p>
-        <p style={{ fontSize: "13px", color: "#9ca3af", margin: 0 }}>
+        <p style={{ fontSize: "13px", color: "#6b7280", margin: 0 }}>
           Nessun piano attivo. Il tuo nutrizionista sta preparando il tuo piano.
         </p>
       </div>
@@ -283,7 +283,7 @@ function MealPlanSection({
                     </div>
                   ) : (
                     <div style={{ padding: "8px 16px 12px" }}>
-                      <p style={{ fontSize: "13px", color: "#9ca3af", margin: 0 }}>Nessun ingrediente specificato.</p>
+                      <p style={{ fontSize: "13px", color: "#6b7280", margin: 0 }}>Nessun ingrediente specificato.</p>
                     </div>
                   )}
                 </div>

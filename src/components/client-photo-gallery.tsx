@@ -168,7 +168,7 @@ export function ClientPhotoGallery({
           {uploading && (
             <span style={{ fontSize: "12px", color: "#6b7280" }}>Caricamento…</span>
           )}
-          <span style={{ fontSize: "11px", color: "#9ca3af" }}>
+          <span style={{ fontSize: "11px", color: "#6b7280" }}>
             JPG / PNG / WebP / HEIC · max 10 MB per foto
           </span>
         </div>
@@ -191,9 +191,9 @@ export function ClientPhotoGallery({
       )}
 
       {loading ? (
-        <p style={{ fontSize: "13px", color: "#9ca3af" }}>Caricamento foto…</p>
+        <p style={{ fontSize: "13px", color: "#6b7280" }}>Caricamento foto…</p>
       ) : photos.length === 0 ? (
-        <p style={{ fontSize: "13px", color: "#9ca3af" }}>
+        <p style={{ fontSize: "13px", color: "#6b7280" }}>
           Nessuna foto. {readOnly ? "" : "Carica la prima foto sopra."}
         </p>
       ) : (

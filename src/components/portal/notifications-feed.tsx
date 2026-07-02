@@ -50,11 +50,11 @@ export function NotificationsFeed({
   loading: boolean;
 }) {
   if (loading) {
-    return <div style={{ color: "#9ca3af", fontSize: "14px", padding: "20px" }}>Caricamento notifiche…</div>;
+    return <div style={{ color: "#6b7280", fontSize: "14px", padding: "20px" }}>Caricamento notifiche…</div>;
   }
   if (!notifications || notifications.length === 0) {
     return (
-      <div style={{ textAlign: "center", padding: "40px 24px", color: "#9ca3af", background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "14px" }}>
+      <div style={{ textAlign: "center", padding: "40px 24px", color: "#6b7280", background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "14px" }}>
         <div style={{ fontSize: "32px", marginBottom: "8px" }} aria-hidden>🔔</div>
         <p style={{ fontSize: "14px", fontWeight: 600, color: "#374151", margin: "0 0 4px" }}>Nessuna notifica</p>
         <p style={{ fontSize: "13px", margin: 0 }}>Le notifiche del tuo coach compariranno qui.</p>
@@ -83,7 +83,7 @@ export function NotificationsFeed({
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: "8px", alignItems: "baseline" }}>
                   <span style={{ fontSize: "13px", fontWeight: n.read ? 600 : 700, color: "#1a1a2e" }}>{n.title}</span>
-                  <span style={{ fontSize: "11px", color: "#9ca3af", flexShrink: 0 }}>{relTime(n.created_at)}</span>
+                  <span style={{ fontSize: "11px", color: "#6b7280", flexShrink: 0 }}>{relTime(n.created_at)}</span>
                 </div>
                 {n.body && <div style={{ fontSize: "13px", color: "#52525b", marginTop: "4px", lineHeight: 1.4 }}>{n.body}</div>}
               </div>

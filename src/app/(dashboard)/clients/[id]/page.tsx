@@ -159,14 +159,14 @@ function WeightTrend({ snapshots }: { snapshots: SnapshotRow[] }) {
         <span key={s.id}>
           {s.weight_kg}
           {i < last5.length - 1 && (
-            <span style={{ color: "#9ca3af", margin: "0 4px" }}>→</span>
+            <span style={{ color: "#6b7280", margin: "0 4px" }}>→</span>
           )}
         </span>
       ))}
       <span style={{ marginLeft: "10px", fontWeight: 700, color: arrowColor }}>
         {arrow} {Math.abs(delta).toFixed(1)} kg
       </span>
-      <span style={{ color: "#9ca3af", marginLeft: "4px" }}>({deltaStr} kg)</span>
+      <span style={{ color: "#6b7280", marginLeft: "4px" }}>({deltaStr} kg)</span>
     </div>
   );
 }
@@ -356,7 +356,7 @@ function InfoGrid({ rows }: { rows: InfoRow[] }) {
             borderRight: (i + 1) % 3 !== 0 ? "1px solid #f1f5f9" : "none",
           }}
         >
-          <div style={{ fontSize: "12px", color: "#9ca3af", marginBottom: "4px" }}>{label}</div>
+          <div style={{ fontSize: "12px", color: "#6b7280", marginBottom: "4px" }}>{label}</div>
           <div style={{ fontSize: "15px", fontWeight: 600, color: "#1a1a2e", whiteSpace: "pre-wrap" }}>
             {value}
           </div>
@@ -368,7 +368,7 @@ function InfoGrid({ rows }: { rows: InfoRow[] }) {
 
 function EmptySection() {
   return (
-    <div style={{ padding: "16px 24px", fontSize: "13px", color: "#9ca3af" }}>Non disponibile</div>
+    <div style={{ padding: "16px 24px", fontSize: "13px", color: "#6b7280" }}>Non disponibile</div>
   );
 }
 
@@ -406,7 +406,7 @@ function TrainingSection({
                   background: isTraining ? "#1a1a2e" : "#f8fafc",
                 }}
               >
-                <div style={{ fontSize: "11px", fontWeight: 600, color: isTraining ? "#cbd5e1" : "#9ca3af", marginBottom: "4px" }}>
+                <div style={{ fontSize: "11px", fontWeight: 600, color: isTraining ? "#cbd5e1" : "#6b7280", marginBottom: "4px" }}>
                   {WEEKDAY_LABELS[i] ?? `G${i + 1}`}
                 </div>
                 <div style={{ fontSize: "12px", fontWeight: 600, color: isTraining ? "#ffffff" : "#374151" }}>
@@ -468,7 +468,7 @@ function PanoramicaTab({
         style={{
           textAlign: "center",
           padding: "48px 24px",
-          color: "#9ca3af",
+          color: "#6b7280",
           background: "#f8fafc",
           borderRadius: "12px",
           border: "1px dashed #e2e8f0",
@@ -549,7 +549,7 @@ function PanoramicaTab({
                 borderRight: (i + 1) % 3 !== 0 ? "1px solid #f1f5f9" : "none",
               }}
             >
-              <div style={{ fontSize: "12px", color: "#9ca3af", marginBottom: "4px" }}>{label}</div>
+              <div style={{ fontSize: "12px", color: "#6b7280", marginBottom: "4px" }}>{label}</div>
               <div className="tnum" style={{ fontSize: "15px", fontWeight: 600, color: "#1a1a2e" }}>{value}</div>
             </div>
           ))}
@@ -621,7 +621,7 @@ function PianiTab({ clientId }: { clientId: string }) {
   const plans = data?.plans ?? [];
 
   if (isLoading)
-    return <div style={{ padding: "24px", color: "#9ca3af", fontSize: "14px" }}>Caricamento piani...</div>;
+    return <div style={{ padding: "24px", color: "#6b7280", fontSize: "14px" }}>Caricamento piani...</div>;
 
   if (isError)
     return (
@@ -636,7 +636,7 @@ function PianiTab({ clientId }: { clientId: string }) {
         style={{
           textAlign: "center",
           padding: "48px 24px",
-          color: "#9ca3af",
+          color: "#6b7280",
           background: "#f8fafc",
           borderRadius: "12px",
           border: "1px dashed #e2e8f0",
@@ -668,7 +668,7 @@ function PianiTab({ clientId }: { clientId: string }) {
     draft: { bg: "#f3f4f6", text: "#6b7280" },
     active: { bg: "#dcfce7", text: "#166534" },
     completed: { bg: "#dbeafe", text: "#1d4ed8" },
-    archived: { bg: "#f3f4f6", text: "#9ca3af" },
+    archived: { bg: "#f3f4f6", text: "#6b7280" },
   };
   const PLAN_STATUS_LABELS: Record<string, string> = {
     draft: "Bozza",
@@ -722,7 +722,7 @@ function PianiTab({ clientId }: { clientId: string }) {
                 <td className="tnum" style={{ padding: "14px 16px", fontSize: "14px", fontWeight: 600, color: "#1a1a2e" }}>
                   {plan.name}
                   {plan.weeklyAvgKcal > 0 && (
-                    <span style={{ fontWeight: 400, color: "#9ca3af", marginLeft: "8px", fontSize: "13px" }}>
+                    <span style={{ fontWeight: 400, color: "#6b7280", marginLeft: "8px", fontSize: "13px" }}>
                       ~{Math.round(plan.weeklyAvgKcal)} kcal/giorno
                     </span>
                   )}
@@ -800,6 +800,25 @@ function CheckinTab({ clientId }: { clientId: string }) {
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: getQueryKey(trpc.checkin.list) }),
   });
 
+  // Bulk mark-reviewed for the visible completed (unreviewed) check-ins — a batch
+  // action on the existing surface (a dedicated batchReview queue would be a new
+  // surface, out of scope here).
+  const [bulkReviewing, setBulkReviewing] = useState(false);
+  const pendingCount = checkins.filter((c) => (c as Record<string, unknown>).status === "completed").length;
+  const bulkMarkReviewed = async () => {
+    const pending = checkins.filter((c) => (c as Record<string, unknown>).status === "completed");
+    if (pending.length === 0 || bulkReviewing) return;
+    setBulkReviewing(true);
+    try {
+      await Promise.all(pending.map((c) => markReviewedMutation.mutateAsync({ id: String((c as Record<string, unknown>).id) })));
+    } catch {
+      /* per-item failures surface on refetch; the batch is best-effort */
+    } finally {
+      setBulkReviewing(false);
+      void queryClient.invalidateQueries({ queryKey: getQueryKey(trpc.checkin.list) });
+    }
+  };
+
   // Clipboard write can reject (insecure context, denied permission, unfocused
   // tab). Guard it and fall back to selecting the URL so it never leaks an
   // uncaught rejection and the coach can always copy manually.
@@ -826,7 +845,7 @@ function CheckinTab({ clientId }: { clientId: string }) {
   };
 
   if (isLoading)
-    return <div style={{ padding: "24px", color: "#9ca3af", fontSize: "14px" }}>Caricamento check-in...</div>;
+    return <div style={{ padding: "24px", color: "#6b7280", fontSize: "14px" }}>Caricamento check-in...</div>;
 
   if (isError)
     return (
@@ -932,7 +951,7 @@ function CheckinTab({ clientId }: { clientId: string }) {
           style={{
             textAlign: "center",
             padding: "48px 24px",
-            color: "#9ca3af",
+            color: "#6b7280",
             background: "#f8fafc",
             borderRadius: "12px",
             border: "1px dashed #e2e8f0",
@@ -948,6 +967,30 @@ function CheckinTab({ clientId }: { clientId: string }) {
   return (
     <div>
       {SendCheckinPanel}
+      {pendingCount > 0 && (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "10px", marginBottom: "12px" }}>
+          <span style={{ fontSize: "13px", color: "#6b7280" }}>
+            {pendingCount} check-in da rivedere
+          </span>
+          <button
+            onClick={bulkMarkReviewed}
+            disabled={bulkReviewing}
+            style={{
+              padding: "7px 14px",
+              backgroundColor: "#ffffff",
+              color: "#0f6e56",
+              border: "1px solid #9fe1cb",
+              borderRadius: "8px",
+              fontSize: "13px",
+              fontWeight: 600,
+              cursor: bulkReviewing ? "not-allowed" : "pointer",
+              opacity: bulkReviewing ? 0.6 : 1,
+            }}
+          >
+            {bulkReviewing ? "Aggiornamento…" : "Segna tutti come rivisti"}
+          </button>
+        </div>
+      )}
       <div
         style={{
           background: "#ffffff",
@@ -1117,7 +1160,7 @@ export default function ClientDetailPage() {
       <div
         className="coach-container"
         style={{
-          color: "#9ca3af",
+          color: "#6b7280",
           textAlign: "center",
           paddingTop: "80px",
         }}
@@ -1282,7 +1325,7 @@ export default function ClientDetailPage() {
               style={{
                 padding: "9px 18px",
                 backgroundColor: "#ffffff",
-                color: client.email ? "#1a1a2e" : "#9ca3af",
+                color: client.email ? "#1a1a2e" : "#6b7280",
                 border: "1px solid #e2e8f0",
                 borderRadius: "8px",
                 fontSize: "14px",
@@ -1432,7 +1475,7 @@ function SnapshotHistoryTab({ clientId }: { clientId: string }) {
 
   if (isLoading)
     return (
-      <div style={{ padding: "24px", color: "#9ca3af", fontSize: "14px" }}>
+      <div style={{ padding: "24px", color: "#6b7280", fontSize: "14px" }}>
         Caricamento cronologia...
       </div>
     );
@@ -1458,7 +1501,7 @@ function SnapshotHistoryTab({ clientId }: { clientId: string }) {
         style={{
           textAlign: "center",
           padding: "48px 24px",
-          color: "#9ca3af",
+          color: "#6b7280",
           background: "#f8fafc",
           borderRadius: "12px",
           border: "1px dashed #e2e8f0",
@@ -1624,7 +1667,7 @@ function SnapshotHistoryTab({ clientId }: { clientId: string }) {
                               ? "#16a34a"
                               : delta > 0
                               ? "#dc2626"
-                              : "#9ca3af",
+                              : "#6b7280",
                         }}
                       >
                         {delta > 0 ? "+" : ""}
@@ -1771,7 +1814,7 @@ function BodyCompositionPanel({
           Composizione corporea
         </h3>
         {!anyData && (
-          <span style={{ fontSize: "12px", color: "#9ca3af" }}>
+          <span style={{ fontSize: "12px", color: "#6b7280" }}>
             Dati non ancora disponibili
           </span>
         )}
@@ -1792,7 +1835,7 @@ function BodyCompositionPanel({
               borderRight: (i + 1) % 3 !== 0 ? "1px solid #f1f5f9" : "none",
             }}
           >
-            <div style={{ fontSize: "12px", color: "#9ca3af", marginBottom: "4px" }}>
+            <div style={{ fontSize: "12px", color: "#6b7280", marginBottom: "4px" }}>
               {c.label}
             </div>
             <div
@@ -1806,7 +1849,7 @@ function BodyCompositionPanel({
               {c.value ?? "non disponibile"}
             </div>
             {c.sub && (
-              <div style={{ fontSize: "11px", color: "#9ca3af", marginTop: "2px" }}>
+              <div style={{ fontSize: "11px", color: "#6b7280", marginTop: "2px" }}>
                 {c.sub}
               </div>
             )}
@@ -1819,7 +1862,7 @@ function BodyCompositionPanel({
             padding: "12px 24px",
             borderTop: "1px solid #f1f5f9",
             fontSize: "12px",
-            color: "#9ca3af",
+            color: "#6b7280",
             lineHeight: 1.5,
           }}
         >
@@ -1858,7 +1901,7 @@ function MetricTrendRow({
     return (
       <div style={rowStyle}>
         {labelEl}
-        <span style={{ color: "#9ca3af" }}>dati non disponibili</span>
+        <span style={{ color: "#6b7280" }}>dati non disponibili</span>
       </div>
     );
   }
@@ -1870,7 +1913,7 @@ function MetricTrendRow({
           {fmt(points[0]!)}
           {unit}
         </span>
-        <span style={{ color: "#9ca3af", marginLeft: "6px" }}>(prima misurazione)</span>
+        <span style={{ color: "#6b7280", marginLeft: "6px" }}>(prima misurazione)</span>
       </div>
     );
   }
@@ -1892,7 +1935,7 @@ function MetricTrendRow({
         <span key={i}>
           {fmt(p)}
           {i < points.length - 1 && (
-            <span style={{ color: "#9ca3af", margin: "0 4px" }}>→</span>
+            <span style={{ color: "#6b7280", margin: "0 4px" }}>→</span>
           )}
         </span>
       ))}
@@ -2001,7 +2044,7 @@ function BodyCompTab({ clientId }: { clientId: string }) {
 
   if (isLoading)
     return (
-      <div style={{ padding: "24px", color: "#9ca3af", fontSize: "14px" }}>
+      <div style={{ padding: "24px", color: "#6b7280", fontSize: "14px" }}>
         Caricamento composizione corporea...
       </div>
     );
@@ -2029,7 +2072,7 @@ function BodyCompTab({ clientId }: { clientId: string }) {
         style={{
           textAlign: "center",
           padding: "48px 24px",
-          color: "#9ca3af",
+          color: "#6b7280",
           background: "#f8fafc",
           borderRadius: "12px",
           border: "1px dashed #e2e8f0",

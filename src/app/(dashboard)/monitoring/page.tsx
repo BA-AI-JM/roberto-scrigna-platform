@@ -74,7 +74,7 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 function DeviationBadge({ kg, flagged }: { kg: number | null; flagged: boolean }) {
-  if (kg === null) return <span style={{ color: "#9ca3af" }}>—</span>;
+  if (kg === null) return <span style={{ color: "#6b7280" }}>—</span>;
   const dir = kg > 0 ? "+" : "";
   return (
     <span
@@ -285,7 +285,7 @@ export default function MonitoringPage() {
 
       {/* Check-in Table */}
       {isLoading ? (
-        <div style={{ textAlign: "center", padding: "80px 24px", color: "#9ca3af" }}>
+        <div style={{ textAlign: "center", padding: "80px 24px", color: "#6b7280" }}>
           <div style={{ fontSize: "16px" }}>Caricamento check-in...</div>
         </div>
       ) : isError ? (
@@ -296,7 +296,7 @@ export default function MonitoringPage() {
           </p>
         </div>
       ) : filteredCheckins.length === 0 ? (
-        <div style={{ textAlign: "center", padding: "80px 24px", color: "#9ca3af" }}>
+        <div style={{ textAlign: "center", padding: "80px 24px", color: "#6b7280" }}>
           <div style={{ fontSize: "48px", marginBottom: "16px" }}>📋</div>
           <h3 style={{ fontSize: "16px", fontWeight: 600, color: "#374151" }}>
             Nessun check-in in attesa

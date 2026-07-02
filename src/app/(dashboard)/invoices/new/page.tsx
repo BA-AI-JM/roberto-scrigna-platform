@@ -95,7 +95,7 @@ function Field({
       </label>
       {children}
       {hint && (
-        <p style={{ fontSize: "12px", color: "#9ca3af", marginTop: "4px" }}>
+        <p style={{ fontSize: "12px", color: "#6b7280", marginTop: "4px" }}>
           {hint}
         </p>
       )}
@@ -304,7 +304,7 @@ export default function NewInvoicePage() {
               </select>
             )}
             {clients.length === 0 && !clientsLoading && (
-              <p style={{ fontSize: "12px", color: "#9ca3af", marginTop: "4px" }}>
+              <p style={{ fontSize: "12px", color: "#6b7280", marginTop: "4px" }}>
                 Nessun cliente attivo trovato.{" "}
                 <Link
                   href="/plans/new"
@@ -366,7 +366,7 @@ export default function NewInvoicePage() {
                 style={{
                   fontSize: "11px",
                   fontWeight: 600,
-                  color: "#9ca3af",
+                  color: "#6b7280",
                   textTransform: "uppercase",
                   letterSpacing: "0.05em",
                 }}
@@ -418,7 +418,7 @@ export default function NewInvoicePage() {
                     left: "12px",
                     top: "50%",
                     transform: "translateY(-50%)",
-                    color: "#9ca3af",
+                    color: "#6b7280",
                     fontSize: "14px",
                     pointerEvents: "none",
                   }}
@@ -442,6 +442,7 @@ export default function NewInvoicePage() {
               </div>
               <button
                 type="button"
+                aria-label="Rimuovi riga"
                 onClick={() => removeLineItem(li.id)}
                 disabled={form.lineItems.length === 1}
                 style={{
@@ -455,7 +456,7 @@ export default function NewInvoicePage() {
                   background: "transparent",
                   cursor:
                     form.lineItems.length === 1 ? "not-allowed" : "pointer",
-                  color: "#9ca3af",
+                  color: "#6b7280",
                   fontSize: "18px",
                   lineHeight: 1,
                   opacity: form.lineItems.length === 1 ? 0.4 : 1,

@@ -102,7 +102,7 @@ function emailWrapper(title: string, body: string): string {
           <!-- Header -->
           <tr>
             <td style="background:#1a1a2e;padding:24px 32px;">
-              <p style="margin:0;font-size:13px;color:#9ca3af;">Roberto Scrigna — Nutrizione Sportiva</p>
+              <p style="margin:0;font-size:13px;color:#6b7280;">Roberto Scrigna — Nutrizione Sportiva</p>
             </td>
           </tr>
           <!-- Body -->

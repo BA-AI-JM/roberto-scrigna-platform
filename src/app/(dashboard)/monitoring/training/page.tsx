@@ -113,7 +113,7 @@ function SessionTypeBadge({ type }: { type: string }) {
 }
 
 function EffortDots({ effort }: { effort: number | null }) {
-  if (effort === null) return <span style={{ color: "#9ca3af" }}>—</span>;
+  if (effort === null) return <span style={{ color: "#6b7280" }}>—</span>;
   return (
     <div style={{ display: "flex", gap: "2px" }}>
       {Array.from({ length: 10 }, (_, i) => (
@@ -166,6 +166,16 @@ export default function TrainingLogPage() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["trainingLog.list"] });
       setConfirmDeleteId(null);
+    },
+  });
+  // trainingLog.update — edit a logged session. Reuses the create form in edit mode.
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const updateMutation = trpc.trainingLog.update.useMutation({
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["trainingLog.list"] });
+      setEditingId(null);
+      setShowForm(false);
+      setSubmitError(null);
     },
   });
   const [activeType, setActiveType] = useState<SessionTypeFilter>("all");
@@ -247,9 +257,38 @@ export default function TrainingLogPage() {
     },
   });
 
+  // Open the form pre-filled to EDIT an existing session (core fields).
+  const startEdit = (log: TrainingLogItem) => {
+    setEditingId(log.id);
+    setForm({
+      clientId: log.clientId,
+      sessionDate: log.sessionDate.slice(0, 10),
+      sessionType: log.sessionType,
+      durationMinutes: log.durationMinutes != null ? String(log.durationMinutes) : "",
+      perceivedEffort: log.perceivedEffort ?? 7,
+      notes: log.notes ?? "",
+    });
+    setScreenshots([]);
+    setSubmitError(null);
+    setShowForm(true);
+    setConfirmDeleteId(null);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitError(null);
+    // Edit mode → update the existing session (core fields; screenshots unchanged).
+    if (editingId) {
+      updateMutation.mutate({
+        id: editingId,
+        sessionDate: form.sessionDate,
+        sessionType: form.sessionType,
+        durationMinutes: form.durationMinutes ? parseInt(form.durationMinutes, 10) : undefined,
+        perceivedEffort: form.perceivedEffort,
+        notes: form.notes || undefined,
+      });
+      return;
+    }
     const effectiveClientId = form.clientId || selectedClientId;
     if (!effectiveClientId) {
       setSubmitError("Seleziona un cliente prima di salvare.");
@@ -285,7 +324,21 @@ export default function TrainingLogPage() {
           </p>
         </div>
         <button
-          onClick={() => setShowForm(!showForm)}
+          onClick={() => {
+            if (showForm && !editingId) { setShowForm(false); return; }
+            setEditingId(null);
+            setForm({
+              clientId: "",
+              sessionDate: new Date().toISOString().split("T")[0]!,
+              sessionType: DEFAULT_MODALITY,
+              durationMinutes: "",
+              perceivedEffort: 7,
+              notes: "",
+            });
+            setScreenshots([]);
+            setSubmitError(null);
+            setShowForm(true);
+          }}
           style={{
             padding: "10px 20px",
             backgroundColor: "#1a1a2e",
@@ -351,7 +404,7 @@ export default function TrainingLogPage() {
           }}
         >
           <h2 style={{ fontSize: "16px", fontWeight: 500, color: "#1a1a2e", marginBottom: "20px" }}>
-            Registra sessione
+            {editingId ? "Modifica sessione" : "Registra sessione"}
           </h2>
           <form onSubmit={handleSubmit}>
             {/* Client selector in form */}
@@ -499,7 +552,7 @@ export default function TrainingLogPage() {
             <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end" }}>
               <button
                 type="button"
-                onClick={() => { setShowForm(false); setSubmitError(null); }}
+                onClick={() => { setShowForm(false); setSubmitError(null); setEditingId(null); }}
                 style={{
                   padding: "10px 20px",
                   backgroundColor: "#ffffff",
@@ -515,19 +568,21 @@ export default function TrainingLogPage() {
               </button>
               <button
                 type="submit"
-                disabled={createMutation.isPending}
+                disabled={createMutation.isPending || updateMutation.isPending}
                 style={{
                   padding: "10px 20px",
-                  backgroundColor: createMutation.isPending ? "#6b7280" : "#1a1a2e",
+                  backgroundColor: createMutation.isPending || updateMutation.isPending ? "#6b7280" : "#1a1a2e",
                   color: "#ffffff",
                   border: "none",
                   borderRadius: "8px",
                   fontSize: "14px",
                   fontWeight: 600,
-                  cursor: createMutation.isPending ? "not-allowed" : "pointer",
+                  cursor: createMutation.isPending || updateMutation.isPending ? "not-allowed" : "pointer",
                 }}
               >
-                {createMutation.isPending ? "Salvataggio..." : "Salva sessione"}
+                {editingId
+                  ? (updateMutation.isPending ? "Salvataggio..." : "Salva modifiche")
+                  : (createMutation.isPending ? "Salvataggio..." : "Salva sessione")}
               </button>
             </div>
           </form>
@@ -568,7 +623,7 @@ export default function TrainingLogPage() {
 
       {/* Training log table */}
       {displayedLogs.length === 0 ? (
-        <div style={{ textAlign: "center", padding: "80px 24px", color: "#9ca3af" }}>
+        <div style={{ textAlign: "center", padding: "80px 24px", color: "#6b7280" }}>
           <div style={{ fontSize: "48px", marginBottom: "16px" }}>🏋️</div>
           <h3 style={{ fontSize: "16px", fontWeight: 500, color: "#374151" }}>
             {!activeClientId ? "Seleziona un cliente per vedere le sessioni" : "Nessuna sessione di allenamento registrata"}
@@ -641,7 +696,7 @@ export default function TrainingLogPage() {
                         ✓ OCR
                       </span>
                     ) : (
-                      <span style={{ color: "#9ca3af" }}>—</span>
+                      <span style={{ color: "#6b7280" }}>—</span>
                     )}
                   </td>
                   <td
@@ -695,12 +750,20 @@ export default function TrainingLogPage() {
                         </button>
                       </span>
                     ) : (
-                      <button
-                        onClick={() => setConfirmDeleteId(log.id)}
-                        style={{ fontSize: "13px", color: "#9f3a2f", fontWeight: 500, padding: "6px 12px", background: "#ffffff", border: "1px solid #f0c9c1", borderRadius: "6px", cursor: "pointer" }}
-                      >
-                        Elimina
-                      </button>
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                        <button
+                          onClick={() => startEdit(log)}
+                          style={{ fontSize: "13px", color: "#0f6e56", fontWeight: 500, padding: "6px 12px", background: "#ffffff", border: "1px solid #9fe1cb", borderRadius: "6px", cursor: "pointer" }}
+                        >
+                          Modifica
+                        </button>
+                        <button
+                          onClick={() => setConfirmDeleteId(log.id)}
+                          style={{ fontSize: "13px", color: "#9f3a2f", fontWeight: 500, padding: "6px 12px", background: "#ffffff", border: "1px solid #f0c9c1", borderRadius: "6px", cursor: "pointer" }}
+                        >
+                          Elimina
+                        </button>
+                      </span>
                     )}
                   </td>
                 </tr>

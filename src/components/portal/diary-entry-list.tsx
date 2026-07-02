@@ -18,7 +18,7 @@ const cardStyle: React.CSSProperties = {
 export function DiaryEntryList({ entries, loading }: { entries: DiaryEntry[] | undefined; loading: boolean }) {
   if (loading) {
     return (
-      <div style={{ ...cardStyle, color: "#9ca3af", fontSize: "14px" }}>Caricamento diario…</div>
+      <div style={{ ...cardStyle, color: "#6b7280", fontSize: "14px" }}>Caricamento diario…</div>
     );
   }
 
@@ -29,7 +29,7 @@ export function DiaryEntryList({ entries, loading }: { entries: DiaryEntry[] | u
       <div style={{ ...cardStyle, textAlign: "center", padding: "32px 20px" }}>
         <div style={{ fontSize: "32px", marginBottom: "8px" }} aria-hidden>📓</div>
         <p style={{ fontSize: "14px", fontWeight: 600, color: "#374151", margin: "0 0 4px" }}>Nessun pasto registrato</p>
-        <p style={{ fontSize: "13px", color: "#9ca3af", margin: 0 }}>Aggiungi il tuo primo pasto qui sotto.</p>
+        <p style={{ fontSize: "13px", color: "#6b7280", margin: 0 }}>Aggiungi il tuo primo pasto qui sotto.</p>
       </div>
     );
   }
@@ -64,7 +64,7 @@ export function DiaryEntryList({ entries, loading }: { entries: DiaryEntry[] | u
               <span style={{ fontSize: "13px", color: "#1a1a2e", fontWeight: 600, whiteSpace: "nowrap" }}>{f.grams} g · {Math.round(f.kcal)} kcal</span>
             </div>
           ))}
-          {e.notes && <div style={{ fontSize: "12px", color: "#9ca3af", marginTop: "6px" }}>{e.notes}</div>}
+          {e.notes && <div style={{ fontSize: "12px", color: "#6b7280", marginTop: "6px" }}>{e.notes}</div>}
         </div>
       ))}
     </div>

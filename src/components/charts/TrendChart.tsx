@@ -152,7 +152,7 @@ export function TrendChart({ series, height = 220 }: TrendChartProps) {
   // ── 0 points ──
   if (dates.length === 0) {
     return (
-      <div style={{ ...cardStyle, fontSize: "13px", color: "#9ca3af" }}>
+      <div style={{ ...cardStyle, fontSize: "13px", color: "#6b7280" }}>
         Nessun dato disponibile per il grafico.
       </div>
     );
@@ -174,7 +174,7 @@ export function TrendChart({ series, height = 220 }: TrendChartProps) {
             )
           )}
         </div>
-        <span style={{ color: "#9ca3af" }}>
+        <span style={{ color: "#6b7280" }}>
           Prima misurazione — andamento disponibile dal prossimo dato.
         </span>
       </div>
@@ -299,7 +299,7 @@ export function TrendChart({ series, height = 220 }: TrendChartProps) {
 
           {/* x-axis date labels */}
           {labelIdx.map((i) => (
-            <text key={i} x={Math.min(width - 2, Math.max(2, xOf(times[i]!)))} y={height - 8} textAnchor={i === 0 ? "start" : i === dates.length - 1 ? "end" : "middle"} fontSize={10} fill="#9ca3af">
+            <text key={i} x={Math.min(width - 2, Math.max(2, xOf(times[i]!)))} y={height - 8} textAnchor={i === 0 ? "start" : i === dates.length - 1 ? "end" : "middle"} fontSize={10} fill="#6b7280">
               {formatShortDate(dates[i]!)}
             </text>
           ))}

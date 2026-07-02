@@ -240,7 +240,7 @@ export function renderEngagementLetterHtml(data: EngagementLetterRenderData): st
       border-top: 1px solid #e2e8f0;
       text-align: center;
       font-size: 10.5px;
-      color: #9ca3af;
+      color: #6b7280;
       line-height: 1.7;
     }
     .footer strong { color: #374151; }

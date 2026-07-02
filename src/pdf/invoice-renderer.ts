@@ -240,7 +240,7 @@ export function renderInvoiceHtml(data: InvoiceRenderData): string {
     .party-heading {
       font-size: 10px;
       font-weight: 700;
-      color: #9ca3af;
+      color: #6b7280;
       text-transform: uppercase;
       letter-spacing: 0.08em;
       margin-bottom: 10px;
@@ -275,7 +275,7 @@ export function renderInvoiceHtml(data: InvoiceRenderData): string {
     }
 
     .meta-label {
-      color: #9ca3af;
+      color: #6b7280;
       font-weight: 600;
       width: 160px;
     }
@@ -301,7 +301,7 @@ export function renderInvoiceHtml(data: InvoiceRenderData): string {
     .items-heading {
       font-size: 11px;
       font-weight: 700;
-      color: #9ca3af;
+      color: #6b7280;
       text-transform: uppercase;
       letter-spacing: 0.08em;
       margin-bottom: 10px;
@@ -407,7 +407,7 @@ export function renderInvoiceHtml(data: InvoiceRenderData): string {
       border-top: 1px solid #e2e8f0;
       text-align: center;
       font-size: 11px;
-      color: #9ca3af;
+      color: #6b7280;
       line-height: 1.8;
     }
 
@@ -483,7 +483,7 @@ export function renderInvoiceHtml(data: InvoiceRenderData): string {
       </tr>
     </thead>
     <tbody>
-      ${lineItemRows || `<tr><td colspan="4" style="padding:16px 0; color:#9ca3af; font-size:12px;">Nessuna voce.</td></tr>`}
+      ${lineItemRows || `<tr><td colspan="4" style="padding:16px 0; color:#6b7280; font-size:12px;">Nessuna voce.</td></tr>`}
     </tbody>
   </table>
 

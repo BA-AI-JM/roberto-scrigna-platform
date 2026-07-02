@@ -141,7 +141,7 @@ export default function PortalDiaryPage() {
           style={{
             width: "100%",
             padding: "12px",
-            background: canSubmit ? "#1a1a2e" : "#9ca3af",
+            background: canSubmit ? "#1a1a2e" : "#6b7280",
             color: "#ffffff",
             border: "none",
             borderRadius: "8px",

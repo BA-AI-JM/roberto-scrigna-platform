@@ -1498,7 +1498,7 @@ function MealsTab({
                                       : "#1a1a2e",
                                   color:
                                     swapMutation.isPending && swappingId === sub.template.id
-                                      ? "#9ca3af"
+                                      ? "#6b7280"
                                       : "#ffffff",
                                   border: "none",
                                   fontSize: "11px",

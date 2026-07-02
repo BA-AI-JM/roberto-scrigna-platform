@@ -56,7 +56,7 @@ const cardStyle: React.CSSProperties = {
 
 export function MeasurementsView({ snapshots, loading }: { snapshots: MeasurementSnapshot[] | undefined; loading: boolean }) {
   if (loading) {
-    return <div style={{ ...cardStyle, color: "#9ca3af", fontSize: "14px" }}>Caricamento misurazioni…</div>;
+    return <div style={{ ...cardStyle, color: "#6b7280", fontSize: "14px" }}>Caricamento misurazioni…</div>;
   }
 
   const rows = snapshots ?? [];
@@ -65,7 +65,7 @@ export function MeasurementsView({ snapshots, loading }: { snapshots: Measuremen
       <div style={{ ...cardStyle, textAlign: "center", padding: "32px 20px" }}>
         <div style={{ fontSize: "32px", marginBottom: "8px" }} aria-hidden>⚖️</div>
         <p style={{ fontSize: "14px", fontWeight: 600, color: "#374151", margin: "0 0 4px" }}>Nessuna misurazione</p>
-        <p style={{ fontSize: "13px", color: "#9ca3af", margin: 0 }}>Le tue misurazioni compariranno qui dopo il primo check-in.</p>
+        <p style={{ fontSize: "13px", color: "#6b7280", margin: 0 }}>Le tue misurazioni compariranno qui dopo il primo check-in.</p>
       </div>
     );
   }
@@ -88,7 +88,7 @@ export function MeasurementsView({ snapshots, loading }: { snapshots: Measuremen
           ].map((m) => (
             <div key={m.label} style={{ flex: "1 1 90px", minWidth: "80px", textAlign: "center", padding: "12px 8px", background: "#f8fafc", borderRadius: "10px" }}>
               <div style={{ fontSize: "20px", fontWeight: 700, color: "#1a1a2e" }}>{m.value != null ? `${m.value}${m.unit}` : "—"}</div>
-              <div style={{ fontSize: "11px", color: "#9ca3af", marginTop: "2px" }}>{m.label}</div>
+              <div style={{ fontSize: "11px", color: "#6b7280", marginTop: "2px" }}>{m.label}</div>
             </div>
           ))}
         </div>
