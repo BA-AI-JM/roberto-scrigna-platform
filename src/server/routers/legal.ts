@@ -339,25 +339,47 @@ export const legalRouter = router({
         year: "numeric",
       }).format(new Date());
 
-      const filled = fillEngagementLetter(activeVersion.body_md as string, {
-        client_full_name: client.full_name as string,
-        professional_name: (partner?.full_name as string | undefined) ?? "Roberto Scrigna",
-        generated_date: generatedDate,
-        // codice fiscale + residenza are not held on the client record → left as gaps
-      });
-
       const versionLabel =
         (activeVersion.version_label as string | null) ?? `v${activeVersion.version_number}`;
 
-      const html = renderEngagementLetterHtml({
-        bodyMd: filled.filledMd,
-        documentName: doc.name as string,
-        versionLabel,
-        language: activeVersion.language as string,
-        draft: true,
-      });
+      // Fill → render → PDF. Everything up to here is DB/precondition (handled with
+      // NOT_FOUND / PRECONDITION_FAILED above); anything throwing HERE is the
+      // template fill or the Chromium PDF step (the prod 500 lived here — an
+      // UNHANDLED throw in the serverless PDF render surfaced as a raw HTTP 500).
+      // Surface the REAL error server-side with full fidelity for diagnosis and
+      // return a friendly INTERNAL_SERVER_ERROR instead of a raw 500.
+      let filled: ReturnType<typeof fillEngagementLetter>;
+      let pdf: Uint8Array;
+      try {
+        filled = fillEngagementLetter(activeVersion.body_md as string, {
+          client_full_name: client.full_name as string,
+          professional_name: (partner?.full_name as string | undefined) ?? "Roberto Scrigna",
+          generated_date: generatedDate,
+          // codice fiscale + residenza are not held on the client record → left as gaps
+        });
 
-      const pdf = await generateEngagementLetterPdf(html);
+        const html = renderEngagementLetterHtml({
+          bodyMd: filled.filledMd,
+          documentName: doc.name as string,
+          versionLabel,
+          language: activeVersion.language as string,
+          draft: true,
+        });
+
+        pdf = await generateEngagementLetterPdf(html);
+      } catch (err) {
+        console.error(
+          "[router/legal.generateEngagementLetter] PDF/render failed:",
+          err,
+          err instanceof Error ? err.stack : ""
+        );
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message:
+            "Errore nella generazione del PDF della lettera. Riprova; se il problema persiste, contatta il supporto.",
+        });
+      }
+
       const filename = `incarico-${slugify(client.full_name as string)}-${slugify(versionLabel)}.pdf`;
 
       return {

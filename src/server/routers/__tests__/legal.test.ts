@@ -40,6 +40,7 @@ vi.mock("../../legal-letter-pdf", () => ({
 
 import { legalRouter } from "../legal";
 import { hashDocumentBody } from "../../legal-templates";
+import { generateEngagementLetterPdf } from "../../legal-letter-pdf";
 
 const VER1 = "11111111-1111-4111-8111-111111111111";
 const CID = "22222222-2222-4222-8222-222222222222";
@@ -279,5 +280,19 @@ describe("legal.generateEngagementLetter", () => {
     await expect(
       partnerCaller(db).generateEngagementLetter({ clientId: CID })
     ).rejects.toThrow();
+  });
+
+  test("PDF step failure → friendly INTERNAL_SERVER_ERROR, raw error not leaked (was the prod 500)", async () => {
+    const db = makeDb(genTables()); // template IS active → passes the precondition
+    (generateEngagementLetterPdf as unknown as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+      new Error("Protocol error: Chromium failed to launch on serverless")
+    );
+    await expect(
+      partnerCaller(db).generateEngagementLetter({ clientId: CID })
+    ).rejects.toMatchObject({
+      code: "INTERNAL_SERVER_ERROR",
+      // friendly Italian message — the raw Chromium error is logged, not surfaced
+      message: expect.stringContaining("PDF della lettera"),
+    });
   });
 });
