@@ -222,14 +222,7 @@ export default function NewInvoicePage() {
   }
 
   return (
-    <div
-      style={{
-        padding: "32px",
-        maxWidth: "860px",
-        margin: "0 auto",
-        fontFamily: "system-ui, -apple-system, sans-serif",
-      }}
-    >
+    <div className="coach-container" style={{ maxWidth: "860px" }}>
       {/* Header */}
       <div style={{ marginBottom: "32px" }}>
         <Link
@@ -246,7 +239,10 @@ export default function NewInvoicePage() {
         >
           ← Fatture
         </Link>
-        <h1 style={{ fontSize: "24px", fontWeight: 700, margin: 0 }}>
+        <p className="mb-1 text-xs font-medium uppercase tracking-wide text-brand-deep">
+          Fatture
+        </p>
+        <h1 style={{ fontSize: "24px", fontWeight: 500, letterSpacing: "-0.01em", margin: 0, color: "#0f1729" }}>
           Nuova Fattura
         </h1>
         <p style={{ color: "#6b7280", marginTop: "4px", fontSize: "14px" }}>
@@ -268,7 +264,7 @@ export default function NewInvoicePage() {
           <h2
             style={{
               fontSize: "15px",
-              fontWeight: 700,
+              fontWeight: 500,
               marginTop: 0,
               marginBottom: "20px",
             }}
@@ -345,7 +341,7 @@ export default function NewInvoicePage() {
           <h2
             style={{
               fontSize: "15px",
-              fontWeight: 700,
+              fontWeight: 500,
               marginTop: 0,
               marginBottom: "20px",
             }}
@@ -353,11 +349,13 @@ export default function NewInvoicePage() {
             Voci
           </h2>
 
+          {/* Line-item grid — scrolls horizontally on narrow screens so the
+              1fr/80/140/36 columns keep alignment instead of crushing. */}
+          <div className="overflow-x-auto">
           {/* Column headers */}
           <div
+            className="grid min-w-[460px] grid-cols-[1fr_80px_140px_36px]"
             style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 80px 140px 36px",
               gap: "8px",
               marginBottom: "8px",
             }}
@@ -382,9 +380,8 @@ export default function NewInvoicePage() {
           {form.lineItems.map((li) => (
             <div
               key={li.id}
+              className="grid min-w-[460px] grid-cols-[1fr_80px_140px_36px]"
               style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 80px 140px 36px",
                 gap: "8px",
                 marginBottom: "8px",
                 alignItems: "center",
@@ -468,6 +465,7 @@ export default function NewInvoicePage() {
               </button>
             </div>
           ))}
+          </div>
 
           <button
             type="button"
@@ -516,7 +514,7 @@ export default function NewInvoicePage() {
                 <span style={{ fontSize: "14px", color: "#6b7280" }}>
                   Subtotale
                 </span>
-                <span style={{ fontSize: "14px", fontWeight: 600 }}>
+                <span className="tnum" style={{ fontSize: "14px", fontWeight: 500 }}>
                   {formatCurrency(subtotalCents)}
                 </span>
 
@@ -552,14 +550,14 @@ export default function NewInvoicePage() {
                   />
                   <span style={{ fontSize: "14px", color: "#6b7280" }}>%</span>
                 </div>
-                <span style={{ fontSize: "14px", fontWeight: 600 }}>
+                <span className="tnum" style={{ fontSize: "14px", fontWeight: 500 }}>
                   {formatCurrency(taxCents)}
                 </span>
 
                 <span
                   style={{
                     fontSize: "16px",
-                    fontWeight: 700,
+                    fontWeight: 500,
                     paddingTop: "8px",
                     borderTop: "1px solid #e2e8f0",
                   }}
@@ -567,9 +565,10 @@ export default function NewInvoicePage() {
                   Totale
                 </span>
                 <span
+                  className="tnum"
                   style={{
                     fontSize: "16px",
-                    fontWeight: 700,
+                    fontWeight: 500,
                     color: "#1a1a2e",
                     paddingTop: "8px",
                     borderTop: "1px solid #e2e8f0",
@@ -595,7 +594,7 @@ export default function NewInvoicePage() {
           <h2
             style={{
               fontSize: "15px",
-              fontWeight: 700,
+              fontWeight: 500,
               marginTop: 0,
               marginBottom: "20px",
             }}

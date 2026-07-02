@@ -134,17 +134,11 @@ export default function NotificationsPage() {
   };
 
   return (
-    <div
-      style={{
-        padding: "32px",
-        maxWidth: "1000px",
-        margin: "0 auto",
-        fontFamily: "system-ui, -apple-system, sans-serif",
-      }}
-    >
+    <div className="coach-container">
       {/* Header */}
       <div style={{ marginBottom: "28px" }}>
-        <h1 style={{ fontSize: "26px", fontWeight: 700, margin: 0 }}>Notifiche</h1>
+        <p className="mb-1 text-xs font-medium uppercase tracking-wide text-brand-deep">Roberto Scrigna</p>
+        <h1 className="text-ink" style={{ fontSize: "26px", fontWeight: 500, letterSpacing: "-0.01em", margin: 0 }}>Notifiche</h1>
         <p style={{ color: "#6b7280", marginTop: "4px", fontSize: "14px" }}>
           Centro notifiche e impostazioni avvisi
         </p>
@@ -260,6 +254,7 @@ export default function NotificationsPage() {
                         )}
                       </div>
                       <div
+                        className="tnum"
                         style={{ fontSize: "12px", color: "#9ca3af", whiteSpace: "nowrap", marginLeft: "16px" }}
                       >
                         {formatTimeAgo(n.createdAt)}
@@ -283,6 +278,7 @@ export default function NotificationsPage() {
             overflow: "hidden",
           }}
         >
+          <div className="table-scroll">
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ background: "#f8fafc" }}>
@@ -375,6 +371,7 @@ export default function NotificationsPage() {
               })}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>

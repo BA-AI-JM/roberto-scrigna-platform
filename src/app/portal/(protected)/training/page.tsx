@@ -145,7 +145,7 @@ export default function PortalTrainingLogPage() {
   };
 
   return (
-    <div style={{ padding: "32px 24px", maxWidth: "760px", margin: "0 auto" }}>
+    <div className="portal-container">
       <Link
         href="/portal/dashboard"
         style={{ fontSize: "13px", color: "#6b7280", textDecoration: "none" }}
@@ -153,13 +153,14 @@ export default function PortalTrainingLogPage() {
         ← Torna alla dashboard
       </Link>
 
-      <h1 style={{ fontSize: "24px", fontWeight: 700, color: "#1a1a2e", marginTop: "12px", marginBottom: "20px" }}>
-        I miei allenamenti
-      </h1>
+      <header className="mb-6 mt-3">
+        <p className="mb-1 text-xs font-medium uppercase tracking-wide text-brand-deep">Il tuo percorso</p>
+        <h1 className="text-2xl font-medium tracking-tight text-ink lg:text-3xl">I miei allenamenti</h1>
+      </header>
 
       {/* Entry form */}
       <form onSubmit={handleSubmit} style={cardStyle}>
-        <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#1a1a2e", margin: "0 0 16px" }}>
+        <h2 style={{ fontSize: "16px", fontWeight: 500, color: "#1a1a2e", margin: "0 0 16px" }}>
           Registra un allenamento
         </h2>
 
@@ -320,7 +321,7 @@ export default function PortalTrainingLogPage() {
 
       {/* History */}
       <div style={cardStyle}>
-        <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#1a1a2e", margin: "0 0 12px" }}>
+        <h2 style={{ fontSize: "16px", fontWeight: 500, color: "#1a1a2e", margin: "0 0 12px" }}>
           Storico
         </h2>
 
@@ -361,14 +362,14 @@ export default function PortalTrainingLogPage() {
                       marginBottom: "4px",
                     }}
                   >
-                    <span style={{ fontSize: "13px", fontWeight: 700, color: "#1a1a2e" }}>
+                    <span style={{ fontSize: "13px", fontWeight: 500, color: "#1a1a2e" }}>
                       {DAY_TYPE_LABELS[dt ?? ""] ?? dt ?? "—"}
                     </span>
-                    <span style={{ fontSize: "12px", color: "#6b7280" }}>
+                    <span className="tnum" style={{ fontSize: "12px", color: "#6b7280" }}>
                       {formatDate(log.logged_at as string)}
                     </span>
                   </div>
-                  <div style={{ fontSize: "12px", color: "#374151" }}>
+                  <div className="tnum" style={{ fontSize: "12px", color: "#374151" }}>
                     {dur != null && <span>{dur} min</span>}
                     {hr != null && <span>{dur != null ? " · " : ""}{hr} bpm</span>}
                     {kcal != null && <span>{dur != null || hr != null ? " · " : ""}{kcal} kcal</span>}

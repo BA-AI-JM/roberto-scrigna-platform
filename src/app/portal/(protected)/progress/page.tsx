@@ -37,8 +37,12 @@ export default function PortalProgressPage() {
   };
 
   return (
-    <div className="mx-auto w-full max-w-[640px] px-4 py-6 sm:px-6">
-      <h1 style={{ fontSize: "22px", fontWeight: 700, color: "#1a1a2e", margin: "0 0 16px" }}>Progressi</h1>
+    <div className="portal-container">
+      <header className="mb-6 lg:mb-8">
+        <p className="mb-1 text-xs font-medium uppercase tracking-wide text-brand-deep">I tuoi risultati</p>
+        <h1 className="text-2xl font-medium tracking-tight text-ink lg:text-3xl">Progressi</h1>
+        <p className="mt-1 text-sm text-muted-foreground">Composizione corporea, foto e documenti nel tempo.</p>
+      </header>
 
       <MeasurementsView
         snapshots={snapshotsQuery.data as MeasurementSnapshot[] | undefined}

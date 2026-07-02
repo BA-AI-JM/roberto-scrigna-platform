@@ -7,7 +7,8 @@
  * inline-styled surfaces). The .dark block is kept inert for future use.
  */
 :root {
-  --radius: 0.625rem;
+  /* Shape scale: cards rounded-xl = 16px, controls 10px, items 8px, pills 999px. */
+  --radius: 0.75rem;
 
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
@@ -27,7 +28,23 @@
   --destructive-foreground: oklch(0.985 0 0);
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  /* Branded focus ring — teal at ring-2 + ring-offset-2 (3.4:1 vs white). */
+  --ring: #1d9e75;
+
+  /* ── Brand palette — ONE identity, two expressions ────────────────────────
+     Patient surfaces lean into the warm teal washes; the coach surface stays
+     neutral/serious and uses teal only as an accent. Consolidates the teal that
+     previously lived only inline in the signing screen + the portal navy/green.
+     Text on a coloured fill uses the DARK shade of the same ramp (AA-verified). */
+  --brand: #1d9e75;        /* teal core — accent, active states, patient warmth */
+  --brand-deep: #0f6e56;   /* deep teal — text on teal tint (5.5:1 on wash) */
+  --brand-ink: #0f3d30;    /* strongest teal-ink — hero headlines */
+  --brand-wash: #e1f5ee;   /* soft teal surface (patient) */
+  --brand-soft: #9fe1cb;   /* teal border / track */
+  --accent-blue: #185fa5;  /* secondary accent — links / info (6.5:1 on white) */
+  --amber: #8a560f;        /* warm accent / kcal — deep for AA on white + wash */
+  --amber-wash: #fbf1e3;
+  --ink: #0f1729;          /* serious near-black ink for coach text */
 }
 
 .dark {
@@ -73,6 +90,18 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
 
+  /* Brand utilities: bg-brand, text-brand-deep, bg-brand-wash, border-brand-soft,
+     text-accent-blue, text-amber, bg-amber-wash, text-ink … app-wide. */
+  --color-brand: var(--brand);
+  --color-brand-deep: var(--brand-deep);
+  --color-brand-ink: var(--brand-ink);
+  --color-brand-wash: var(--brand-wash);
+  --color-brand-soft: var(--brand-soft);
+  --color-accent-blue: var(--accent-blue);
+  --color-amber: var(--amber);
+  --color-amber-wash: var(--amber-wash);
+  --color-ink: var(--ink);
+
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -86,5 +115,52 @@
   body {
     @apply bg-background text-foreground;
     font-family: system-ui, -apple-system, sans-serif;
+    /* Body reading rhythm + crisp smoothing. */
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+  /* Figures read "engineered": data entry uses tabular + lining numerals so
+     weights / macros / energy align. Prose stays proportional. */
+  input,
+  select,
+  textarea {
+    font-variant-numeric: tabular-nums lining-nums;
+  }
+  /* Respect reduced-motion app-wide — refinement, not decoration. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    ::before,
+    ::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  /* Patient reading surface — a comfortable column on mobile that widens
+     gracefully on desktop (no lonely 640px column, no over-stretch). */
+  .portal-container {
+    @apply mx-auto w-full max-w-[640px] px-4 py-6 sm:px-6 lg:max-w-3xl lg:py-10;
+  }
+  /* Coach dense surface — fluid, breathes on large screens, tightens on small. */
+  .coach-container {
+    @apply mx-auto w-full max-w-[1280px] px-4 py-6 lg:px-8;
+  }
+  /* Data tables must scroll on narrow screens, never crush (fixes the
+     overflow:hidden tables). Wrap a table in <div class="table-scroll">. */
+  .table-scroll {
+    @apply w-full overflow-x-auto;
+  }
+}
+
+@layer utilities {
+  /* Opt-in tabular + lining numerals for any figure rendered via shared markup. */
+  .tnum {
+    font-variant-numeric: tabular-nums lining-nums;
   }
 }

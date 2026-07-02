@@ -38,7 +38,7 @@ export default function PlansPage() {
   const plans = data?.plans ?? [];
 
   return (
-    <div style={{ padding: "32px", maxWidth: "1200px", margin: "0 auto" }}>
+    <div className="coach-container">
       {/* Header */}
       <div
         style={{
@@ -49,7 +49,8 @@ export default function PlansPage() {
         }}
       >
         <div>
-          <h1 style={{ fontSize: "24px", fontWeight: 700, margin: 0 }}>
+          <p className="mb-1 text-xs font-medium uppercase tracking-wide text-brand-deep">Roberto Scrigna</p>
+          <h1 style={{ fontSize: "24px", fontWeight: 500, letterSpacing: "-0.01em", margin: 0, color: "#0f1729" }}>
             Piani Nutrizionali
           </h1>
           {data?.total !== undefined && (
@@ -180,7 +181,8 @@ export default function PlansPage() {
             overflow: "hidden",
           }}
         >
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <div className="table-scroll">
+          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: "720px" }}>
             <thead>
               <tr style={{ backgroundColor: "#fafafa" }}>
                 <th
@@ -312,6 +314,7 @@ export default function PlansPage() {
                     <PlanStatusBadge status={plan.status} />
                   </td>
                   <td
+                    className="tnum"
                     style={{
                       padding: "14px 16px",
                       fontSize: "14px",
@@ -328,6 +331,7 @@ export default function PlansPage() {
                     <EnergyBadge balance={plan.energyBalance} />
                   </td>
                   <td
+                    className="tnum"
                     style={{
                       padding: "14px 16px",
                       fontSize: "13px",
@@ -362,6 +366,7 @@ export default function PlansPage() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>

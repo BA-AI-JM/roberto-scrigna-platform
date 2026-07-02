@@ -78,6 +78,7 @@ function DeviationBadge({ kg, flagged }: { kg: number | null; flagged: boolean }
   const dir = kg > 0 ? "+" : "";
   return (
     <span
+      className="tnum"
       style={{
         display: "inline-block",
         padding: "3px 10px",
@@ -125,7 +126,7 @@ function SummaryCard({
       }}
     >
       <div style={{ fontSize: "13px", opacity: 0.7, marginBottom: "8px" }}>{label}</div>
-      <div style={{ fontSize: "24px", fontWeight: 700 }}>{value}</div>
+      <div className="tnum" style={{ fontSize: "24px", fontWeight: 500 }}>{value}</div>
     </div>
   );
 }
@@ -189,14 +190,7 @@ export default function MonitoringPage() {
   const filteredCheckins = checkins;
 
   return (
-    <div
-      style={{
-        padding: "32px",
-        maxWidth: "1400px",
-        margin: "0 auto",
-        fontFamily: "system-ui, -apple-system, sans-serif",
-      }}
-    >
+    <div className="coach-container">
       {/* Header */}
       <div
         style={{
@@ -207,7 +201,8 @@ export default function MonitoringPage() {
         }}
       >
         <div>
-          <h1 style={{ fontSize: "26px", fontWeight: 700, margin: 0 }}>Monitoraggio</h1>
+          <p className="mb-1 text-xs font-medium uppercase tracking-wide text-brand-deep">Roberto Scrigna</p>
+          <h1 style={{ fontSize: "26px", fontWeight: 500, letterSpacing: "-0.01em", margin: 0, color: "#0f1729" }}>Monitoraggio</h1>
           <p style={{ color: "#6b7280", marginTop: "4px", fontSize: "14px" }}>
             Check-in clienti, log allenamento, notifiche
           </p>
@@ -319,6 +314,7 @@ export default function MonitoringPage() {
             overflow: "hidden",
           }}
         >
+          <div className="table-scroll">
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ background: "#f8fafc" }}>
@@ -361,13 +357,13 @@ export default function MonitoringPage() {
                   <td style={{ padding: "14px 16px" }}>
                     <StatusBadge status={ci.status} />
                   </td>
-                  <td style={{ padding: "14px 16px", fontSize: "14px", color: "#374151" }}>
+                  <td className="tnum" style={{ padding: "14px 16px", fontSize: "14px", color: "#374151" }}>
                     {ci.weightKg ? `${ci.weightKg} kg` : "—"}
                   </td>
                   <td style={{ padding: "14px 16px" }}>
                     <DeviationBadge kg={ci.weightDeviationKg} flagged={ci.weightFlagged} />
                   </td>
-                  <td style={{ padding: "14px 16px", fontSize: "14px", color: "#374151" }}>
+                  <td className="tnum" style={{ padding: "14px 16px", fontSize: "14px", color: "#374151" }}>
                     {ci.adherencePct !== null ? `${ci.adherencePct}%` : "—"}
                   </td>
                   <td
@@ -405,6 +401,7 @@ export default function MonitoringPage() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>

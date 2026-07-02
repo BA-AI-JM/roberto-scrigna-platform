@@ -10,66 +10,6 @@
 import { useState } from "react";
 import { createSupabaseBrowser } from "@/lib/supabase/client";
 
-// ── Styles ────────────────────────────────────────────────────────────────────
-
-const pageStyle = {
-  minHeight: "100vh",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  backgroundColor: "#f8fafc",
-  padding: "24px",
-} as const;
-
-const cardStyle = {
-  background: "#ffffff",
-  border: "1px solid #e2e8f0",
-  borderRadius: "16px",
-  padding: "48px 40px",
-  width: "100%",
-  maxWidth: "420px",
-  boxShadow: "0 4px 24px rgba(0,0,0,0.06)",
-} as const;
-
-const labelStyle = {
-  display: "block",
-  fontSize: "14px",
-  fontWeight: 600,
-  color: "#374151",
-  marginBottom: "8px",
-} as const;
-
-const inputStyle = {
-  width: "100%",
-  padding: "12px 16px",
-  fontSize: "15px",
-  border: "1px solid #d1d5db",
-  borderRadius: "8px",
-  outline: "none",
-  boxSizing: "border-box" as const,
-  color: "#111827",
-  backgroundColor: "#ffffff",
-} as const;
-
-const buttonStyle = {
-  width: "100%",
-  padding: "13px 20px",
-  fontSize: "15px",
-  fontWeight: 600,
-  backgroundColor: "#1a1a2e",
-  color: "#ffffff",
-  border: "none",
-  borderRadius: "8px",
-  cursor: "pointer",
-  marginTop: "24px",
-} as const;
-
-const disabledButtonStyle = {
-  ...buttonStyle,
-  backgroundColor: "#9ca3af",
-  cursor: "not-allowed",
-} as const;
-
 // ── Component ─────────────────────────────────────────────────────────────────
 
 /** Magic link login form for client portal. */
@@ -114,59 +54,37 @@ export default function PortalLoginPage() {
     }
   }
 
+  const isBusy = status === "loading" || !email.trim();
+
   return (
-    <div style={pageStyle}>
-      <div style={cardStyle}>
+    <div className="flex min-h-screen items-center justify-center bg-brand-wash p-6">
+      <div className="w-full max-w-[420px] rounded-xl border-[0.5px] border-brand-soft bg-white p-10 shadow-sm sm:p-12">
         {/* Header */}
-        <div style={{ textAlign: "center", marginBottom: "36px" }}>
-          <div
-            style={{
-              width: "56px",
-              height: "56px",
-              backgroundColor: "#1a1a2e",
-              borderRadius: "14px",
-              margin: "0 auto 20px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: "24px",
-            }}
-          >
+        <div className="mb-9 text-center">
+          <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-xl bg-brand text-2xl">
             🥗
           </div>
-          <h1 style={{ fontSize: "22px", fontWeight: 700, color: "#1a1a2e", margin: "0 0 8px" }}>
-            Area Cliente
-          </h1>
-          <p style={{ fontSize: "14px", color: "#6b7280", margin: 0 }}>
+          <p className="mb-1 text-xs font-medium uppercase tracking-wide text-brand-deep">
             Roberto Scrigna — Nutrizione Sportiva
           </p>
+          <h1 className="m-0 text-xl font-medium text-ink">Area Cliente</h1>
         </div>
 
         {/* Sent state */}
         {status === "sent" ? (
-          <div
-            style={{
-              background: "#f0fdf4",
-              border: "1px solid #86efac",
-              borderRadius: "12px",
-              padding: "24px",
-              textAlign: "center",
-            }}
-          >
-            <div style={{ fontSize: "32px", marginBottom: "12px" }}>📧</div>
-            <h2 style={{ fontSize: "17px", fontWeight: 700, color: "#15803d", margin: "0 0 8px" }}>
-              Link inviato!
-            </h2>
-            <p style={{ fontSize: "14px", color: "#166534", margin: 0 }}>
-              Controlla la tua email <strong>{email}</strong> e clicca sul link per accedere. Il
-              link scade in 1 ora.
+          <div className="rounded-xl border-[0.5px] border-brand-soft bg-brand-wash p-6 text-center">
+            <div className="mb-3 text-3xl">📧</div>
+            <h2 className="mb-2 mt-0 text-base font-medium text-brand-deep">Link inviato!</h2>
+            <p className="m-0 text-sm text-brand-deep">
+              Controlla la tua email <strong className="font-medium">{email}</strong> e clicca sul
+              link per accedere. Il link scade in 1 ora.
             </p>
           </div>
         ) : (
           /* Login form */
           <form onSubmit={handleSubmit}>
-            <div style={{ marginBottom: "20px" }}>
-              <label htmlFor="email" style={labelStyle}>
+            <div className="mb-5">
+              <label htmlFor="email" className="mb-2 block text-sm font-medium text-ink">
                 Email
               </label>
               <input
@@ -177,45 +95,27 @@ export default function PortalLoginPage() {
                 placeholder="la-tua@email.com"
                 required
                 disabled={status === "loading"}
-                style={inputStyle}
+                className="w-full rounded-md border border-input bg-white px-4 py-3 text-[15px] text-foreground outline-none focus-visible:border-brand focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:opacity-60"
                 autoComplete="email"
                 autoFocus
               />
             </div>
 
             {status === "error" && errorMsg && (
-              <div
-                style={{
-                  padding: "12px 16px",
-                  background: "#fef2f2",
-                  border: "1px solid #fca5a5",
-                  borderRadius: "8px",
-                  fontSize: "13px",
-                  color: "#dc2626",
-                  marginBottom: "16px",
-                }}
-              >
+              <div className="mb-4 rounded-md border-[0.5px] border-red-300 bg-red-50 px-4 py-3 text-[13px] text-red-700">
                 {errorMsg}
               </div>
             )}
 
             <button
               type="submit"
-              disabled={status === "loading" || !email.trim()}
-              style={status === "loading" || !email.trim() ? disabledButtonStyle : buttonStyle}
+              disabled={isBusy}
+              className="mt-6 w-full rounded-md bg-brand px-5 py-3 text-[15px] font-medium text-white transition-colors hover:bg-brand-deep disabled:cursor-not-allowed disabled:bg-brand-soft"
             >
               {status === "loading" ? "Invio in corso…" : "Invia link di accesso"}
             </button>
 
-            <p
-              style={{
-                fontSize: "12px",
-                color: "#9ca3af",
-                textAlign: "center",
-                marginTop: "20px",
-                lineHeight: "1.5",
-              }}
-            >
+            <p className="mt-5 text-center text-xs leading-relaxed text-muted-foreground">
               Riceverai un link via email per accedere senza password.
               <br />
               Non hai un account? Contatta il tuo coach.

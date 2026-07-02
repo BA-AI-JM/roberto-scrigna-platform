@@ -78,8 +78,11 @@ export default function PortalDiaryPage() {
   };
 
   return (
-    <div className="mx-auto w-full max-w-[640px] px-4 py-6 sm:px-6">
-      <h1 style={{ fontSize: "22px", fontWeight: 700, color: "#1a1a2e", margin: "0 0 16px" }}>Diario alimentare</h1>
+    <div className="portal-container">
+      <header className="mb-4">
+        <p className="mb-1 text-xs font-medium uppercase tracking-wide text-brand-deep">Alimentazione</p>
+        <h1 className="text-2xl font-medium tracking-tight text-ink">Diario alimentare</h1>
+      </header>
 
       {/* Date navigation */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px", background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "12px", padding: "8px 12px" }}>
@@ -109,7 +112,7 @@ export default function PortalDiaryPage() {
           <input value={item.name} onChange={(e) => setItem((s) => ({ ...s, name: e.target.value }))} placeholder="es. Petto di pollo" style={inputStyle} />
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(80px, 1fr))", gap: "8px", marginBottom: "10px" }}>
+        <div className="mb-2.5 grid grid-cols-3 gap-2 sm:grid-cols-5">
           {([
             { k: "grams", label: "Grammi" },
             { k: "kcal", label: "Kcal" },
@@ -119,7 +122,7 @@ export default function PortalDiaryPage() {
           ] as const).map(({ k, label }) => (
             <div key={k}>
               <label style={labelStyle}>{label}</label>
-              <input type="number" min={0} value={item[k]} onChange={(e) => setItem((s) => ({ ...s, [k]: e.target.value }))} style={inputStyle} />
+              <input type="number" min={0} value={item[k]} onChange={(e) => setItem((s) => ({ ...s, [k]: e.target.value }))} className="tnum" style={inputStyle} />
             </div>
           ))}
         </div>

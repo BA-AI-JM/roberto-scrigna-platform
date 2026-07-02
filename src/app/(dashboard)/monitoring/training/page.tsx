@@ -133,7 +133,7 @@ function EffortDots({ effort }: { effort: number | null }) {
           }}
         />
       ))}
-      <span style={{ marginLeft: "6px", fontSize: "12px", color: "#6b7280" }}>{effort}/10</span>
+      <span className="tnum" style={{ marginLeft: "6px", fontSize: "12px", color: "#6b7280" }}>{effort}/10</span>
     </div>
   );
 }
@@ -258,14 +258,7 @@ export default function TrainingLogPage() {
   };
 
   return (
-    <div
-      style={{
-        padding: "32px",
-        maxWidth: "1200px",
-        margin: "0 auto",
-        fontFamily: "system-ui, -apple-system, sans-serif",
-      }}
-    >
+    <div className="coach-container">
       {/* Header */}
       <div
         style={{
@@ -276,7 +269,8 @@ export default function TrainingLogPage() {
         }}
       >
         <div>
-          <h1 style={{ fontSize: "26px", fontWeight: 700, margin: 0 }}>Log Allenamento</h1>
+          <p className="mb-1 text-xs font-medium uppercase tracking-wide text-brand-deep">Roberto Scrigna</p>
+          <h1 style={{ fontSize: "26px", fontWeight: 500, letterSpacing: "-0.01em", margin: 0, color: "#0f1729" }}>Log Allenamento</h1>
           <p style={{ color: "#6b7280", marginTop: "4px", fontSize: "14px" }}>
             Registra e monitora le sessioni di allenamento dei tuoi clienti
           </p>
@@ -347,7 +341,7 @@ export default function TrainingLogPage() {
             marginBottom: "24px",
           }}
         >
-          <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#1a1a2e", marginBottom: "20px" }}>
+          <h2 style={{ fontSize: "16px", fontWeight: 500, color: "#1a1a2e", marginBottom: "20px" }}>
             Registra sessione
           </h2>
           <form onSubmit={handleSubmit}>
@@ -567,7 +561,7 @@ export default function TrainingLogPage() {
       {displayedLogs.length === 0 ? (
         <div style={{ textAlign: "center", padding: "80px 24px", color: "#9ca3af" }}>
           <div style={{ fontSize: "48px", marginBottom: "16px" }}>🏋️</div>
-          <h3 style={{ fontSize: "16px", fontWeight: 600, color: "#374151" }}>
+          <h3 style={{ fontSize: "16px", fontWeight: 500, color: "#374151" }}>
             {!activeClientId ? "Seleziona un cliente per vedere le sessioni" : "Nessuna sessione di allenamento registrata"}
           </h3>
           <p style={{ fontSize: "14px", marginTop: "8px" }}>
@@ -585,7 +579,8 @@ export default function TrainingLogPage() {
             overflow: "hidden",
           }}
         >
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <div className="table-scroll">
+          <table style={{ width: "100%", minWidth: "820px", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ background: "#f8fafc" }}>
                 {["Cliente", "Data", "Tipo", "Durata", "RPE", "OCR", "Note", ""].map((h) => (
@@ -619,13 +614,13 @@ export default function TrainingLogPage() {
                   <td style={{ padding: "14px 16px", fontSize: "14px", fontWeight: 600, color: "#1a1a2e" }}>
                     {log.clientName}
                   </td>
-                  <td style={{ padding: "14px 16px", fontSize: "14px", color: "#6b7280" }}>
+                  <td className="tnum" style={{ padding: "14px 16px", fontSize: "14px", color: "#6b7280" }}>
                     {formatDate(log.sessionDate)}
                   </td>
                   <td style={{ padding: "14px 16px" }}>
                     <SessionTypeBadge type={log.sessionType} />
                   </td>
-                  <td style={{ padding: "14px 16px", fontSize: "14px", color: "#374151" }}>
+                  <td className="tnum" style={{ padding: "14px 16px", fontSize: "14px", color: "#374151" }}>
                     {log.durationMinutes ? `${log.durationMinutes} min` : "—"}
                   </td>
                   <td style={{ padding: "14px 16px" }}>
@@ -653,6 +648,7 @@ export default function TrainingLogPage() {
                   >
                     {log.screenshotCount > 0 && (
                       <span
+                        className="tnum"
                         title={`${log.screenshotCount} screenshot caricat${
                           log.screenshotCount === 1 ? "o" : "i"
                         }`}
@@ -691,6 +687,7 @@ export default function TrainingLogPage() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>
