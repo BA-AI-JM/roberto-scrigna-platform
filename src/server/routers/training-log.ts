@@ -555,6 +555,10 @@ export const trainingLogRouter = router({
    * Accepts either an https:// URL or a Supabase Storage path
    * (e.g. "training-screenshots/<pid>/<cid>/<file>"); paths are resolved to a
    * short-lived signed URL before being sent to Claude.
+   *
+   * SHELVED — 0 callers; the live OCR runs inline in `create`, not via this
+   * standalone endpoint. Kept pending a roadmap decision. See
+   * docs/SCP-HR-ZONE-ENGINE-SHELVED.md.
    */
   processScreenshot: protectedProcedure
     .input(z.object({ imageUrl: z.string().min(1).max(500) }))
