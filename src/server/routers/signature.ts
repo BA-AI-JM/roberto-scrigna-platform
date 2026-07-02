@@ -36,6 +36,21 @@ function buildDeps(): SignatureProviderDeps {
   return { db, renderSignedLetterPdf: (id: string) => renderSignedEngagementLetterPdf(db, id) };
 }
 
+/**
+ * Resolve the signed PDF for a request → { pdfBase64, mimeType, filename }.
+ * Shared by the client (downloadSignedDocument) and coach (downloadSignedForClient)
+ * downloads so both regenerate the SAME artifact. The caller MUST authorise the
+ * request first (client- or partner-scoped) and ensure it is signed.
+ */
+async function resolveSignedPdf(deps: SignatureProviderDeps, requestId: string) {
+  const doc = await getSignatureProvider(deps).downloadSignedDocument(requestId);
+  return {
+    pdfBase64: Buffer.from(doc.bytes).toString("base64"),
+    mimeType: doc.contentType,
+    filename: `lettera-firmata-${requestId}.pdf`,
+  };
+}
+
 export const signatureRouter = router({
   /**
    * Create a signature request for a client using the partner's active letter
@@ -336,11 +351,99 @@ export const signatureRouter = router({
           message: "Documento non ancora firmato.",
         });
       }
-      const doc = await getSignatureProvider(deps).downloadSignedDocument(input.requestId);
-      return {
-        pdfBase64: Buffer.from(doc.bytes).toString("base64"),
-        mimeType: doc.contentType,
-        filename: `lettera-firmata-${input.requestId}.pdf`,
-      };
+      return resolveSignedPdf(deps, input.requestId);
+    }),
+
+  // ── Coach (partner-scoped) reads — for the engagement-letter management UI ────
+
+  /**
+   * #29 coach — the client's current engagement-letter signing status.
+   * PARTNER-SCOPED: the client must belong to ctx.partner (else NOT_FOUND). Reads
+   * the LATEST signature_request for that client and collapses provider statuses to
+   * { none | pending | signed }. Degrades cleanly to 'none' when no request exists.
+   * Contract: { status, requestId?, signedAt?, versionLabel? }.
+   */
+  getClientLetterStatus: protectedProcedure
+    .input(z.object({ clientId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      const db = createSupabaseServiceRole();
+
+      // Partner-scope: the client must belong to this partner (mirrors createSignatureRequest).
+      const { data: client } = await db
+        .from("client")
+        .select("id")
+        .eq("id", input.clientId)
+        .eq("partner_id", ctx.partnerId)
+        .is("deleted_at", null)
+        .maybeSingle();
+      if (!client?.id) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Cliente non trovato." });
+      }
+
+      // Latest request for this client (any status).
+      const { data: req } = await db
+        .from("signature_request")
+        .select("id, status, accepted_at, document_version_id, created_at")
+        .eq("client_id", input.clientId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (!req?.id) return { status: "none" as const };
+
+      // Resolve the version label for display (best-effort).
+      let versionLabel: string | undefined;
+      if (req.document_version_id) {
+        const { data: v } = await db
+          .from("legal_document_version")
+          .select("version_label")
+          .eq("id", req.document_version_id as string)
+          .maybeSingle();
+        versionLabel = (v?.version_label as string | undefined) ?? undefined;
+      }
+
+      const raw = req.status as string;
+      if (raw === "signed") {
+        return {
+          status: "signed" as const,
+          requestId: req.id as string,
+          signedAt: (req.accepted_at as string | null) ?? undefined,
+          versionLabel,
+        };
+      }
+      if ((OPEN_STATUSES as readonly string[]).includes(raw)) {
+        return { status: "pending" as const, requestId: req.id as string, versionLabel };
+      }
+      // declined / expired / cancelled → no active letter on file
+      return { status: "none" as const };
+    }),
+
+  /**
+   * #29 coach — download a client's SIGNED engagement letter (base64 PDF).
+   * PARTNER-SCOPED: the request must belong to ctx.partner (else NOT_FOUND — we do
+   * NOT leak existence). Only returns a document when the request is 'signed'.
+   * Mutation to mirror the client downloadSignedDocument (on-demand regeneration).
+   * Contract: { pdfBase64, mimeType, filename }.
+   */
+  downloadSignedForClient: protectedProcedure
+    .input(z.object({ requestId: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      const deps = buildDeps();
+      const { data: req } = await deps.db
+        .from("signature_request")
+        .select("id, status")
+        .eq("id", input.requestId)
+        .eq("partner_id", ctx.partnerId)
+        .maybeSingle();
+      if (!req?.id) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Richiesta non trovata." });
+      }
+      if (req.status !== "signed") {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "Documento non ancora firmato.",
+        });
+      }
+      return resolveSignedPdf(deps, input.requestId);
     }),
 });
