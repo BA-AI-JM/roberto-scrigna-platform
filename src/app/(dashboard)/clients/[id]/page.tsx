@@ -9,9 +9,11 @@
 
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useState, useRef, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter, useParams } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
+import { getQueryKey } from "@trpc/react-query";
 import { trpc } from "@/lib/trpc/client";
 import { ChartControls } from "@/components/charts/ChartControls";
 import { totalDataPoints, type TrendSeries } from "@/components/charts/TrendChart";
@@ -770,6 +772,7 @@ function PianiTab({ clientId }: { clientId: string }) {
 }
 
 function CheckinTab({ clientId }: { clientId: string }) {
+  const queryClient = useQueryClient();
   const { data, isLoading, isError } = trpc.checkin.list.useQuery({
     clientId,
     limit: 20,
@@ -779,6 +782,8 @@ function CheckinTab({ clientId }: { clientId: string }) {
 
   const [sentCheckinUrl, setSentCheckinUrl] = useState<string | null>(null);
   const [copyConfirmed, setCopyConfirmed] = useState(false);
+  const [copyFailed, setCopyFailed] = useState(false);
+  const urlRef = useRef<HTMLElement | null>(null);
 
   const sendCheckinMutation = trpc.checkin.sendCheckin.useMutation({
     onSuccess: (result) => {
@@ -790,12 +795,34 @@ function CheckinTab({ clientId }: { clientId: string }) {
     },
   });
 
-  const handleCopyLink = () => {
+  // markReviewed — coach clears the review queue on a completed check-in.
+  const markReviewedMutation = trpc.checkin.markReviewed.useMutation({
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: getQueryKey(trpc.checkin.list) }),
+  });
+
+  // Clipboard write can reject (insecure context, denied permission, unfocused
+  // tab). Guard it and fall back to selecting the URL so it never leaks an
+  // uncaught rejection and the coach can always copy manually.
+  const handleCopyLink = async () => {
     if (!sentCheckinUrl) return;
-    navigator.clipboard.writeText(sentCheckinUrl).then(() => {
+    setCopyFailed(false);
+    try {
+      await navigator.clipboard.writeText(sentCheckinUrl);
       setCopyConfirmed(true);
       setTimeout(() => setCopyConfirmed(false), 2000);
-    });
+    } catch {
+      // fallback: select the link text so the coach can copy it manually
+      const el = urlRef.current;
+      if (el && typeof window !== "undefined") {
+        const range = document.createRange();
+        range.selectNodeContents(el);
+        const sel = window.getSelection();
+        sel?.removeAllRanges();
+        sel?.addRange(range);
+      }
+      setCopyFailed(true);
+      setTimeout(() => setCopyFailed(false), 5000);
+    }
   };
 
   if (isLoading)
@@ -856,6 +883,7 @@ function CheckinTab({ clientId }: { clientId: string }) {
           </p>
           <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
             <code
+              ref={urlRef}
               style={{
                 fontSize: "12px",
                 color: "#374151",
@@ -874,8 +902,8 @@ function CheckinTab({ clientId }: { clientId: string }) {
               style={{
                 padding: "6px 14px",
                 backgroundColor: copyConfirmed ? "#15803d" : "#ffffff",
-                color: copyConfirmed ? "#ffffff" : "#15803d",
-                border: "1px solid #15803d",
+                color: copyConfirmed ? "#ffffff" : copyFailed ? "#8a560f" : "#15803d",
+                border: `1px solid ${copyFailed ? "#8a560f" : "#15803d"}`,
                 borderRadius: "6px",
                 fontSize: "12px",
                 fontWeight: 600,
@@ -883,9 +911,14 @@ function CheckinTab({ clientId }: { clientId: string }) {
                 whiteSpace: "nowrap",
               }}
             >
-              {copyConfirmed ? "Copiato!" : "Copia link"}
+              {copyConfirmed ? "Copiato!" : copyFailed ? "Copia manualmente" : "Copia link"}
             </button>
           </div>
+          {copyFailed && (
+            <p style={{ margin: "8px 0 0", fontSize: "12px", color: "#8a560f" }}>
+              Copia automatica non riuscita — il link è selezionato, copialo con ⌘/Ctrl+C.
+            </p>
+          )}
         </div>
       )}
     </div>
@@ -975,7 +1008,31 @@ function CheckinTab({ clientId }: { clientId: string }) {
                   {checkinData.adherence_pct != null ? `${checkinData.adherence_pct}%` : "—"}
                 </td>
                 <td style={{ padding: "14px 16px", fontSize: "13px", color: "#6b7280" }}>
-                  {String(checkinData.status ?? "—")}
+                  {checkinData.status === "reviewed" ? (
+                    <span style={{ color: "#166534", fontWeight: 600 }}>Rivisto ✓</span>
+                  ) : checkinData.status === "completed" ? (
+                    <button
+                      onClick={() => markReviewedMutation.mutate({ id: String(checkinData.id) })}
+                      disabled={markReviewedMutation.isPending && markReviewedMutation.variables?.id === checkinData.id}
+                      style={{
+                        padding: "5px 12px",
+                        backgroundColor: "#ffffff",
+                        color: "#0f6e56",
+                        border: "1px solid #9fe1cb",
+                        borderRadius: "6px",
+                        fontSize: "12px",
+                        fontWeight: 600,
+                        cursor: "pointer",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {markReviewedMutation.isPending && markReviewedMutation.variables?.id === checkinData.id
+                        ? "…"
+                        : "Segna rivisto"}
+                    </button>
+                  ) : (
+                    String(checkinData.status ?? "—")
+                  )}
                 </td>
               </tr>
             );
@@ -1197,6 +1254,21 @@ export default function ClientDetailPage() {
             }}
           >
             Lettera di incarico
+          </Link>
+          <Link
+            href={`/clients/${clientId}/segnalazioni`}
+            style={{
+              padding: "9px 18px",
+              backgroundColor: "#ffffff",
+              color: "#1a1a2e",
+              border: "1px solid #e2e8f0",
+              borderRadius: "8px",
+              textDecoration: "none",
+              fontSize: "14px",
+              fontWeight: 600,
+            }}
+          >
+            Segnalazioni
           </Link>
           {client.status !== "archived" && (
             <button
@@ -1444,6 +1516,7 @@ function SnapshotHistoryTab({ clientId }: { clientId: string }) {
     "Massa grassa (kg)",
     "BMR",
     "Passi",
+    "",
   ];
 
   return (
@@ -1587,6 +1660,16 @@ function SnapshotHistoryTab({ clientId }: { clientId: string }) {
                     {snap.daily_steps != null
                       ? snap.daily_steps.toLocaleString("it-IT")
                       : "—"}
+                  </td>
+
+                  {/* #5 — Modifica rilevazione (retroactive edit) */}
+                  <td style={{ padding: "14px 16px", fontSize: "14px", textAlign: "right" }}>
+                    <Link
+                      href={`/clients/${clientId}/snapshot/${snap.id}/modifica`}
+                      style={{ fontSize: "13px", fontWeight: 600, color: "#0f6e56", textDecoration: "none", whiteSpace: "nowrap" }}
+                    >
+                      Modifica
+                    </Link>
                   </td>
                 </tr>
               );
