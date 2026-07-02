@@ -43,14 +43,7 @@ function svc() {
 
 // ── Input Schemas ─────────────────────────────────────────────────────────────
 
-const mealTypeSchema = z.enum([
-  "breakfast",
-  "lunch",
-  "dinner",
-  "snack",
-  "pre_workout",
-  "post_workout",
-]);
+// (mealTypeSchema removed with portal.getExampleMeals — chore/deadcode.)
 
 const diaryEntrySchema = z.object({
   entryDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Formato data: YYYY-MM-DD"), // ISO date YYYY-MM-DD
@@ -272,62 +265,9 @@ export const portalRouter = router({
       return { notifications: data ?? [], unreadCount: count ?? 0 };
     }),
 
-  /**
-   * Get example meals that match a given meal type and macro targets.
-   * Used to populate swap options in the plan viewer (±10% protein tolerance).
-   */
-  getExampleMeals: clientProcedure
-    .input(
-      z.object({
-        mealType: mealTypeSchema,
-        targetProteinG: z.number().min(0),
-        targetCarbsG: z.number().min(0),
-        targetFatG: z.number().min(0),
-        excludeId: z.string().optional(),
-        limit: z.number().int().min(1).max(20).default(6),
-      })
-    )
-    .query(async ({ ctx, input }) => {
-      const db = svc();
-      const tol = 0.15; // ±15% tolerance on protein
-
-      // Resolve this client's partner so example meals are scoped to that
-      // nutritionist's database only — prevents cross-tenant data exposure.
-      const { data: clientRecord } = await db
-        .from("client")
-        .select("partner_id")
-        .eq("id", ctx.clientId)
-        .single();
-      if (!clientRecord) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "Cliente non trovato." });
-      }
-
-      let query = db
-        .from("example_meal")
-        .select(
-          "id, name, description, meal_type, kcal_per_serving, protein_g, carbs_g, fat_g, tags"
-        )
-        .eq("partner_id", clientRecord.partner_id)
-        .eq("meal_type", input.mealType)
-        .eq("is_active", true)
-        .is("deleted_at", null)
-        .gte("protein_g", input.targetProteinG * (1 - tol))
-        .lte("protein_g", input.targetProteinG * (1 + tol))
-        .limit(input.limit);
-
-      if (input.excludeId) {
-        query = query.neq("id", input.excludeId);
-      }
-
-      const { data, error } = await query;
-
-      if (error) {
-        console.error("[router/portal.getExampleMeals]", error);
-        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Errore nel caricamento dei dati." });
-      }
-
-      return data ?? [];
-    }),
+  // NOTE (chore/deadcode): portal.getExampleMeals was removed here — 0 callers
+  // across all of src. The `example_meal` table is now unreferenced by any code
+  // → orphan / DROP candidate for a future migration (James applies schema changes).
 
   /**
    * Aggregated dashboard data: weight trend, macro adherence, training consistency.

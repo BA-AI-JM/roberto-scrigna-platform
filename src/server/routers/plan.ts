@@ -596,8 +596,17 @@ export const planRouter = router({
           injuryStress: input.injuryStress,
         });
       } catch (err) {
-        // Log the full engine error server-side; surface a safe message to the client.
-        console.error("[router/plan.generate] engine error:", err);
+        // Preserve intentional errors (e.g. a nested PRECONDITION_FAILED) with their
+        // specific code + message — don't re-mask them as the generic "dati completi".
+        if (err instanceof TRPCError) throw err;
+        // Genuinely-unexpected engine error: log it server-side with FULL fidelity
+        // (this is exactly what let us catch the food-CSV ENOENT once we tailed prod
+        // logs), then surface a safe, friendly message without leaking internals.
+        console.error(
+          "[router/plan.generate] engine error:",
+          err,
+          err instanceof Error ? err.stack : ""
+        );
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Errore nella generazione del piano. Verifica che tutti i dati del cliente siano completi.",
@@ -775,7 +784,13 @@ export const planRouter = router({
           injuryStress: mp.injuryStress as PlanGenParams["injuryStress"],
         });
       } catch (err) {
-        console.error("[router/plan.createVersion] engine error:", err);
+        // Preserve intentional errors; log unexpected ones with full fidelity.
+        if (err instanceof TRPCError) throw err;
+        console.error(
+          "[router/plan.createVersion] engine error:",
+          err,
+          err instanceof Error ? err.stack : ""
+        );
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Errore nella rigenerazione del piano.",
@@ -2081,7 +2096,20 @@ ${btnHtml(portalUrl("/login"), "Visualizza il piano")}
    * source-swap dropdowns. Static catalogue (food DB), partner-gated.
    */
   foodCatalogue: protectedProcedure.query(() => {
-    return foodCatalogue();
+    // Log-and-rethrow for observability parity with plan.generate: foodCatalogue
+    // reads the bundled food DB and both 500'd opaquely during the CSV incident.
+    // We don't swallow here (the error still surfaces), we just ensure it's tagged
+    // in prod logs. Client sees tRPC's default safe 500; internals aren't leaked.
+    try {
+      return foodCatalogue();
+    } catch (err) {
+      console.error(
+        "[router/plan.foodCatalogue] error:",
+        err,
+        err instanceof Error ? err.stack : ""
+      );
+      throw err;
+    }
   }),
 
   /**
