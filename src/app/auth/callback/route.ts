@@ -11,27 +11,34 @@ export async function GET(request: Request) {
   const code = searchParams.get("code");
   const rawNext = searchParams.get("next") ?? "/dashboard";
   const next = rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "/dashboard";
+  // Partner-creation is gated to an explicit coach-signup intent. Only the
+  // register flow passes ?intent=signup; recovery/settings/confirmation links do
+  // NOT, so no auth callback can silently promote an authenticated session
+  // (e.g. a client) to a coach. Existing coaches already have a partner row.
+  const isSignup = searchParams.get("intent") === "signup";
 
   if (code) {
     const supabase = await createSupabaseServer();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (!error) {
-      // On first login, create the partner record if it doesn't exist
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: existing } = await supabase
-          .from("partner")
-          .select("id")
-          .eq("auth_user_id", user.id)
-          .maybeSingle();
+      // On coach signup ONLY, create the partner record if it doesn't exist.
+      if (isSignup) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: existing } = await supabase
+            .from("partner")
+            .select("id")
+            .eq("auth_user_id", user.id)
+            .maybeSingle();
 
-        if (!existing) {
-          await supabase.from("partner").insert({
-            auth_user_id: user.id,
-            full_name: user.user_metadata?.full_name ?? user.email?.split("@")[0] ?? "Coach",
-            email: user.email ?? "",
-          });
+          if (!existing) {
+            await supabase.from("partner").insert({
+              auth_user_id: user.id,
+              full_name: user.user_metadata?.full_name ?? user.email?.split("@")[0] ?? "Coach",
+              email: user.email ?? "",
+            });
+          }
         }
       }
 

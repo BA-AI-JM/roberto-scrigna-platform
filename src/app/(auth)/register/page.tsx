@@ -28,7 +28,9 @@ export default function RegisterPage() {
       password,
       options: {
         data: { full_name: fullName },
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        // intent=signup authorises the auth callback to create the partner row.
+        // (Only this coach-signup path may create a partner — see auth/callback.)
+        emailRedirectTo: `${window.location.origin}/auth/callback?intent=signup`,
       },
     });
 
