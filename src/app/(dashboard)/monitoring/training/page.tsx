@@ -159,6 +159,15 @@ const DEFAULT_MODALITY = SPORT_TAXONOMY[0]?.displayIt ?? "Pesi — Ipertrofia";
 
 export default function TrainingLogPage() {
   const queryClient = useQueryClient();
+  // trainingLog.delete — correct a mis-logged session. Inline two-step confirm
+  // (no native dialog) to avoid an accidental delete.
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const deleteMutation = trpc.trainingLog.delete.useMutation({
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["trainingLog.list"] });
+      setConfirmDeleteId(null);
+    },
+  });
   const [activeType, setActiveType] = useState<SessionTypeFilter>("all");
   const [showForm, setShowForm] = useState(false);
   const [selectedClientId, setSelectedClientId] = useState<string>("");
@@ -668,20 +677,31 @@ export default function TrainingLogPage() {
                     )}
                     {log.notes ?? "—"}
                   </td>
-                  <td style={{ padding: "14px 16px", textAlign: "right" }}>
-                    <span
-                      style={{
-                        fontSize: "13px",
-                        color: "#1a1a2e",
-                        fontWeight: 500,
-                        padding: "6px 12px",
-                        border: "1px solid #e2e8f0",
-                        borderRadius: "6px",
-                        cursor: "pointer",
-                      }}
-                    >
-                      Dettagli →
-                    </span>
+                  <td style={{ padding: "14px 16px", textAlign: "right", whiteSpace: "nowrap" }}>
+                    {confirmDeleteId === log.id ? (
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                        <button
+                          onClick={() => deleteMutation.mutate({ id: log.id })}
+                          disabled={deleteMutation.isPending}
+                          style={{ fontSize: "13px", color: "#ffffff", fontWeight: 600, padding: "6px 12px", background: "#9f3a2f", border: "none", borderRadius: "6px", cursor: "pointer" }}
+                        >
+                          {deleteMutation.isPending ? "…" : "Conferma"}
+                        </button>
+                        <button
+                          onClick={() => setConfirmDeleteId(null)}
+                          style={{ fontSize: "13px", color: "#6b7280", fontWeight: 500, padding: "6px 12px", background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "6px", cursor: "pointer" }}
+                        >
+                          Annulla
+                        </button>
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => setConfirmDeleteId(log.id)}
+                        style={{ fontSize: "13px", color: "#9f3a2f", fontWeight: 500, padding: "6px 12px", background: "#ffffff", border: "1px solid #f0c9c1", borderRadius: "6px", cursor: "pointer" }}
+                      >
+                        Elimina
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
