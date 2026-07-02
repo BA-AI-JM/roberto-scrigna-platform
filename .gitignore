@@ -64,3 +64,7 @@ supabase/snippets/
 e2e-exercise/.localenv
 e2e-exercise/.auth.json
 e2e-exercise/findings.json
+.gitnexus
+
+# local tool config / code-index (GitNexus) — dev assets, not committed
+.claude/

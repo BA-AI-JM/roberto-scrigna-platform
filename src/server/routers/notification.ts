@@ -74,26 +74,6 @@ const TRIGGER_PRIORITY: Record<string, z.infer<typeof notificationPrioritySchema
   urgent_feedback: "urgent",
 };
 
-/** Trigger-to-Italian label mapping */
-const TRIGGER_LABELS: Record<string, string> = {
-  checkin_overdue: "Check-in scaduto",
-  checkin_completed: "Check-in completato",
-  weight_deviation: "Deviazione peso",
-  low_adherence: "Aderenza bassa",
-  plan_expiring: "Piano in scadenza",
-  invoice_overdue: "Fattura scaduta",
-  invoice_paid: "Fattura pagata",
-  task_due_today: "Task in scadenza oggi",
-  task_overdue: "Task scaduto",
-  new_message: "Nuovo messaggio",
-  training_logged: "Allenamento registrato",
-  milestone_reached: "Obiettivo raggiunto",
-  plan_update_suggested: "Aggiornamento piano suggerito",
-  feedback_requested: "Feedback richiesto",
-  body_comp_due: "Misurazioni da aggiornare",
-  urgent_feedback: "Feedback urgente / Infortunio",
-};
-
 // ── Router ───────────────────────────────────────────────────────────────────
 
 export const notificationRouter = router({

@@ -9,9 +9,7 @@
  * - pipelineBreakdown: client status distribution
  */
 
-import { z } from "zod/v4";
 import { router, protectedProcedure } from "../trpc";
-import { TRPCError } from "@trpc/server";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 

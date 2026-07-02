@@ -15,8 +15,6 @@ import type {
   BodyComposition,
   ClientSnapshot,
   DayType,
-  MacroTargets,
-  TdeeResult,
   WeeklyPlan,
 } from "../engine/types";
 import type {
