@@ -57,6 +57,50 @@ consistency, or leave as-is (no user impact).
   until valid input, then enable. "Password dimenticata?" is a live control.
 - Zero console errors across every reachable page.
 
+---
+
+## Update — authenticated COACH surface exercised (supplementary run)
+
+The primary pass above had to **skip** the 11 authenticated coach-dashboard interactions
+(needs an operator session). A supplementary harness (`e2e-exercise/`,
+`playwright.exercise-local.config.ts`) closes that gap headlessly: it establishes a **real
+coach session** against a **local Supabase** using the project's own seeded e2e account
+(`roberto@test.com`), then meta-prompts the DOM — enumerating and driving every
+button / tab / toggle per route.
+
+**Exercised (real coach session):** `/dashboard`, `/clients`, `/clients/[id]`,
+`/clients/[id]/edit`, `/clients/[id]/lettera`, `/plans`, `/plans/generate`, `/invoices`,
+`/invoices/new`, `/monitoring`, `/monitoring/training`, `/monitoring/notifications`,
+`/settings` + a link-nav crawl — **19 route-loads, 132 control clicks, 11 nav visits.**
+
+**Result: clean except finding #2.** No React crashes, no error boundaries, no 5xx on
+load, no dead-button JS errors across the authenticated coach surface. The remaining
+console signals were confirmed **environment noise, not app bugs**: `Invita al portale`
+→ 500 because local Resend email is unconfigured (`RESEND_FROM_EMAIL` unset — works in
+prod); `lettera "Attiva modello"` → 500 because the local DB is a few migrations behind
+(`legal_document` / migration 009 not applied locally); `/plans/generate` → 412 is the
+**expected** precondition (the seed client has no body-comp snapshot); `/design/*` and
+`/no-such-page` → 404 are expected (proposal branch unmerged / deliberate 404).
+
+### 2. (Minor / robustness) Unhandled clipboard rejection on the coach "Copia link"
+
+`src/app/(dashboard)/clients/[id]/page.tsx:795` — after sending a check-in, the **"Copia
+link"** button calls `navigator.clipboard.writeText(sentCheckinUrl).then(…)` with **no
+`.catch()`**. When the clipboard write is denied (insecure context, no permission, or the
+tab isn't focused) the promise **rejects unhandled** → `NotAllowedError` surfaces as an
+uncaught error. In prod (HTTPS + user gesture) it usually succeeds, so no user-visible
+break was observed — but the missing `.catch()` is a real robustness gap and the copy
+fails silently for the user when the clipboard is unavailable. **Fix:** wrap in
+`try/catch` (or `.catch()`) with a fallback (select-and-copy or an error toast).
+
+### Not reachable even with the local session (honest gap)
+- **Patient portal** (`portal/(protected)/*`, `/portal/firma/[id]`): the local seed clients
+  have no `auth_user_id` (no portal link), so no patient session could be established;
+  magic-link would need a portal-linked client + the Mailpit inbox. Covered only at the
+  `/portal/login` + public token-check-in level.
+- **Plan review `/plans/[id]/review` & invoice detail:** the local seed has 0 plans / 0
+  invoices, so these detail routes had no row to load (empty, not exercised).
+
 ## Run it
 
 ```bash
@@ -68,4 +112,8 @@ BASE_URL=http://localhost:3100 npx playwright test --config playwright.exercise.
 
 # unlock the authenticated coach-dashboard block (read-only)
 COACH_EMAIL=… COACH_PASSWORD=… BASE_URL=… npx playwright test --config playwright.exercise.config.ts
+
+# supplementary: full authenticated COACH surface via a local Supabase session
+# (needs local Supabase running + seeded — see e2e-exercise/README-exercise.md)
+source e2e-exercise/.localenv && bunx playwright test --config playwright.exercise-local.config.ts
 ```

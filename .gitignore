@@ -59,3 +59,8 @@ supabase/.temp/
 supabase/snippets/
 
 .serena/
+
+# authenticated exercise-pass runtime artifacts (env / session / output)
+e2e-exercise/.localenv
+e2e-exercise/.auth.json
+e2e-exercise/findings.json
