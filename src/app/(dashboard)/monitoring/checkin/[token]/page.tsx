@@ -110,7 +110,7 @@ function SliderInput({
         onChange={(e) => onChange(Number(e.target.value))}
         style={{ width: "100%", accentColor: "#1a1a2e" }}
       />
-      <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: "#9ca3af" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: "#6b7280" }}>
         <span>0{suffix}</span>
         <span>100{suffix}</span>
       </div>

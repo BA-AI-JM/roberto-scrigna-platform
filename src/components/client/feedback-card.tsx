@@ -33,7 +33,7 @@ function fmtDate(iso: string | null): string {
 function metric(label: string, value: string) {
   return (
     <div style={{ padding: "12px 16px" }}>
-      <div style={{ fontSize: "11px", color: "#9ca3af", marginBottom: "2px" }}>{label}</div>
+      <div style={{ fontSize: "11px", color: "#6b7280", marginBottom: "2px" }}>{label}</div>
       <div style={{ fontSize: "15px", fontWeight: 600, color: "#1a1a2e" }}>{value}</div>
     </div>
   );
@@ -63,7 +63,7 @@ export function FeedbackCard({ checkin }: { checkin: FeedbackCheckin | null }) {
           Ultimo feedback
         </h3>
         {checkin && (
-          <span style={{ fontSize: "12px", color: "#9ca3af" }}>
+          <span style={{ fontSize: "12px", color: "#6b7280" }}>
             {fmtDate(checkin.completed_at ?? checkin.created_at)}
           </span>
         )}
@@ -75,7 +75,7 @@ export function FeedbackCard({ checkin }: { checkin: FeedbackCheckin | null }) {
             margin: "20px 24px",
             padding: "20px 24px",
             textAlign: "center",
-            color: "#9ca3af",
+            color: "#6b7280",
             background: "#f8fafc",
             borderRadius: "8px",
             border: "1px dashed #e2e8f0",

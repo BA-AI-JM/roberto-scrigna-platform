@@ -82,7 +82,7 @@ export function NotificationsPanel({
     <div style={SHELL}>
       <Header />
       {isLoading ? (
-        <div style={{ padding: "20px 24px", color: "#9ca3af", fontSize: "14px" }}>
+        <div style={{ padding: "20px 24px", color: "#6b7280", fontSize: "14px" }}>
           Caricamento notifiche…
         </div>
       ) : isError ? (
@@ -90,7 +90,7 @@ export function NotificationsPanel({
           Errore nel caricamento delle notifiche.
         </div>
       ) : notifications.length === 0 ? (
-        <div style={{ margin: "20px 24px", padding: "20px 24px", textAlign: "center", color: "#9ca3af", background: "#f8fafc", borderRadius: "8px", border: "1px dashed #e2e8f0", fontSize: "13px" }}>
+        <div style={{ margin: "20px 24px", padding: "20px 24px", textAlign: "center", color: "#6b7280", background: "#f8fafc", borderRadius: "8px", border: "1px dashed #e2e8f0", fontSize: "13px" }}>
           Nessuna notifica
         </div>
       ) : (
@@ -117,7 +117,7 @@ export function NotificationsPanel({
                     <span style={{ fontSize: "13px", fontWeight: n.read ? 600 : 700, color: "#1a1a2e" }}>
                       {n.title}
                     </span>
-                    <span style={{ fontSize: "11px", color: "#9ca3af", flexShrink: 0 }}>
+                    <span style={{ fontSize: "11px", color: "#6b7280", flexShrink: 0 }}>
                       {relTime(n.created_at)}
                     </span>
                   </div>

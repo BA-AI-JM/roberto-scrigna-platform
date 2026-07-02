@@ -295,7 +295,7 @@ function ProgressPhotoUploader({
               }}
             >
               <span style={{ fontWeight: 600 }}>{p.label}</span>
-              <span style={{ fontSize: "11px", color: chosen ? "#4f46e5" : "#9ca3af" }}>
+              <span style={{ fontSize: "11px", color: chosen ? "#4f46e5" : "#6b7280" }}>
                 {chosen ? "✓ selezionata" : "Scegli / scatta"}
               </span>
               <input
@@ -346,7 +346,7 @@ function ProgressPhotoUploader({
       >
         {busy ? "Caricamento…" : "Salva foto"}
       </button>
-      <p style={{ fontSize: "11px", color: "#9ca3af", margin: "8px 0 0", textAlign: "center" }}>
+      <p style={{ fontSize: "11px", color: "#6b7280", margin: "8px 0 0", textAlign: "center" }}>
         JPG / PNG / WebP / HEIC · max 10 MB per foto
       </p>
     </div>
@@ -402,7 +402,7 @@ export function ProgressPhotosGallery({
   const canUpload = Boolean(PHOTO_UPLOAD_ENABLED && partnerId && clientId && saveSnapshot);
 
   if (loading) {
-    return <div style={{ ...cardStyle, color: "#9ca3af", fontSize: "14px" }}>Caricamento foto…</div>;
+    return <div style={{ ...cardStyle, color: "#6b7280", fontSize: "14px" }}>Caricamento foto…</div>;
   }
 
   return (
@@ -420,7 +420,7 @@ export function ProgressPhotosGallery({
       )}
 
       {withPhotos.length === 0 ? (
-        <div style={{ padding: "24px", textAlign: "center", color: "#9ca3af", background: "#f8fafc", borderRadius: "10px", border: "1px dashed #e2e8f0", fontSize: "13px" }}>
+        <div style={{ padding: "24px", textAlign: "center", color: "#6b7280", background: "#f8fafc", borderRadius: "10px", border: "1px dashed #e2e8f0", fontSize: "13px" }}>
           <div style={{ fontSize: "32px", marginBottom: "8px" }} aria-hidden>📸</div>
           <div style={{ fontWeight: 600, color: "#6b7280", marginBottom: "4px" }}>Nessuna foto</div>
           Le tue foto dei progressi compariranno qui.
@@ -449,7 +449,7 @@ export function ProgressPhotosGallery({
                         loading="lazy"
                         style={{ width: "100%", aspectRatio: "3 / 4", objectFit: "cover", borderRadius: "10px", border: "1px solid #e2e8f0", display: "block" }}
                       />
-                      <div style={{ fontSize: "11px", color: "#9ca3af", textAlign: "center", marginTop: "4px" }}>{p.label}</div>
+                      <div style={{ fontSize: "11px", color: "#6b7280", textAlign: "center", marginTop: "4px" }}>{p.label}</div>
                     </a>
                   );
                 })}

@@ -54,9 +54,9 @@ export function DocumentsList({ documents, loading }: { documents: PortalDocumen
       <p style={{ fontSize: "16px", fontWeight: 700, color: "#1a1a2e", margin: "0 0 14px" }}>Documenti</p>
 
       {loading ? (
-        <p style={{ fontSize: "14px", color: "#9ca3af", margin: 0 }}>Caricamento documenti…</p>
+        <p style={{ fontSize: "14px", color: "#6b7280", margin: 0 }}>Caricamento documenti…</p>
       ) : !documents || documents.length === 0 ? (
-        <p style={{ fontSize: "13px", color: "#9ca3af", margin: 0 }}>Nessun documento disponibile.</p>
+        <p style={{ fontSize: "13px", color: "#6b7280", margin: 0 }}>Nessun documento disponibile.</p>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
           {documents.map((doc) => {
@@ -83,7 +83,7 @@ export function DocumentsList({ documents, loading }: { documents: PortalDocumen
               >
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontSize: "13px", fontWeight: 700, color: "#1a1a2e", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{doc.title}</div>
-                  <div style={{ fontSize: "11px", color: "#9ca3af", marginTop: "2px" }}>
+                  <div style={{ fontSize: "11px", color: "#6b7280", marginTop: "2px" }}>
                     {docTypeLabel(doc.doc_type)} · {formatDate(doc.created_at)}{size ? ` · ${size}` : ""}
                   </div>
                 </div>

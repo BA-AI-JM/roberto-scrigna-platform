@@ -56,7 +56,7 @@ function Header() {
 function cell(label: string, value: string, strong = false) {
   return (
     <div>
-      <div style={{ fontSize: "10px", color: "#9ca3af", marginBottom: "2px" }}>{label}</div>
+      <div style={{ fontSize: "10px", color: "#6b7280", marginBottom: "2px" }}>{label}</div>
       <div style={{ fontSize: strong ? "15px" : "13px", fontWeight: strong ? 700 : 600, color: strong ? "#1a1a2e" : "#3f3f46" }}>
         {value}
       </div>
@@ -77,11 +77,11 @@ export function EnergyPanel({
     <div style={SHELL}>
       <Header />
       {isLoading ? (
-        <div style={{ padding: "20px 24px", color: "#9ca3af", fontSize: "14px" }}>
+        <div style={{ padding: "20px 24px", color: "#6b7280", fontSize: "14px" }}>
           Calcolo del dispendio energetico…
         </div>
       ) : isError || !data || data.byDayType.length === 0 ? (
-        <div style={{ margin: "20px 24px", padding: "20px 24px", textAlign: "center", color: "#9ca3af", background: "#f8fafc", borderRadius: "8px", border: "1px dashed #e2e8f0", fontSize: "13px" }}>
+        <div style={{ margin: "20px 24px", padding: "20px 24px", textAlign: "center", color: "#6b7280", background: "#f8fafc", borderRadius: "8px", border: "1px dashed #e2e8f0", fontSize: "13px" }}>
           Dispendio non disponibile — completa il modulo di intake (serve una misurazione) per stimarlo.
         </div>
       ) : (

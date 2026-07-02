@@ -221,7 +221,7 @@ export default function ClientsPage() {
 
       {/* Loading */}
       {isLoading && (
-        <div style={{ textAlign: "center", padding: "80px 24px", color: "#9ca3af" }}>
+        <div style={{ textAlign: "center", padding: "80px 24px", color: "#6b7280" }}>
           <div style={{ fontSize: "14px" }}>Caricamento clienti...</div>
         </div>
       )}
@@ -244,7 +244,7 @@ export default function ClientsPage() {
 
       {/* Empty state */}
       {!isLoading && !isError && clients.length === 0 && (
-        <div style={{ textAlign: "center", padding: "80px 24px", color: "#9ca3af" }}>
+        <div style={{ textAlign: "center", padding: "80px 24px", color: "#6b7280" }}>
           <div style={{ fontSize: "48px", marginBottom: "16px" }}>👥</div>
           <h3 style={{ fontSize: "16px", fontWeight: 600, color: "#374151" }}>
             Nessun cliente trovato
@@ -304,7 +304,7 @@ export default function ClientsPage() {
                       {client.email}
                     </div>
                   )}
-                  <div style={{ fontSize: "12px", color: "#9ca3af" }}>
+                  <div style={{ fontSize: "12px", color: "#6b7280" }}>
                     Iscritto il <span className="tnum">{formatDate(client.created_at)}</span>
                   </div>
                 </div>
@@ -366,13 +366,13 @@ export default function ClientsPage() {
                           {client.full_name}
                         </div>
                         {client.phone && (
-                          <div style={{ fontSize: "12px", color: "#9ca3af", marginTop: "2px" }}>
+                          <div style={{ fontSize: "12px", color: "#6b7280", marginTop: "2px" }}>
                             {client.phone}
                           </div>
                         )}
                       </td>
                       <td style={{ padding: "14px 16px", fontSize: "14px", color: "#6b7280" }}>
-                        {client.email ?? <span style={{ color: "#d1d5db" }}>—</span>}
+                        {client.email ?? <span style={{ color: "#6b7280" }}>—</span>}
                       </td>
                       <td style={{ padding: "14px 16px" }}>
                         <StatusBadge status={client.status} />
@@ -409,7 +409,7 @@ export default function ClientsPage() {
                   padding: "12px 16px",
                   borderTop: "1px solid #f1f5f9",
                   fontSize: "13px",
-                  color: "#9ca3af",
+                  color: "#6b7280",
                 }}
               >
                 <span className="tnum">{total}</span> {total === 1 ? "cliente" : "clienti"} trovati

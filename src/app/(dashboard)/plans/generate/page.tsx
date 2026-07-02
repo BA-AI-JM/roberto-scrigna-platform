@@ -1557,7 +1557,7 @@ function MacroOverridesCard({
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <div style={{ fontSize: "10px", color: "#9ca3af", marginBottom: "2px", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+      <div style={{ fontSize: "10px", color: "#6b7280", marginBottom: "2px", textTransform: "uppercase", letterSpacing: "0.04em" }}>
         {label}
       </div>
       <div className="tnum" style={{ fontSize: "14px", fontWeight: 700, color: "#18181b" }}>

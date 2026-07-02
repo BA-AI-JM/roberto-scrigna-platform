@@ -948,7 +948,7 @@ export const clientRouter = router({
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;padding:32px 0;">
     <tr><td align="center">
       <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;">
-        <tr><td style="background:#1a1a2e;padding:24px 32px;"><p style="margin:0;font-size:13px;color:#9ca3af;">Roberto Scrigna — Nutrizione Sportiva</p></td></tr>
+        <tr><td style="background:#1a1a2e;padding:24px 32px;"><p style="margin:0;font-size:13px;color:#6b7280;">Roberto Scrigna — Nutrizione Sportiva</p></td></tr>
         <tr><td style="padding:32px;">
           <h2 style="margin:0 0 12px;font-size:20px;color:#1a1a2e;">Accesso al tuo portale${firstName ? `, ${firstName}` : ""}</h2>
           <p style="margin:0 0 16px;font-size:14px;color:#374151;line-height:1.6;">
@@ -958,7 +958,7 @@ export const clientRouter = router({
             Accedi qui sotto: ti basterà inserire questo indirizzo email (<strong>${email}</strong>) e riceverai un link per entrare senza password.
           </p>
           <a href="${loginUrl}" style="display:inline-block;padding:12px 28px;background:#1a1a2e;color:#ffffff;border-radius:8px;text-decoration:none;font-size:14px;font-weight:600;margin-top:20px;">Accedi al portale</a>
-          <p style="margin:20px 0 0;font-size:12px;color:#9ca3af;line-height:1.5;">Se non ti aspettavi questa email, puoi ignorarla.</p>
+          <p style="margin:20px 0 0;font-size:12px;color:#6b7280;line-height:1.5;">Se non ti aspettavi questa email, puoi ignorarla.</p>
         </td></tr>
         <tr><td style="padding:20px 32px;border-top:1px solid #f1f5f9;"><p style="margin:0;font-size:11px;color:#d1d5db;text-align:center;">Roberto Scrigna — Nutrizione Sportiva · Portale Clienti</p></td></tr>
       </table>

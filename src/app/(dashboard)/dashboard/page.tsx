@@ -126,7 +126,7 @@ function AlertCard({ alert }: { alert: SmartAlert }) {
         <span style={{ fontSize: "16px" }}>{colors.icon}</span>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: "13px", fontWeight: 600, color: "#374151", marginBottom: "2px" }}>
-            <span style={{ color: "#9ca3af", fontWeight: 400, marginRight: "8px" }}>
+            <span style={{ color: "#6b7280", fontWeight: 400, marginRight: "8px" }}>
               {alert.category}
             </span>
             {alert.title}
@@ -154,10 +154,10 @@ function EngagementHeatmap({ data }: { data: HeatmapRow[] }) {
 
   if (data.length === 0 || !hasActivity) {
     return (
-      <div style={{ textAlign: "center", padding: "40px", color: "#9ca3af" }}>
+      <div style={{ textAlign: "center", padding: "40px", color: "#6b7280" }}>
         <div style={{ fontSize: "32px", marginBottom: "8px" }}>📅</div>
         <p style={{ fontSize: "14px", margin: 0 }}>Nessun check-in registrato</p>
-        <p style={{ fontSize: "12px", marginTop: "4px", color: "#d1d5db" }}>
+        <p style={{ fontSize: "12px", marginTop: "4px", color: "#6b7280" }}>
           L&apos;attività dei clienti apparirà qui dopo il primo check-in
         </p>
       </div>
@@ -177,7 +177,7 @@ function EngagementHeatmap({ data }: { data: HeatmapRow[] }) {
                 textAlign: "left",
                 fontSize: "11px",
                 fontWeight: 600,
-                color: "#9ca3af",
+                color: "#6b7280",
                 minWidth: "140px",
               }}
             >
@@ -190,7 +190,7 @@ function EngagementHeatmap({ data }: { data: HeatmapRow[] }) {
                   padding: "8px 4px",
                   textAlign: "center",
                   fontSize: "10px",
-                  color: "#9ca3af",
+                  color: "#6b7280",
                   fontWeight: 400,
                 }}
               >
@@ -271,14 +271,14 @@ function RevenueChart({
           alignItems: "center",
           justifyContent: "center",
           height: "180px",
-          color: "#9ca3af",
+          color: "#6b7280",
           flexDirection: "column",
           gap: "8px",
         }}
       >
         <div style={{ fontSize: "32px" }}>📊</div>
         <p style={{ fontSize: "14px", margin: 0 }}>Nessun dato di fatturazione</p>
-        <p style={{ fontSize: "12px", margin: 0, color: "#d1d5db" }}>
+        <p style={{ fontSize: "12px", margin: 0, color: "#6b7280" }}>
           I dati appariranno dopo la prima fattura pagata
         </p>
       </div>
@@ -317,7 +317,7 @@ function RevenueChart({
             <div
               style={{
                 fontSize: "10px",
-                color: "#9ca3af",
+                color: "#6b7280",
                 marginTop: "6px",
                 fontWeight: 500,
               }}
@@ -343,12 +343,12 @@ function PipelineChart({ data }: { data: Array<{ status: string; count: number }
   const colors: Record<string, string> = {
     active: "#22c55e",
     paused: "#f59e0b",
-    archived: "#9ca3af",
+    archived: "#6b7280",
   };
 
   if (total === 0) {
     return (
-      <div style={{ textAlign: "center", padding: "40px", color: "#9ca3af" }}>
+      <div style={{ textAlign: "center", padding: "40px", color: "#6b7280" }}>
         <p style={{ fontSize: "14px" }}>Nessun cliente</p>
       </div>
     );

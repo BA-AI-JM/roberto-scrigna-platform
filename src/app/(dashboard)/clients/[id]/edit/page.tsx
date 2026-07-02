@@ -399,7 +399,7 @@ export default function ClientEditPage() {
       <div
         className="coach-container"
         style={{
-          color: "#9ca3af",
+          color: "#6b7280",
           textAlign: "center",
           paddingTop: "80px",
         }}
@@ -924,7 +924,7 @@ function PhotosCard({ clientId }: { clientId: string }) {
       {partnerId ? (
         <ClientPhotoGallery clientId={clientId} partnerId={partnerId} />
       ) : (
-        <p style={{ fontSize: "13px", color: "#9ca3af" }}>Caricamento…</p>
+        <p style={{ fontSize: "13px", color: "#6b7280" }}>Caricamento…</p>
       )}
     </div>
   );

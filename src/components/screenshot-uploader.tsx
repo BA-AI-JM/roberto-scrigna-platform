@@ -133,7 +133,7 @@ export function ScreenshotUploader({
         >
           <div style={{ fontSize: "26px", marginBottom: "6px" }}>📸</div>
           <p style={{ fontSize: "14px", color: "#374151", margin: 0 }}>{hint}</p>
-          <p style={{ fontSize: "12px", color: "#9ca3af", marginTop: "4px" }}>
+          <p style={{ fontSize: "12px", color: "#6b7280", marginTop: "4px" }}>
             {ready
               ? "JPG / PNG / WebP / HEIC · max 10 MB per immagine"
               : "Seleziona prima un cliente per abilitare il caricamento."}
@@ -214,7 +214,7 @@ export function ScreenshotUploader({
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    color: "#9ca3af",
+                    color: "#6b7280",
                     fontSize: "11px",
                   }}
                 >

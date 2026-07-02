@@ -152,7 +152,7 @@ function SliderInput({
         onChange={(e) => onChange(Number(e.target.value))}
         style={{ width: "100%", accentColor: "var(--brand)" }}
       />
-      <div className="tnum" style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: "#9ca3af" }}>
+      <div className="tnum" style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: "#6b7280" }}>
         <span>0{suffix}</span>
         <span>100{suffix}</span>
       </div>
@@ -236,7 +236,7 @@ export default function PublicCheckinPage() {
           justifyContent: "center",
           background: "#f8fafc",
           fontFamily: "system-ui, -apple-system, sans-serif",
-          color: "#9ca3af",
+          color: "#6b7280",
           fontSize: "15px",
         }}
       >

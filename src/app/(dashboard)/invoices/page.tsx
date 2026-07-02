@@ -308,7 +308,7 @@ export default function InvoicesPage() {
               style={{
                 textAlign: "center",
                 padding: "80px 24px",
-                color: "#9ca3af",
+                color: "#6b7280",
               }}
             >
               <div style={{ fontSize: "48px", marginBottom: "16px" }}>📄</div>

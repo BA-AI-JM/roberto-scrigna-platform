@@ -185,7 +185,7 @@ export default function NotificationsPage() {
       {activeTab === "feed" && (
         <>
           {notifLoading ? (
-            <div style={{ textAlign: "center", padding: "80px 24px", color: "#9ca3af" }}>
+            <div style={{ textAlign: "center", padding: "80px 24px", color: "#6b7280" }}>
               <div style={{ fontSize: "16px" }}>Caricamento notifiche...</div>
             </div>
           ) : notifError ? (
@@ -196,7 +196,7 @@ export default function NotificationsPage() {
               </p>
             </div>
           ) : notifications.length === 0 ? (
-            <div style={{ textAlign: "center", padding: "80px 24px", color: "#9ca3af" }}>
+            <div style={{ textAlign: "center", padding: "80px 24px", color: "#6b7280" }}>
               <div style={{ fontSize: "48px", marginBottom: "16px" }}>🔔</div>
               <h3 style={{ fontSize: "16px", fontWeight: 600, color: "#374151" }}>
                 Nessuna notifica
@@ -248,14 +248,14 @@ export default function NotificationsPage() {
                         </div>
                         <div style={{ fontSize: "13px", color: "#6b7280" }}>{n.body}</div>
                         {n.client && (
-                          <div style={{ fontSize: "12px", color: "#9ca3af", marginTop: "4px" }}>
+                          <div style={{ fontSize: "12px", color: "#6b7280", marginTop: "4px" }}>
                             {n.client.fullName}
                           </div>
                         )}
                       </div>
                       <div
                         className="tnum"
-                        style={{ fontSize: "12px", color: "#9ca3af", whiteSpace: "nowrap", marginLeft: "16px" }}
+                        style={{ fontSize: "12px", color: "#6b7280", whiteSpace: "nowrap", marginLeft: "16px" }}
                       >
                         {formatTimeAgo(n.createdAt)}
                       </div>
