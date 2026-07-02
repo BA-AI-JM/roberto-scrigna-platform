@@ -21,7 +21,6 @@ import { test, expect, type Page } from "@playwright/test";
 
 // ── Route inventory (route groups like (dashboard)/(auth) do not affect URLs) ──
 const PUBLIC = ["/login", "/register", "/portal/login"];
-const REDIRECT_LANDING = ["/portal"]; // client-side redirect → /portal/login when unauth
 const PROTECTED_COACH = [
   "/dashboard", "/clients", "/invoices", "/invoices/new", "/monitoring",
   "/monitoring/notifications", "/monitoring/training", "/plans", "/plans/generate",

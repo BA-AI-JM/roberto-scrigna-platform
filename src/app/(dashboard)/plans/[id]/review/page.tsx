@@ -17,7 +17,7 @@
 
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { trpc } from "../../../../../lib/trpc/client";
-import type { DayType, MacroTargets } from "../../../../../engine/types";
+import type { DayType } from "../../../../../engine/types";
 import { computeSlotDeviation as slotDeviation } from "../../../../../engine/meal-plan/types";
 import type {
   SupplementEntry,
@@ -81,18 +81,6 @@ const TABS: readonly { key: ReviewTab; label: string }[] = [
 ] as const;
 
 // ── Labels ───────────────────────────────────────────────────────────────────
-
-const DAY_TYPE_LABELS: Record<DayType, string> = {
-  training: "Giorno di Allenamento",
-  rest: "Giorno di Riposo",
-  refeed: "Giorno di Refeed",
-  deload: "Giorno di Deload",
-  // #17 periodization intensity tiers (modes 3-4)
-  training_light: "Allenamento Leggero",
-  training_medium: "Allenamento Medio",
-  training_intense: "Allenamento Intenso",
-  training_double: "Doppia Seduta",
-};
 
 // Compact day-type names for the scannable daily-totals summary (Item #16).
 const DAY_TYPE_SHORT_LABELS: Record<DayType, string> = {

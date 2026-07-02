@@ -6,7 +6,7 @@
  * it accounts for lean mass rather than total weight.
  */
 
-import type { BodyComposition, BmrResult } from "./types";
+import type { BmrResult } from "./types";
 import type { BodyFatResult } from "./body-fat";
 
 /**

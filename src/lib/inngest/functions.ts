@@ -21,7 +21,7 @@ import { createClient } from "@supabase/supabase-js";
 import { createSupabaseServiceRole } from "../supabase/service";
 import { ensurePortalAuthUser } from "../../services/portal-auth";
 import { sendEmail as sendResendEmail } from "../resend/client";
-import { FEEDBACK_DUE_DAYS, FEEDBACK_CATCH_DAYS } from "../../server/plan-versioning";
+import { FEEDBACK_CATCH_DAYS } from "../../server/plan-versioning";
 import { scanPlanUpdateHeuristicsCore } from "../../server/plan-update-heuristics";
 import {
   resolveReminderSettings,

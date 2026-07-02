@@ -15,7 +15,6 @@
 
 import type { NextRequest } from "next/server";
 import { createSupabaseServer } from "../../../../lib/supabase/server";
-import { renderReportHtml } from "../../../../pdf/html-renderer";
 import { generatePdf } from "../../../../pdf/generator";
 import type { SerializedPlanResult } from "../../../../services/plan-generator";
 import type { PdfReportData } from "../../../../pdf/types";

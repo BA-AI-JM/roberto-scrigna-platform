@@ -72,7 +72,7 @@ import type {
   ExerciseSession,
 } from "./types";
 import { isTrainingLikeDayType } from "./types";
-import { calculateTdee, calculateWeeklyTdee, type TdeeOptions } from "./tdee";
+import { calculateTdee, type TdeeOptions } from "./tdee";
 import { calculateMacros, type MacroOptions } from "./macros";
 import { calculateHydration } from "./hydration";
 
