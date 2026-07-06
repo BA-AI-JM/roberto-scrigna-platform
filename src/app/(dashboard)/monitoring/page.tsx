@@ -383,19 +383,26 @@ export default function MonitoringPage() {
                     {formatDate(ci.completedAt ?? ci.createdAt)}
                   </td>
                   <td style={{ padding: "14px 16px", textAlign: "right" }}>
-                    <span
-                      style={{
-                        fontSize: "13px",
-                        color: "#1a1a2e",
-                        fontWeight: 500,
-                        padding: "6px 12px",
-                        border: "1px solid #e2e8f0",
-                        borderRadius: "6px",
-                        cursor: "pointer",
-                      }}
-                    >
-                      Dettagli →
-                    </span>
+                    {ci.client?.id ? (
+                      <Link
+                        href={`/clients/${ci.client.id}`}
+                        style={{
+                          fontSize: "13px",
+                          color: "#1a1a2e",
+                          fontWeight: 500,
+                          padding: "6px 12px",
+                          border: "1px solid #e2e8f0",
+                          borderRadius: "6px",
+                          textDecoration: "none",
+                          display: "inline-block",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        Dettagli →
+                      </Link>
+                    ) : (
+                      <span style={{ fontSize: "13px", color: "#6b7280" }}>—</span>
+                    )}
                   </td>
                 </tr>
               ))}
