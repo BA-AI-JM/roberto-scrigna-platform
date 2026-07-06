@@ -333,6 +333,17 @@ export const legalRouter = router({
         });
       }
 
+      // Practitioner practice profile (#29): fills the Albo / P.IVA / studio / fee /
+      // insurer / foro / terms tokens. One row per partner (partner_practice_profile,
+      // migration 015). Absent row or empty field → rendered as "[DA COMPLETARE: …]".
+      const { data: profile } = await db
+        .from("partner_practice_profile")
+        .select(
+          "professione, albo_ordine, albo_number, partita_iva, studio_address, delivery_mode, plan_delivery_days, cadenza, fee_importo, cassa_iva, fee_articolazione, payment_metodo, payment_termine, durata, cancellation_notice_hours, penale, numero_polizza, assicuratore, foro"
+        )
+        .eq("partner_id", ctx.partnerId)
+        .maybeSingle();
+
       const generatedDate = new Intl.DateTimeFormat("it-IT", {
         day: "2-digit",
         month: "2-digit",
@@ -355,6 +366,8 @@ export const legalRouter = router({
           client_full_name: client.full_name as string,
           professional_name: (partner?.full_name as string | undefined) ?? "Roberto Scrigna",
           generated_date: generatedDate,
+          // Practitioner details from the practice profile (empty/absent → gaps).
+          ...((profile as Record<string, string | null> | null) ?? {}),
           // codice fiscale + residenza are not held on the client record → left as gaps
         });
 

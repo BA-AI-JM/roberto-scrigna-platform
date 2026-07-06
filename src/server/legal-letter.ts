@@ -9,30 +9,40 @@
  * The Puppeteer step lives in legal-letter-pdf.ts so this stays trivially testable.
  */
 
-import { MERGE_TOKENS, type MergeToken } from "./legal-templates";
+import { MERGE_TOKENS, MERGE_TOKEN_LABELS, type MergeToken } from "./legal-templates";
 
 export type MergeValues = Partial<Record<MergeToken, string | null | undefined>>;
 
 export interface FilledLetter {
   filledMd: string;
-  /** Merge tokens still present (no value supplied) — shown as gaps in preview. */
+  /** Merge tokens present in the body with no value — shown as gaps in preview. */
   missingTokens: MergeToken[];
-  /** Distinct `[PLACEHOLDER: ...]` labels Roberto still has to provide. */
+  /** Distinct `[PLACEHOLDER: ...]` labels still present (legacy/unmigrated bodies). */
   pendingPlaceholders: string[];
 }
 
-/** Replace the merge tokens we have values for; leave the rest as visible gaps. */
+/**
+ * Fill the merge tokens we have values for; render every UNfilled slot as a clear
+ * "[DA COMPLETARE: <label>]" gap (never blank or a raw `{{token}}`) and report it in
+ * missingTokens so the UI can prompt the coach to complete his practice profile.
+ * A token that doesn't appear in this body is neither filled nor reported.
+ */
 export function fillEngagementLetter(bodyMd: string, values: MergeValues): FilledLetter {
   let filledMd = bodyMd;
+  const missingTokens: MergeToken[] = [];
 
   for (const token of MERGE_TOKENS) {
+    const slot = `{{${token}}}`;
+    if (!filledMd.includes(slot)) continue; // token not used by this template body
     const value = values[token];
     if (typeof value === "string" && value.trim() !== "") {
-      filledMd = filledMd.split(`{{${token}}}`).join(value.trim());
+      filledMd = filledMd.split(slot).join(value.trim());
+    } else {
+      missingTokens.push(token);
+      filledMd = filledMd.split(slot).join(`[DA COMPLETARE: ${MERGE_TOKEN_LABELS[token]}]`);
     }
   }
 
-  const missingTokens = MERGE_TOKENS.filter((t) => filledMd.includes(`{{${t}}}`));
   const pendingPlaceholders = extractPendingPlaceholders(filledMd);
 
   return { filledMd, missingTokens, pendingPlaceholders };
