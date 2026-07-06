@@ -12,29 +12,11 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
-  // Keep the Chromium/Puppeteer packages OUT of the server bundle. The prod build
-  // (Turbopack, Next 16) was relocating @sparticuz/chromium into a chunk, so at
-  // runtime executablePath() couldn't find its own bin/ dir and the engagement-
-  // letter PDF 500'd with:
-  //   "The input directory /var/task/node_modules/@sparticuz/chromium/bin does not
-  //    exist … you must externalize @sparticuz/chromium so it is not relocated."
-  // Externalizing forces a native require from node_modules, keeping bin/ in place
-  // for every route that renders a PDF (letter, invoice, plan). Both packages are on
-  // Next's built-in list, but the deployed evidence showed it wasn't applied under
-  // Turbopack — so declare them explicitly.
-  serverExternalPackages: ["@sparticuz/chromium", "puppeteer-core"],
-
-  // Force the Chromium binary archives into every serverless function that renders
-  // a PDF. @sparticuz/chromium loads bin/chromium.br (+ fonts/swiftshader) via a
-  // RUNTIME `existsSync(join(input, "chromium.br"))` — a dynamic fs read the file
-  // tracer cannot follow, so without this the bin/ dir is absent at runtime and
-  // executablePath() throws "input directory … /bin does not exist". Externalizing
-  // (above) stops the code being relocated; this ships the binary alongside it.
-  outputFileTracingIncludes: {
-    "/api/trpc/[trpc]": ["./node_modules/@sparticuz/chromium/bin/**"],
-    "/api/invoice/[id]/pdf": ["./node_modules/@sparticuz/chromium/bin/**"],
-    "/api/pdf/[planId]": ["./node_modules/@sparticuz/chromium/bin/**"],
-  },
+  // NOTE: #70's serverExternalPackages/outputFileTracingIncludes for
+  // @sparticuz/chromium were REMOVED — this Next 16 Turbopack production build did
+  // not honor them (the deployed chunk hash was byte-identical with vs without the
+  // config). The PDF launcher now uses @sparticuz/chromium-min with a REMOTE binary
+  // (src/pdf/chromium-launcher.ts), so nothing needs bundling/externalizing.
 
   // Allow images from Supabase storage
   images: {

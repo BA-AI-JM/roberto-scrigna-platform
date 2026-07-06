@@ -8,28 +8,9 @@
  * unset to let puppeteer-core fall back to the default system browser.
  */
 
-import chromium from "@sparticuz/chromium";
-import puppeteerCore from "puppeteer-core";
 import type { PdfReportData, PdfGenerateOptions } from "./types";
 import { renderReportHtml } from "./html-renderer";
-
-/**
- * Resolve the executable path for the Chromium/Chrome binary.
- *
- * Resolution order:
- *  1. CHROMIUM_PATH env var (explicit override — useful for CI or custom setups)
- *  2. On Vercel (VERCEL env var present): @sparticuz/chromium auto-detected path
- *  3. Locally: undefined — puppeteer-core falls back to the system browser
- */
-async function resolveExecutablePath(): Promise<string | undefined> {
-  if (process.env.CHROMIUM_PATH) {
-    return process.env.CHROMIUM_PATH;
-  }
-  if (process.env.VERCEL) {
-    return chromium.executablePath();
-  }
-  return undefined;
-}
+import { launchPdfBrowser } from "./chromium-launcher";
 
 /**
  * Generate a branded PDF report as a Buffer.
@@ -47,14 +28,7 @@ export async function generatePdf(
 ): Promise<Uint8Array> {
   const html = renderReportHtml(data, options);
 
-  const executablePath = await resolveExecutablePath();
-
-  const browser = await puppeteerCore.launch({
-    args: chromium.args,
-    defaultViewport: { width: 1280, height: 800 },
-    executablePath,
-    headless: true,
-  });
+  const browser = await launchPdfBrowser();
 
   try {
     const page = await browser.newPage();

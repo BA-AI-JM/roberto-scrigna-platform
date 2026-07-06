@@ -8,33 +8,11 @@
  */
 
 import "server-only";
-import chromium from "@sparticuz/chromium";
-import puppeteerCore from "puppeteer-core";
-
-/**
- * Resolve the Chromium executable path (same order as src/pdf/generator.ts):
- *  1. CHROMIUM_PATH override  2. Vercel → bundled serverless binary  3. local → system browser.
- */
-async function resolveExecutablePath(): Promise<string | undefined> {
-  if (process.env.CHROMIUM_PATH) {
-    return process.env.CHROMIUM_PATH;
-  }
-  if (process.env.VERCEL) {
-    return chromium.executablePath();
-  }
-  return undefined;
-}
+import { launchPdfBrowser } from "../pdf/chromium-launcher";
 
 /** Render a full HTML document to a PDF buffer. */
 export async function generateEngagementLetterPdf(html: string): Promise<Uint8Array> {
-  const executablePath = await resolveExecutablePath();
-
-  const browser = await puppeteerCore.launch({
-    args: chromium.args,
-    defaultViewport: { width: 1280, height: 800 },
-    executablePath,
-    headless: true,
-  });
+  const browser = await launchPdfBrowser();
 
   try {
     const page = await browser.newPage();
