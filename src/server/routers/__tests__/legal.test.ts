@@ -39,7 +39,7 @@ vi.mock("../../legal-letter-pdf", () => ({
 }));
 
 import { legalRouter } from "../legal";
-import { hashDocumentBody } from "../../legal-templates";
+import { hashDocumentBody, ENGAGEMENT_LETTER_IT } from "../../legal-templates";
 import { generateEngagementLetterPdf } from "../../legal-letter-pdf";
 
 const VER1 = "11111111-1111-4111-8111-111111111111";
@@ -198,17 +198,73 @@ describe("legal.seedDefaultEngagementLetter", () => {
     expect(holder.inserted.some((i) => i.table === "legal_document_version")).toBe(true);
   });
 
-  test("is idempotent when an active version exists", async () => {
+  test("no-ops when the active version's hash MATCHES the code template (up to date)", async () => {
     const db = makeDb({
       legal_document: [{ id: "doc1", partner_id: "p1", doc_kind: "engagement_letter" }],
       legal_document_version: [
-        { id: VER1, legal_document_id: "doc1", version_number: 1, status: "active" },
+        {
+          id: VER1,
+          legal_document_id: "doc1",
+          version_number: 1,
+          status: "active",
+          content_hash: hashDocumentBody(ENGAGEMENT_LETTER_IT.bodyMd), // == current code template
+        },
       ],
     });
     const res = await partnerCaller(db).seedDefaultEngagementLetter();
     expect(res.alreadySeeded).toBe(true);
+    expect(res.outcome).toBe("up_to_date");
     expect(res.versionId).toBe(VER1);
+    // No new version inserted, old one NOT archived.
     expect(holder.inserted.filter((i) => i.table === "legal_document_version")).toHaveLength(0);
+    expect(holder.updates.filter((u) => u.table === "legal_document_version")).toHaveLength(0);
+  });
+
+  test("UPGRADES when the active version's hash DIFFERS (old template → new body)", async () => {
+    // Simulates Roberto's prod state: an active version whose body is the OLD
+    // [PLACEHOLDER] template (a hash that won't match the retokenized code body).
+    const db = makeDb({
+      legal_document: [{ id: "doc1", partner_id: "p1", doc_kind: "engagement_letter" }],
+      legal_document_version: [
+        {
+          id: VER1,
+          legal_document_id: "doc1",
+          version_number: 1,
+          status: "active",
+          content_hash: hashDocumentBody("OLD [PLACEHOLDER] BODY"), // ≠ current code hash
+        },
+      ],
+    });
+    const res = await partnerCaller(db).seedDefaultEngagementLetter();
+
+    expect(res.alreadySeeded).toBe(false);
+    expect(res.outcome).toBe("upgraded");
+    expect(res.versionNumber).toBe(2); // bumped past the archived v1
+    // A NEW active version was published from the current code template…
+    const ins = holder.inserted.find((i) => i.table === "legal_document_version")!;
+    expect(ins).toBeTruthy();
+    expect(ins.payload.content_hash).toBe(hashDocumentBody(ENGAGEMENT_LETTER_IT.bodyMd));
+    // …and the stale active version was archived to 'replaced'.
+    const arch = holder.updates.find((u) => u.table === "legal_document_version")!;
+    expect(arch.set).toEqual({ status: "replaced" });
+    expect(arch.filters).toEqual({ legal_document_id: "doc1", status: "active" });
+  });
+
+  test("PARTNER-SCOPE: seed only touches the caller's own document", async () => {
+    // Another partner's doc is present; p1 has none → p1 first-seeds its OWN doc,
+    // never reads/writes pOther's.
+    const db = makeDb({
+      legal_document: [{ id: "docOther", partner_id: "pOther", doc_kind: "engagement_letter" }],
+      legal_document_version: [
+        { id: "vOther", legal_document_id: "docOther", version_number: 1, status: "active" },
+      ],
+    });
+    const res = await partnerCaller(db, "p1").seedDefaultEngagementLetter();
+    expect(res.outcome).toBe("seeded"); // p1 had no active version of its own
+    expect(res.alreadySeeded).toBe(false);
+    // No write ever targets pOther's document (p1 only found/created its own).
+    expect(holder.updates.every((u) => u.filters.legal_document_id !== "docOther")).toBe(true);
+    expect(holder.inserted.every((i) => i.payload.legal_document_id !== "docOther")).toBe(true);
   });
 });
 
