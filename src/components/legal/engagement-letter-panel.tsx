@@ -15,7 +15,8 @@
  */
 
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { getQueryKey } from "@trpc/react-query";
 import { trpc } from "@/lib/trpc/client";
 import { fetchClientLetterStatus, downloadSignedForClient, letterStatusBadge, NO_LETTER, CoachLetterError } from "@/lib/legal/coach-letter-adapter";
 
@@ -38,10 +39,19 @@ const btnBrand = "inline-flex items-center justify-center gap-2 rounded-full bg-
 const btnGhost = "inline-flex items-center justify-center gap-2 rounded-full border-[0.5px] border-border bg-card px-5 py-2.5 text-sm font-medium text-ink hover:bg-muted disabled:opacity-50";
 
 export function EngagementLetterPanel({ clientId, clientName }: { clientId: string; clientName: string }) {
+  // NB: trpc.useUtils() is unusable here — the backend `client` router collides
+  // with a built-in on the utils proxy; invalidate via getQueryKey instead.
+  const queryClient = useQueryClient();
   const templateQuery = trpc.legal.getActiveVersion.useQuery();
   const statusQuery = useQuery({ queryKey: ["clientLetterStatus", clientId], queryFn: () => fetchClientLetterStatus(clientId), retry: false });
 
-  const seed = trpc.legal.seedDefaultEngagementLetter.useMutation({ onSuccess: () => void templateQuery.refetch() });
+  // Shared by BOTH the "Attiva modello predefinito" (no-version) and the
+  // "Aggiorna modello predefinito" (has-version) buttons. #75 made this
+  // content-aware + idempotent: same-hash → { outcome: "up_to_date" } no-op;
+  // different-hash → republishes the upgraded version.
+  const seed = trpc.legal.seedDefaultEngagementLetter.useMutation({
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: getQueryKey(trpc.legal.getActiveVersion) }),
+  });
   const generate = trpc.legal.generateEngagementLetter.useMutation();
   const send = trpc.signature.createSignatureRequest.useMutation({ onSuccess: () => void statusQuery.refetch() });
 
@@ -109,6 +119,23 @@ export function EngagementLetterPanel({ clientId, clientName }: { clientId: stri
         <p className="mt-0.5 text-sm text-muted-foreground">
           Lingua {version.language.toUpperCase()} · pubblicato il{" "}
           <span className="tnum">{new Date(version.publishedAt).toLocaleDateString("it-IT", { day: "2-digit", month: "long", year: "numeric" })}</span>
+        </p>
+
+        {/* Content-aware upgrade — reachable even when an active version exists, so
+            a code-template change (#75) can actually reach an already-seeded partner. */}
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <button type="button" onClick={() => seed.mutate()} disabled={seed.isPending} className={btnGhost}>
+            {seed.isPending ? "Aggiornamento…" : "Aggiorna modello predefinito"}
+          </button>
+          {seed.isSuccess && seed.data && (
+            <span className="text-sm text-brand-deep" role="status" aria-live="polite">
+              {seed.data.outcome === "up_to_date" ? "Modello già aggiornato" : "Modello aggiornato"}
+            </span>
+          )}
+          {seed.isError && <span role="alert" className="text-sm text-[#9f3a2f]">Aggiornamento non riuscito. Riprova.</span>}
+        </div>
+        <p className="mt-2 text-xs text-muted-foreground">
+          Applica l&apos;ultima versione del modello predefinito (IT-03). Se è già aggiornato, non cambia nulla.
         </p>
       </div>
 
