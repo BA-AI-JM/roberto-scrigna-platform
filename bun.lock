@@ -10,7 +10,7 @@
         "@radix-ui/react-select": "^2.3.1",
         "@radix-ui/react-slot": "^1.2.4",
         "@radix-ui/react-tabs": "^1.1.13",
-        "@sparticuz/chromium": "^147.0.2",
+        "@sparticuz/chromium-min": "147.0.2",
         "@supabase/ssr": "^0.9.0",
         "@supabase/supabase-js": "^2.100.1",
         "@tanstack/react-query": "^5.95.2",
@@ -434,7 +434,7 @@
 
     "@rolldown/pluginutils": ["@rolldown/pluginutils@1.0.0-rc.12", "", {}, "sha512-HHMwmarRKvoFsJorqYlFeFRzXZqCt2ETQlEDOb9aqssrnVBB1/+xgTGtuTrIk5vzLNX1MjMtTf7W9z3tsSbrxw=="],
 
-    "@sparticuz/chromium": ["@sparticuz/chromium@147.0.2", "", { "dependencies": { "tar-fs": "^3.1.2" } }, "sha512-oqXyPAlGQuT9wdZAhcx4nmhehVgEsDc2adL/+FlX8qsLh/YyOgl9GQp8dPMDIBRmktxgA9c1QSNJIQUj2UeHhQ=="],
+    "@sparticuz/chromium-min": ["@sparticuz/chromium-min@147.0.2", "", { "dependencies": { "tar-fs": "^3.1.2" } }, "sha512-aSZWZTBCoVmEdDkwgh/WOrIt+LDwS0gUOFI+FX+Od7hI0C0jmL7v4Ri+HPBQX2d0R/F8oXD97NnWPsGeTU5h8Q=="],
 
     "@stablelib/base64": ["@stablelib/base64@1.0.1", "", {}, "sha512-1bnPQqSxSuc3Ii6MhBysoWCg58j97aUjuCSZrGSmDxNqtytIi0k8utUenAwTZN4V5mXXYGsVUI9zeBqy+jBOSQ=="],
 

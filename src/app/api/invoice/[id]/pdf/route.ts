@@ -14,28 +14,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { renderInvoiceHtml } from "@/pdf/invoice-renderer";
-import chromium from "@sparticuz/chromium";
-import puppeteerCore from "puppeteer-core";
+import { launchPdfBrowser } from "@/pdf/chromium-launcher";
 
 interface LineItem {
   description: string;
   quantity: number;
   unitPriceCents: number;
   taxPct?: number;
-}
-
-/**
- * Resolve the executable path for the Chromium/Chrome binary.
- * Mirrors the same logic in src/pdf/generator.ts.
- */
-async function resolveExecutablePath(): Promise<string | undefined> {
-  if (process.env.CHROMIUM_PATH) {
-    return process.env.CHROMIUM_PATH;
-  }
-  if (process.env.VERCEL) {
-    return chromium.executablePath();
-  }
-  return undefined;
 }
 
 export async function GET(
@@ -120,15 +105,9 @@ export async function GET(
     partnerEmail: partner.email,
   });
 
-  // Generate PDF via puppeteer-core + @sparticuz/chromium
-  const executablePath = await resolveExecutablePath();
+  // Generate PDF via the shared serverless-Chromium launcher (chromium-min).
   let pdfBuffer: Uint8Array;
-  const browser = await puppeteerCore.launch({
-    args: chromium.args,
-    defaultViewport: { width: 1280, height: 800 },
-    executablePath,
-    headless: true,
-  });
+  const browser = await launchPdfBrowser();
   try {
     const page = await browser.newPage();
     await page.setContent(html, { waitUntil: "networkidle0" });
