@@ -81,6 +81,9 @@ function calcTotalCents(
  * Generate a sequential invoice number: RS-YYYY-NNNN
  * Queries the highest existing number for the current year.
  */
+/** Bounded retries when a concurrent create grabs the same RS-YYYY-NNNN number. */
+const MAX_INVOICE_CREATE_ATTEMPTS = 5;
+
 async function generateInvoiceNumber(
   supabase: Awaited<ReturnType<typeof import("../trpc").createTrpcContext>>["supabase"],
   partnerId: string
@@ -210,40 +213,61 @@ export const invoiceRouter = router({
         });
       }
 
-      const invoiceNumber = await generateInvoiceNumber(
-        ctx.supabase,
-        ctx.partnerId
-      );
-
       const taxPct = input.taxPct ?? 0;
       const amountCents = calcTotalCents(input.lineItems, taxPct);
 
-      const { data, error } = await ctx.supabase
-        .from("invoice")
-        .insert({
-          client_id: input.clientId,
-          partner_id: ctx.partnerId,
-          invoice_number: invoiceNumber,
-          status: "draft" as const,
-          amount_cents: amountCents,
-          currency: input.currency,
-          tax_pct: taxPct,
-          description: input.description ?? null,
-          line_items: input.lineItems,
-          issued_date: input.issuedDate ?? new Date().toISOString().split("T")[0],
-          due_date: input.dueDate ?? null,
-        })
-        .select("id, invoice_number")
-        .single();
+      // Read-then-increment (generateInvoiceNumber) can race under concurrent
+      // creates → two invoices computing the same RS-YYYY-NNNN → a PER-PARTNER
+      // unique violation (idx_invoice_number_partner, migration 016). Recompute
+      // the number and retry a bounded number of times so a race doesn't 500.
+      let created: { id: string; invoice_number: string } | null = null;
+      let lastError: { code?: string; message?: string } | null = null;
+      for (let attempt = 0; attempt < MAX_INVOICE_CREATE_ATTEMPTS; attempt++) {
+        const invoiceNumber = await generateInvoiceNumber(ctx.supabase, ctx.partnerId);
 
-      if (error || !data) {
+        const { data, error } = await ctx.supabase
+          .from("invoice")
+          .insert({
+            client_id: input.clientId,
+            partner_id: ctx.partnerId,
+            invoice_number: invoiceNumber,
+            status: "draft" as const,
+            amount_cents: amountCents,
+            currency: input.currency,
+            tax_pct: taxPct,
+            description: input.description ?? null,
+            line_items: input.lineItems,
+            issued_date: input.issuedDate ?? new Date().toISOString().split("T")[0],
+            due_date: input.dueDate ?? null,
+          })
+          .select("id, invoice_number")
+          .single();
+
+        if (!error && data) {
+          created = data as { id: string; invoice_number: string };
+          break;
+        }
+        // 23505 = unique_violation on the invoice number → a concurrent create
+        // grabbed it; recompute + retry. Any other error → fail immediately.
+        if (error?.code === "23505") {
+          lastError = error;
+          continue;
+        }
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: error?.message ?? "Errore nella creazione della fattura.",
         });
       }
 
-      return { id: data.id, invoiceNumber: data.invoice_number };
+      if (!created) {
+        console.error("[router/invoice.create] number-conflict retries exhausted", lastError);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Errore nella creazione della fattura. Riprova.",
+        });
+      }
+
+      return { id: created.id, invoiceNumber: created.invoice_number };
     }),
 
   /**
