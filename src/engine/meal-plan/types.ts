@@ -155,35 +155,14 @@ export interface MealSlot {
   substitutions: SelectedMeal[];
 }
 
-// ── Tolerance Bands ─────────────────────────────────────────────────────────
-
-/** Tolerance bands for macro matching */
-export interface ToleranceBands {
-  /** Protein tolerance in grams (default ±10g) */
-  proteinG: number;
-  /** Fat tolerance in grams (default ±10g) */
-  fatG: number;
-  /** Carb tolerance in grams (default ±15g) */
-  carbsG: number;
-  /** Energy tolerance in kcal (default ±100kcal) */
-  kcal: number;
-}
-
-/** Default per-day tolerance bands (v4.4 spec §10.8.3). */
-export const DEFAULT_TOLERANCES: ToleranceBands = {
-  proteinG: 10,
-  fatG: 10,
-  carbsG: 15,
-  kcal: 100,
-} as const;
-
-/** Per-meal tolerance bands (v4.4 spec §10.8.3). Tighter than per-day. */
-export const PER_MEAL_TOLERANCES: ToleranceBands = {
-  proteinG: 5,
-  fatG: 5,
-  carbsG: 10,
-  kcal: 50,
-} as const;
+// ── Slot Deviation (display) ────────────────────────────────────────────────
+//
+// The tolerance RULE lives in ONE place: RECONCILE_TOLERANCE_PCT (relative ±%) +
+// withinReconcileTolerance() in reconcile.ts. The old absolute bands
+// (ToleranceBands / DEFAULT_TOLERANCES / PER_MEAL_TOLERANCES) and the unused
+// withinTolerance() helper were removed (#3) so the plan flag/badge can't disagree
+// with the engine's convergence verdict. computeSlotDeviation below is display-only
+// (the raw actual−target diffs shown in the UI), NOT a second tolerance encoding.
 
 /**
  * Macro deviation for a single slot's actual vs target.
@@ -210,19 +189,6 @@ export function computeSlotDeviation(
     carbsG: Math.round((actual.carbsG - target.carbsG) * 10) / 10,
     kcal: actual.kcal - target.kcal,
   };
-}
-
-/** Check whether a deviation is within the provided tolerance bands. */
-export function withinTolerance(
-  deviation: SlotDeviation,
-  tolerances: ToleranceBands = PER_MEAL_TOLERANCES
-): boolean {
-  return (
-    Math.abs(deviation.proteinG) <= tolerances.proteinG &&
-    Math.abs(deviation.fatG) <= tolerances.fatG &&
-    Math.abs(deviation.carbsG) <= tolerances.carbsG &&
-    Math.abs(deviation.kcal) <= tolerances.kcal
-  );
 }
 
 // ── Scaling Bounds ──────────────────────────────────────────────────────────
@@ -253,8 +219,6 @@ export interface MealPlanConfig {
   excludeAllergens?: Allergen[];
   /** Required tags (meals must have at least one) */
   preferTags?: MealTag[];
-  /** Custom tolerance bands (defaults to DEFAULT_TOLERANCES) */
-  tolerances?: Partial<ToleranceBands>;
   /** Custom distribution template (auto-selected if not provided) */
   distribution?: DistributionTemplate;
   /** Number of substitutions per slot (2-4, default 3) */

@@ -26,7 +26,7 @@ import type { PdfClientInfo } from "../../pdf/types";
 import { sendEmail } from "../../lib/resend/client";
 import { createSupabaseServiceRole } from "../../lib/supabase/service";
 import { ensurePortalAuthUser } from "../../services/portal-auth";
-import { DEFAULT_TOLERANCES } from "../../engine/meal-plan/types";
+import { withinReconcileTolerance } from "../../engine/meal-plan/reconcile";
 import type { SourcePin } from "../../engine/meal-plan/types";
 import { foodCatalogue } from "../../engine/meal-plan";
 import {
@@ -1442,11 +1442,9 @@ export const planRouter = router({
         fatG: r1(newActual.fatG - tgtFat),
         carbsG: r1(newActual.carbsG - tgtCarb),
       };
-      // Protected pair only (kcal + protein) — matches the engine (planner.ts).
-      // Carbs/fats are the yielding remainder and do NOT gate withinTolerance.
-      const withinTolerance =
-        Math.abs(deviation.kcal) <= DEFAULT_TOLERANCES.kcal &&
-        Math.abs(deviation.proteinG) <= DEFAULT_TOLERANCES.proteinG;
+      // Protected pair (kcal + protein) via the single relative-tolerance source
+      // shared with the engine (reconcile.ts) — the flag agrees with convergence (#3).
+      const withinTolerance = withinReconcileTolerance(deviation, targetKcal, tgtProtein);
 
       const updatedMealPlan = {
         ...mealPlan,
@@ -1607,11 +1605,9 @@ export const planRouter = router({
         fatG: r1(newActual.fatG - tgtFat),
         carbsG: r1(newActual.carbsG - tgtCarb),
       };
-      // Protected pair only (kcal + protein) — matches the engine (planner.ts).
-      // Carbs/fats are the yielding remainder and do NOT gate withinTolerance.
-      const withinTolerance =
-        Math.abs(deviation.kcal) <= DEFAULT_TOLERANCES.kcal &&
-        Math.abs(deviation.proteinG) <= DEFAULT_TOLERANCES.proteinG;
+      // Protected pair (kcal + protein) via the single relative-tolerance source
+      // shared with the engine (reconcile.ts) — the flag agrees with convergence (#3).
+      const withinTolerance = withinReconcileTolerance(deviation, tgtKcal, tgtProtein);
 
       const updatedMealPlan = {
         ...mealPlan,
@@ -1806,9 +1802,9 @@ export const planRouter = router({
         fatG: r1(newActual.fatG - tgtFat),
         carbsG: r1(newActual.carbsG - tgtCarb),
       };
-      const withinTolerance =
-        Math.abs(deviation.kcal) <= DEFAULT_TOLERANCES.kcal &&
-        Math.abs(deviation.proteinG) <= DEFAULT_TOLERANCES.proteinG;
+      // Protected pair (kcal + protein) via the single relative-tolerance source
+      // shared with the engine (reconcile.ts) — the flag agrees with convergence (#3).
+      const withinTolerance = withinReconcileTolerance(deviation, tgtKcal, tgtProtein);
 
       const updatedMealPlan = {
         ...mealPlan,

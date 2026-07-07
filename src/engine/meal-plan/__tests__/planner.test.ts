@@ -4,7 +4,7 @@ import { filterMeals, scoreMeal, selectMeals } from "../selector";
 import { generateSubstitutions } from "../substitution";
 import { applyFatCompensation } from "../fat-compensation";
 import { getDistribution, DISTRIBUTION_TEMPLATES } from "../distribution";
-import { DEFAULT_TOLERANCES, SCALE_BOUNDS } from "../types";
+import { SCALE_BOUNDS } from "../types";
 import type {
   MealTemplate,
   MealPlanConfig,
@@ -425,12 +425,5 @@ describe("Meal Plan Creator", () => {
 
     const plan = createMealPlan(ALL_TEMPLATES, config);
     expect(typeof plan.withinTolerance).toBe("boolean");
-  });
-
-  test("tolerance bands default correctly", () => {
-    expect(DEFAULT_TOLERANCES.proteinG).toBe(10);
-    expect(DEFAULT_TOLERANCES.fatG).toBe(10);
-    expect(DEFAULT_TOLERANCES.carbsG).toBe(15);
-    expect(DEFAULT_TOLERANCES.kcal).toBe(100);
   });
 });

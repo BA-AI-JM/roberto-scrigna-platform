@@ -22,7 +22,6 @@ export type {
   SlotMacroTargets,
   SelectedMeal,
   MealSlot,
-  ToleranceBands,
   MealPlanConfig,
   MacroDeviation,
   DayMealPlan,
@@ -30,7 +29,7 @@ export type {
   PinnableCategory,
 } from "./types";
 
-export { DEFAULT_TOLERANCES, SCALE_BOUNDS, SUBSTITUTION_BOUNDS } from "./types";
+export { SCALE_BOUNDS, SUBSTITUTION_BOUNDS } from "./types";
 export { FIBRE_RESTRICTION_CAP_G, SODIUM_RESTRICTION_CAP_MG } from "./types";
 
 // Distribution

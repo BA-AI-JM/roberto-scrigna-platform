@@ -26,13 +26,12 @@ import type {
   MealType,
   MacroDeviation,
   SlotMacroTargets,
-  ToleranceBands,
 } from "./types";
-import { DEFAULT_TOLERANCES, SUBSTITUTION_BOUNDS } from "./types";
+import { SUBSTITUTION_BOUNDS } from "./types";
 import { getDistribution } from "./distribution";
 import { selectMeals, type SelectionFilter } from "./selector";
 import { generateSubstitutions } from "./substitution";
-import { reconcilePlan } from "./reconcile";
+import { reconcilePlan, withinReconcileTolerance } from "./reconcile";
 import { assembleMeal, isFibreCapableType } from "./solver";
 
 // ── Day-level fibre target (#10) ─────────────────────────────────────────────
@@ -108,7 +107,6 @@ export function createMealPlan(
   const mealCount = config.mealCount ?? 4;
   const excludeAllergens = config.excludeAllergens ?? [];
   const preferTags = config.preferTags ?? [];
-  const tolerances: ToleranceBands = { ...DEFAULT_TOLERANCES, ...config.tolerances };
   const subsCount = Math.max(
     SUBSTITUTION_BOUNDS.min,
     Math.min(SUBSTITUTION_BOUNDS.max, config.substitutionsPerSlot ?? 3)
@@ -222,9 +220,14 @@ export function createMealPlan(
   // ONLY the protected pair — kcal and protein — not the yielding remainder.
   const actualMacros = sumActualMacros(finalSlots);
   const deviation = calculateDeviation(actualMacros, config.macroTargets);
-  const withinTolerance =
-    Math.abs(deviation.kcal) <= tolerances.kcal &&
-    Math.abs(deviation.proteinG) <= tolerances.proteinG;
+  // Single source of truth: the SAME relative ±RECONCILE_TOLERANCE_PCT rule the
+  // engine converges on (reconcile.ts). The flag now agrees with the engine by
+  // construction (was absolute DEFAULT_TOLERANCES bands → could disagree, #3).
+  const withinTolerance = withinReconcileTolerance(
+    deviation,
+    config.macroTargets.totalKcal,
+    config.macroTargets.proteinG
+  );
 
   return {
     dayType: config.dayType,
