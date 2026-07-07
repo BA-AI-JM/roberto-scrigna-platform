@@ -194,6 +194,15 @@ export const legalRouter = router({
   seedDefaultEngagementLetter: protectedProcedure.mutation(async ({ ctx }) => {
     const db = ctx.supabase;
 
+    // Hash of the CURRENT code template — the body we'd publish. Comparing it to
+    // the active version's content_hash makes the seed CONTENT-AWARE: it skips
+    // only when the active body already matches the code, and it UPGRADES an
+    // out-of-date active version (e.g. the old [PLACEHOLDER] body after the #29
+    // retokenization) to the new {{token}} body on a re-click. Without this the
+    // seed no-ops on ANY active version, so a code-template change could never
+    // reach an already-seeded partner from the app (createVersion is UI-unwired).
+    const currentHash = hashDocumentBody(ENGAGEMENT_LETTER_IT.bodyMd);
+
     const { data: doc, error: docErr } = await db
       .from("legal_document")
       .select("id")
@@ -208,10 +217,11 @@ export const legalRouter = router({
       });
     }
 
+    let hasOutdatedActive = false;
     if (doc?.id) {
       const { data: active, error: activeErr } = await db
         .from("legal_document_version")
-        .select("id, version_number")
+        .select("id, version_number, content_hash")
         .eq("legal_document_id", doc.id)
         .eq("status", "active")
         .maybeSingle();
@@ -223,23 +233,36 @@ export const legalRouter = router({
         });
       }
       if (active?.id) {
-        return {
-          documentId: doc.id as string,
-          versionId: active.id as string,
-          versionNumber: active.version_number as number,
-          alreadySeeded: true,
-        };
+        // Active body already matches the code template → genuinely nothing to
+        // do (idempotent; never inserts a duplicate version).
+        if (active.content_hash === currentHash) {
+          return {
+            documentId: doc.id as string,
+            versionId: active.id as string,
+            versionNumber: active.version_number as number,
+            alreadySeeded: true,
+            outcome: "up_to_date" as const,
+          };
+        }
+        // Hashes differ → the code template changed; fall through to publish the
+        // new body (publishVersion archives this stale active version).
+        hasOutdatedActive = true;
       }
     }
 
+    // versionLabel omitted → publishVersion auto-numbers it (v1 first seed, v2 on
+    // upgrade), so the label tracks the real version_number.
     const result = await publishVersion(db, ctx.partnerId, {
       docKind: ENGAGEMENT_LETTER_IT.docKind,
       name: ENGAGEMENT_LETTER_IT.name,
       bodyMd: ENGAGEMENT_LETTER_IT.bodyMd,
-      versionLabel: ENGAGEMENT_LETTER_IT.versionLabel,
       language: ENGAGEMENT_LETTER_IT.language,
     });
-    return { ...result, alreadySeeded: false };
+    return {
+      ...result,
+      alreadySeeded: false,
+      outcome: hasOutdatedActive ? ("upgraded" as const) : ("seeded" as const),
+    };
   }),
 
   /** The partner's current active engagement-letter template version (or null). */
