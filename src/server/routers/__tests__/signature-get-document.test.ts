@@ -132,9 +132,10 @@ describe("signature.getSignatureDocument", () => {
     const res = await clientCaller(CID).getSignatureDocument({ requestId: REQ });
     // filled (we hold these) → not missing
     expect(res.missingTokens).not.toContain("client_full_name");
-    // not held → still a gap
+    // not held → rendered as a clear "[DA COMPLETARE: …]" gap (not a raw token)
     expect(res.missingTokens).toContain("client_codice_fiscale");
-    expect(res.bodyMd).toContain("{{client_codice_fiscale}}");
+    expect(res.bodyMd).not.toContain("{{client_codice_fiscale}}");
+    expect(res.bodyMd).toContain("[DA COMPLETARE: Codice Fiscale cliente]");
     // Roberto's pending field surfaced
     expect(res.pendingPlaceholders).toEqual(["[PLACEHOLDER: numero iscrizione]"]);
   });

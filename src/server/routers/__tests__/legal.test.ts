@@ -295,4 +295,27 @@ describe("legal.generateEngagementLetter", () => {
       message: expect.stringContaining("PDF della lettera"),
     });
   });
+
+  test("#29: fills practitioner tokens from the practice profile when present", async () => {
+    const tables = genTables();
+    tables.legal_document_version[0]!.body_md =
+      "**{{professional_name}}**, Albo n. {{albo_number}}, Foro di {{foro}}. Data: {{generated_date}}";
+    (tables as Record<string, unknown[]>).partner_practice_profile = [
+      { partner_id: "p1", albo_number: "IT-99887", foro: "Roma" },
+    ];
+    const res = await partnerCaller(makeDb(tables)).generateEngagementLetter({ clientId: CID });
+    expect(holder.lastHtml).toContain("IT-99887");
+    expect(holder.lastHtml).toContain("Roma");
+    expect(res.missingTokens).not.toContain("albo_number");
+  });
+
+  test("#29: empty/absent profile → practitioner token renders as a clear gap, reported missing", async () => {
+    const tables = genTables();
+    tables.legal_document_version[0]!.body_md = "Albo n. {{albo_number}}.";
+    (tables as Record<string, unknown[]>).partner_practice_profile = []; // no profile saved
+    const res = await partnerCaller(makeDb(tables)).generateEngagementLetter({ clientId: CID });
+    expect(res.missingTokens).toContain("albo_number");
+    expect(holder.lastHtml).toContain("[DA COMPLETARE:"); // clear gap, not blank
+    expect(holder.lastHtml).not.toContain("{{albo_number}}"); // no raw token leaks
+  });
 });

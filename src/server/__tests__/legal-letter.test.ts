@@ -23,8 +23,9 @@ describe("fillEngagementLetter", () => {
     expect(filledMd).toContain("30/06/2026");
     expect(filledMd).not.toContain("{{client_full_name}}");
 
-    // not held → still tokens (will render as visible gaps)
-    expect(filledMd).toContain("{{client_codice_fiscale}}");
+    // not held → rendered as a clear "[DA COMPLETARE: …]" gap (never a raw token)
+    expect(filledMd).not.toContain("{{client_codice_fiscale}}");
+    expect(filledMd).toContain("[DA COMPLETARE: Codice Fiscale cliente]");
     expect(missingTokens).toEqual(
       expect.arrayContaining(["client_codice_fiscale", "client_residence"])
     );
