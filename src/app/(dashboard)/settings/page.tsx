@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createSupabaseBrowser } from "@/lib/supabase/client";
 import Link from "next/link";
+import { PracticeProfileSection } from "@/components/settings/practice-profile-section";
 
 export default function SettingsPage() {
   const [userName, setUserName] = useState<string>("");
@@ -98,6 +99,9 @@ export default function SettingsPage() {
           </div>
         </div>
       </section>
+
+      {/* Practice profile — #29: entered once, auto-fills every engagement letter */}
+      <PracticeProfileSection />
 
       {/* Password section */}
       <section className="rounded-xl border-[0.5px] border-zinc-200 bg-white">
