@@ -366,7 +366,6 @@ export function generatePlan(
       mealCount: input.mealCount ?? input.mealPlanConfig?.mealCount ?? 4,
       excludeAllergens: input.excludeAllergens ?? input.mealPlanConfig?.excludeAllergens,
       preferTags: input.preferTags ?? input.mealPlanConfig?.preferTags,
-      tolerances: input.mealPlanConfig?.tolerances,
       substitutionsPerSlot: input.mealPlanConfig?.substitutionsPerSlot,
       fibreTargetPer1000: input.mealPlanConfig?.fibreTargetPer1000,
       // #11 restriction protocols → JOINT solver/reconcile constraints.

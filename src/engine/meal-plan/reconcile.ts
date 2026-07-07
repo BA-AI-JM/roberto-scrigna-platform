@@ -32,6 +32,29 @@ import { filterMeals } from "./selector";
 /** Per-macro proportional tolerance for the convergence check (kcal+protein). */
 export const RECONCILE_TOLERANCE_PCT = 5;
 
+/**
+ * THE single tolerance verdict for the plan flag/badge. Uses the SAME relative
+ * rule (and the same per-macro `dev`) the engine converges on in `objective`
+ * below — within tolerance iff BOTH kcal and protein are within
+ * RECONCILE_TOLERANCE_PCT (%) of target. So the stored `withinTolerance` flag can
+ * no longer disagree with the engine's convergence verdict (Fable sweep #3). The
+ * old absolute bands (DEFAULT_TOLERANCES/PER_MEAL_TOLERANCES) are removed — this
+ * relative % is the sole encoding of the tolerance rule.
+ *
+ * Takes the (absolute) deviation the callers already compute + the targets, since
+ * deviation.x = actual.x − target.x, so |deviation|/target == the engine's
+ * |actual−target|/target.
+ */
+export function withinReconcileTolerance(
+  deviation: { kcal: number; proteinG: number },
+  targetKcal: number,
+  targetProteinG: number
+): boolean {
+  const rel = (d: number, t: number) => (t > 0 ? Math.abs(d) / t : d === 0 ? 0 : 1);
+  const lim = RECONCILE_TOLERANCE_PCT / 100;
+  return rel(deviation.kcal, targetKcal) <= lim && rel(deviation.proteinG, targetProteinG) <= lim;
+}
+
 /** Fibre floor used to bias selection (g per 1000 kcal). Hard floor enforced by planner. */
 const FIBRE_FLOOR_PER_1000 = 10;
 

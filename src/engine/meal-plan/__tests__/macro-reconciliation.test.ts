@@ -15,6 +15,7 @@
 
 import { describe, test, expect } from "vitest";
 import { createMealPlan } from "../planner";
+import { withinReconcileTolerance, RECONCILE_TOLERANCE_PCT } from "../reconcile";
 import type { MealPlanConfig } from "../types";
 import type { MacroTargets } from "../../types";
 import { ALL_TEMPLATES } from "../../../data/meals/templates";
@@ -207,5 +208,43 @@ describe("Solver invariants (#15/#10)", () => {
       expect(slot.primary.actualMacros.kcal).toBeGreaterThan(0);
       expect(slot.primary.scaledIngredients.length).toBeGreaterThan(0);
     }
+  });
+});
+
+// ── Tolerance single-source invariant (#3) ──────────────────────────────────
+//
+// The stored `withinTolerance` flag now derives from the SAME relative
+// ±RECONCILE_TOLERANCE_PCT rule the engine converges on (reconcile.ts), so the
+// flag can no longer disagree with the engine's verdict (the old absolute
+// DEFAULT_TOLERANCES bands could — e.g. ±100 kcal vs ±5% at 2500 kcal).
+describe("tolerance single-source: flag agrees with the engine's relative verdict (#3)", () => {
+  const MATRIX: Array<{ dayType: MacroTargets["dayType"]; t: MacroTargets }> = [
+    { dayType: "training", t: { proteinG: 180, fatG: 70, carbG: 300, totalKcal: 2550, dayType: "training" } },
+    { dayType: "rest", t: { proteinG: 170, fatG: 80, carbG: 150, totalKcal: 1900, dayType: "rest" } },
+    { dayType: "training", t: { proteinG: 210, fatG: 90, carbG: 420, totalKcal: 3500, dayType: "training" } },
+    { dayType: "refeed", t: { proteinG: 160, fatG: 55, carbG: 480, totalKcal: 3200, dayType: "refeed" } },
+    { dayType: "rest", t: { proteinG: 140, fatG: 60, carbG: 110, totalKcal: 1500, dayType: "rest" } },
+  ];
+
+  for (const { dayType, t } of MATRIX) {
+    test(`flag == engine relative verdict @ ${t.totalKcal} kcal (${dayType})`, () => {
+      const plan = createMealPlan(ALL_TEMPLATES, { dayType, macroTargets: t, mealCount: 4 });
+      // The flag (planner) and the engine's relative verdict use the SAME source,
+      // so they must be equal for every plan — reverting the flag to absolute
+      // bands would make them diverge on an edge plan (mutation-probe).
+      const engineVerdict = withinReconcileTolerance(plan.deviation, t.totalKcal, t.proteinG);
+      expect(plan.withinTolerance).toBe(engineVerdict);
+    });
+  }
+
+  test("the rule is RELATIVE ±5% — the 2500 kcal edge the old absolute ±100 band got wrong", () => {
+    // dev 110 kcal @ 2500 target = 4.4% → WITHIN. The old absolute ±100 band flagged
+    // this OUT while the engine considered it converged — exactly the disagreement (#3).
+    expect(withinReconcileTolerance({ kcal: 110, proteinG: 0 }, 2500, 180)).toBe(true);
+    // dev 130 kcal = 5.2% → OUT (relative bound bites).
+    expect(withinReconcileTolerance({ kcal: 130, proteinG: 0 }, 2500, 180)).toBe(false);
+    // Protein gates too: 5% of 180 = 9 g; dev 10 g → OUT.
+    expect(withinReconcileTolerance({ kcal: 0, proteinG: 10 }, 2500, 180)).toBe(false);
+    expect(RECONCILE_TOLERANCE_PCT).toBe(5);
   });
 });

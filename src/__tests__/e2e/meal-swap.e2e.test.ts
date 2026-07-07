@@ -11,7 +11,6 @@ import {
   calculateScaleFactor,
   scaleMealToTarget,
   generateSubstitutions,
-  DEFAULT_TOLERANCES,
   SCALE_BOUNDS,
   SUBSTITUTION_BOUNDS,
 } from "../../engine/meal-plan/index";
@@ -49,12 +48,6 @@ const raphael: ClientSnapshot = {
 // ── Tolerance Band Constants ────────────────────────────────────────────────
 
 describe("Meal Swap — Tolerance Band Defaults", () => {
-  test("default tolerances match spec", () => {
-    expect(DEFAULT_TOLERANCES.proteinG).toBe(10);
-    expect(DEFAULT_TOLERANCES.fatG).toBe(10);
-    expect(DEFAULT_TOLERANCES.carbsG).toBe(15);
-    expect(DEFAULT_TOLERANCES.kcal).toBe(100);
-  });
 
   test("scale bounds are 0.7-1.4", () => {
     expect(SCALE_BOUNDS.min).toBe(0.7);
