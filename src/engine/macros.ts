@@ -118,6 +118,12 @@ export function calculateMacros(
   // Carbs — explicit override OR remaining kcal after P+F
   const proteinKcal = proteinG * KCAL_PER_G_PROTEIN;
   const fatKcal = fatG * KCAL_PER_G_FAT;
+  // On the FORMULA path, a negative remainder means protein+fat alone exceed the
+  // target: carbs floor to 0 and the achieved kcal overshoots the target (the
+  // deficit is under-delivered). Flag it so the plan surfaces it rather than
+  // shipping a silently-over plan. An explicit carbG override is taken as-is.
+  const usesCarbFormula = dayOverride?.carbG == null;
+  const carbFloorApplied = usesCarbFormula && tdeeKcal - proteinKcal - fatKcal < 0;
   const carbG =
     dayOverride?.carbG != null
       ? Math.max(0, Math.round(dayOverride.carbG))
@@ -135,5 +141,8 @@ export function calculateMacros(
     carbG,
     totalKcal,
     dayType,
+    ...(carbFloorApplied
+      ? { carbFloorApplied: true, carbFloorKcalOver: Math.round(totalKcal - tdeeKcal) }
+      : {}),
   };
 }

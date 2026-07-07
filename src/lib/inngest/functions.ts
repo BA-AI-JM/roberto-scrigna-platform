@@ -150,7 +150,7 @@ const TRIGGER_PRIORITY: Record<string, string> = {
   plan_update_suggested: "medium",
 };
 
-async function createNotification(params: {
+export async function createNotification(params: {
   partnerId: string;
   clientId?: string;
   trigger: string;
@@ -159,7 +159,7 @@ async function createNotification(params: {
   metadata?: Record<string, unknown>;
 }) {
   const db = getServiceDb();
-  await db.from("notification").insert({
+  const { error } = await db.from("notification").insert({
     partner_id: params.partnerId,
     client_id: params.clientId ?? null,
     trigger: params.trigger,
@@ -169,9 +169,16 @@ async function createNotification(params: {
     metadata: params.metadata ?? {},
     read: false,
   });
+  // Throw so the Inngest step FAILS (retries / shows a failed run) instead of
+  // silently succeeding while the coach never gets the alert (#2, mirrors sendEmail).
+  if (error) {
+    throw new Error(
+      `createNotification insert failed (trigger=${params.trigger}): ${error.message}`
+    );
+  }
 }
 
-async function createTask(params: {
+export async function createTask(params: {
   partnerId: string;
   clientId?: string;
   title: string;
@@ -180,7 +187,7 @@ async function createTask(params: {
   dueDate?: string;
 }) {
   const db = getServiceDb();
-  await db.from("task").insert({
+  const { error } = await db.from("task").insert({
     partner_id: params.partnerId,
     client_id: params.clientId ?? null,
     title: params.title,
@@ -189,6 +196,11 @@ async function createTask(params: {
     status: "todo",
     due_date: params.dueDate ?? null,
   });
+  // Throw so the Inngest step FAILS (retries / shows a failed run) instead of
+  // silently succeeding while the follow-up task is never created (#2).
+  if (error) {
+    throw new Error(`createTask insert failed (${params.title}): ${error.message}`);
+  }
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

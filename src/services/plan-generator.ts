@@ -406,6 +406,21 @@ export function generatePlan(
   // ── Step 6: Assumptions ────────────────────────────────────────────────
   const assumptions = collectAssumptions(input);
 
+  // #FIX3: surface the carb-floor clamp — when protein+fat kcal alone exceed a
+  // day's target, carbs floor to 0 and the achieved kcal overshoots the target
+  // (the deficit is under-delivered). One line per affected day-type so Roberto
+  // sees it instead of it being silent.
+  const clampedSeen = new Set<DayType>();
+  for (const day of weeklyPlan.days) {
+    if (!day.macros.carbFloorApplied || clampedSeen.has(day.dayType)) continue;
+    clampedSeen.add(day.dayType);
+    assumptions.push(
+      `Target non pienamente raggiungibile per «${DAY_TYPE_LABELS[day.dayType]}»: proteine e grassi da soli superano le kcal target, carboidrati azzerati e kcal oltre di ~${Math.round(
+        day.macros.carbFloorKcalOver ?? 0
+      )}. Ridurre proteine/grassi o aumentare le kcal per rispettare il deficit.`
+    );
+  }
+
   // ── Step 7: Narrative generation ───────────────────────────────────────
   const narrativeCtx: NarrativeContext = {
     snapshot,
