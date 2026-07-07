@@ -52,6 +52,7 @@ export async function renderSignedEngagementLetterPdf(
 
   const acceptedAt = req.accepted_at as string;
   const generatedDate = new Intl.DateTimeFormat("it-IT", {
+    timeZone: "Europe/Rome",
     day: "2-digit",
     month: "2-digit",
     year: "numeric",

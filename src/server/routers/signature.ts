@@ -218,6 +218,7 @@ export const signatureRouter = router({
       const patientName = (client?.full_name as string | undefined) ?? "";
 
       const generatedDate = new Intl.DateTimeFormat("it-IT", {
+        timeZone: "Europe/Rome",
         day: "2-digit",
         month: "2-digit",
         year: "numeric",

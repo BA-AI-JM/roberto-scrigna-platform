@@ -51,6 +51,7 @@ function formatCurrency(cents: number, currency = "EUR"): string {
 function formatDate(iso: string | null): string {
   if (!iso) return "—";
   return new Intl.DateTimeFormat("it-IT", {
+    timeZone: "Europe/Rome",
     day: "2-digit",
     month: "2-digit",
     year: "numeric",

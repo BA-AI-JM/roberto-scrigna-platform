@@ -175,6 +175,16 @@ export interface MacroTargets {
   carbG: number;
   totalKcal: number;
   dayType: DayType;
+  /**
+   * Set when protein+fat kcal alone EXCEEDED the target so the carb remainder
+   * went negative and was floored to 0 — the achieved totalKcal then overshoots
+   * the target and the intended deficit is under-delivered. Surfaced in the
+   * plan's assumptions (never silently swallowed). Only the FORMULA carb path can
+   * trip it (an explicit carbG override is taken as-is). Absent = clamp not hit.
+   */
+  carbFloorApplied?: boolean;
+  /** kcal by which totalKcal overshoots the target when carbFloorApplied. */
+  carbFloorKcalOver?: number;
 }
 
 export interface HydrationTargets {

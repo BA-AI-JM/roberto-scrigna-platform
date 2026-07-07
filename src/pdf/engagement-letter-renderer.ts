@@ -102,6 +102,7 @@ export function letterMarkdownToHtml(md: string): string {
 
 function formatStampDateTime(iso: string): string {
   return new Intl.DateTimeFormat("it-IT", {
+    timeZone: "Europe/Rome",
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
