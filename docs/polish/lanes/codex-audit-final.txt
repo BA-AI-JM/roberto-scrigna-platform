@@ -1,0 +1,25 @@
+| Dim | Dimension | Score |
+|---:|---|---:|
+| 1 | Intent & Strategy | 2 |
+| 2 | Architecture & Topology | 1 |
+| 3 | Domain & Language | 2 |
+| 4 | Implementation | 1 |
+| 5 | Schema & Contracts | 1 |
+| 6 | Configuration & Environment | 1 |
+| 7 | Operations & Runtime | 0 |
+| 8 | Observability | 0 |
+| 9 | Security & Safety | 0 |
+| 10 | Quality & Verification | 1 |
+| 11 | Knowledge & Memory | 1 |
+| 12 | Governance & Lineage | 1 |
+| 13 | Developer Experience | 1 |
+| 14 | AI / Agent Affordance | 1 |
+|  | **Mean** | **1.00** |
+
+| Severity | Findings |
+|---|---:|
+| S1 | 2 |
+| S2 | 12 |
+| S3 | 5 |
+| S4 | 0 |
+| **Total** | **19** |

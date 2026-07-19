@@ -1,0 +1,404 @@
+{
+  "generated": "2026-07-19T14:00:22.155Z",
+  "coachOk": true,
+  "portalOk": true,
+  "entries": [
+    {
+      "route": "/login",
+      "viewport": "desktop",
+      "file": "desktop/login.png",
+      "status": "ok",
+      "ms": 1378
+    },
+    {
+      "route": "/register",
+      "viewport": "desktop",
+      "file": "desktop/register.png",
+      "status": "ok",
+      "ms": 1333
+    },
+    {
+      "route": "/portal/login",
+      "viewport": "desktop",
+      "file": "desktop/portal-login.png",
+      "status": "ok",
+      "ms": 1334
+    },
+    {
+      "route": "/dashboard",
+      "viewport": "desktop",
+      "file": "desktop/dashboard.png",
+      "status": "ok",
+      "ms": 1522
+    },
+    {
+      "route": "/clients",
+      "viewport": "desktop",
+      "file": "desktop/clients.png",
+      "status": "ok",
+      "ms": 1434
+    },
+    {
+      "route": "/clients/309d0d83-d97b-4593-b08a-80c522c5f445",
+      "viewport": "desktop",
+      "file": "desktop/clients-309d0d83-d97b-4593-b08a-80c522c5f445.png",
+      "status": "ok",
+      "ms": 1658
+    },
+    {
+      "route": "/plans",
+      "viewport": "desktop",
+      "file": "desktop/plans.png",
+      "status": "ok",
+      "ms": 1440
+    },
+    {
+      "route": "/plans/generate",
+      "viewport": "desktop",
+      "file": "desktop/plans-generate.png",
+      "status": "ok",
+      "ms": 1473
+    },
+    {
+      "route": "/invoices",
+      "viewport": "desktop",
+      "file": "desktop/invoices.png",
+      "status": "ok",
+      "ms": 1430
+    },
+    {
+      "route": "/invoices/new",
+      "viewport": "desktop",
+      "file": "desktop/invoices-new.png",
+      "status": "ok",
+      "ms": 1455
+    },
+    {
+      "route": "/monitoring",
+      "viewport": "desktop",
+      "file": "desktop/monitoring.png",
+      "status": "ok",
+      "ms": 1483
+    },
+    {
+      "route": "/monitoring/checkin",
+      "viewport": "desktop",
+      "file": "desktop/monitoring-checkin.png",
+      "status": "ok",
+      "ms": 1320
+    },
+    {
+      "route": "/monitoring/training",
+      "viewport": "desktop",
+      "file": "desktop/monitoring-training.png",
+      "status": "ok",
+      "ms": 1443
+    },
+    {
+      "route": "/monitoring/notifications",
+      "viewport": "desktop",
+      "file": "desktop/monitoring-notifications.png",
+      "status": "ok",
+      "ms": 1430
+    },
+    {
+      "route": "/settings",
+      "viewport": "desktop",
+      "file": "desktop/settings.png",
+      "status": "ok",
+      "ms": 1596
+    },
+    {
+      "route": "/invoices/0f44abb1-4e36-4913-bf6a-087d2f1639d4",
+      "viewport": "desktop",
+      "file": "desktop/invoices-0f44abb1-4e36-4913-bf6a-087d2f1639d4.png",
+      "status": "ok",
+      "ms": 1443
+    },
+    {
+      "route": "/plans/new",
+      "viewport": "desktop",
+      "file": "desktop/intake-p1.png",
+      "status": "ok",
+      "ms": 1391
+    },
+    {
+      "route": "/login",
+      "viewport": "desktop",
+      "file": "desktop/login.png",
+      "status": "ok",
+      "ms": 1379
+    },
+    {
+      "route": "/register",
+      "viewport": "desktop",
+      "file": "desktop/register.png",
+      "status": "ok",
+      "ms": 1334
+    },
+    {
+      "route": "/portal/login",
+      "viewport": "desktop",
+      "file": "desktop/portal-login.png",
+      "status": "ok",
+      "ms": 1333
+    },
+    {
+      "route": "/portal/dashboard",
+      "viewport": "desktop",
+      "file": "desktop/portal-dashboard.png",
+      "status": "ok",
+      "ms": 1734
+    },
+    {
+      "route": "/portal/plan",
+      "viewport": "desktop",
+      "file": "desktop/portal-plan.png",
+      "status": "ok",
+      "ms": 1689
+    },
+    {
+      "route": "/portal/diary",
+      "viewport": "desktop",
+      "file": "desktop/portal-diary.png",
+      "status": "ok",
+      "ms": 1689
+    },
+    {
+      "route": "/portal/progress",
+      "viewport": "desktop",
+      "file": "desktop/portal-progress.png",
+      "status": "ok",
+      "ms": 1707
+    },
+    {
+      "route": "/portal/training",
+      "viewport": "desktop",
+      "file": "desktop/portal-training.png",
+      "status": "ok",
+      "ms": 1701
+    },
+    {
+      "route": "/portal/feedback",
+      "viewport": "desktop",
+      "file": "desktop/portal-feedback.png",
+      "status": "ok",
+      "ms": 1692
+    },
+    {
+      "route": "/portal/firma",
+      "viewport": "desktop",
+      "file": "desktop/portal-firma.png",
+      "status": "ok",
+      "ms": 1321
+    },
+    {
+      "route": "/portal/notifications",
+      "viewport": "desktop",
+      "file": "desktop/portal-notifications.png",
+      "status": "ok",
+      "ms": 1690
+    },
+    {
+      "route": "/login",
+      "viewport": "mobile",
+      "file": "mobile/login.png",
+      "status": "ok",
+      "ms": 1350
+    },
+    {
+      "route": "/register",
+      "viewport": "mobile",
+      "file": "mobile/register.png",
+      "status": "ok",
+      "ms": 1300
+    },
+    {
+      "route": "/portal/login",
+      "viewport": "mobile",
+      "file": "mobile/portal-login.png",
+      "status": "ok",
+      "ms": 1283
+    },
+    {
+      "route": "/dashboard",
+      "viewport": "mobile",
+      "file": "mobile/dashboard.png",
+      "status": "ok",
+      "ms": 1469
+    },
+    {
+      "route": "/clients",
+      "viewport": "mobile",
+      "file": "mobile/clients.png",
+      "status": "ok",
+      "ms": 1392
+    },
+    {
+      "route": "/clients/309d0d83-d97b-4593-b08a-80c522c5f445",
+      "viewport": "mobile",
+      "file": "mobile/clients-309d0d83-d97b-4593-b08a-80c522c5f445.png",
+      "status": "ok",
+      "ms": 1522
+    },
+    {
+      "route": "/plans",
+      "viewport": "mobile",
+      "file": "mobile/plans.png",
+      "status": "ok",
+      "ms": 1377
+    },
+    {
+      "route": "/plans/generate",
+      "viewport": "mobile",
+      "file": "mobile/plans-generate.png",
+      "status": "ok",
+      "ms": 1418
+    },
+    {
+      "route": "/invoices",
+      "viewport": "mobile",
+      "file": "mobile/invoices.png",
+      "status": "ok",
+      "ms": 1405
+    },
+    {
+      "route": "/invoices/new",
+      "viewport": "mobile",
+      "file": "mobile/invoices-new.png",
+      "status": "ok",
+      "ms": 1425
+    },
+    {
+      "route": "/monitoring",
+      "viewport": "mobile",
+      "file": "mobile/monitoring.png",
+      "status": "ok",
+      "ms": 1395
+    },
+    {
+      "route": "/monitoring/checkin",
+      "viewport": "mobile",
+      "file": "mobile/monitoring-checkin.png",
+      "status": "ok",
+      "ms": 1289
+    },
+    {
+      "route": "/monitoring/training",
+      "viewport": "mobile",
+      "file": "mobile/monitoring-training.png",
+      "status": "ok",
+      "ms": 1403
+    },
+    {
+      "route": "/monitoring/notifications",
+      "viewport": "mobile",
+      "file": "mobile/monitoring-notifications.png",
+      "status": "ok",
+      "ms": 1415
+    },
+    {
+      "route": "/settings",
+      "viewport": "mobile",
+      "file": "mobile/settings.png",
+      "status": "ok",
+      "ms": 1490
+    },
+    {
+      "route": "/invoices/0f44abb1-4e36-4913-bf6a-087d2f1639d4",
+      "viewport": "mobile",
+      "file": "mobile/invoices-0f44abb1-4e36-4913-bf6a-087d2f1639d4.png",
+      "status": "ok",
+      "ms": 1403
+    },
+    {
+      "route": "/plans/new",
+      "viewport": "mobile",
+      "file": "mobile/intake-p1.png",
+      "status": "ok",
+      "ms": 1352
+    },
+    {
+      "route": "/login",
+      "viewport": "mobile",
+      "file": "mobile/login.png",
+      "status": "ok",
+      "ms": 1355
+    },
+    {
+      "route": "/register",
+      "viewport": "mobile",
+      "file": "mobile/register.png",
+      "status": "ok",
+      "ms": 1316
+    },
+    {
+      "route": "/portal/login",
+      "viewport": "mobile",
+      "file": "mobile/portal-login.png",
+      "status": "ok",
+      "ms": 1300
+    },
+    {
+      "route": "/portal/dashboard",
+      "viewport": "mobile",
+      "file": "mobile/portal-dashboard.png",
+      "status": "ok",
+      "ms": 1683
+    },
+    {
+      "route": "/portal/plan",
+      "viewport": "mobile",
+      "file": "mobile/portal-plan.png",
+      "status": "ok",
+      "ms": 1651
+    },
+    {
+      "route": "/portal/diary",
+      "viewport": "mobile",
+      "file": "mobile/portal-diary.png",
+      "status": "ok",
+      "ms": 1673
+    },
+    {
+      "route": "/portal/progress",
+      "viewport": "mobile",
+      "file": "mobile/portal-progress.png",
+      "status": "ok",
+      "ms": 1652
+    },
+    {
+      "route": "/portal/training",
+      "viewport": "mobile",
+      "file": "mobile/portal-training.png",
+      "status": "ok",
+      "ms": 1672
+    },
+    {
+      "route": "/portal/feedback",
+      "viewport": "mobile",
+      "file": "mobile/portal-feedback.png",
+      "status": "ok",
+      "ms": 1643
+    },
+    {
+      "route": "/portal/firma",
+      "viewport": "mobile",
+      "file": "mobile/portal-firma.png",
+      "status": "ok",
+      "ms": 1290
+    },
+    {
+      "route": "/portal/notifications",
+      "viewport": "mobile",
+      "file": "mobile/portal-notifications.png",
+      "status": "ok",
+      "ms": 1636
+    }
+  ],
+  "gaps": [
+    "INTAKE-STEP-GAP: stopped at step 2 (desktop) — likely validation gate",
+    "INTAKE-STEP-GAP: stopped at step 2 (mobile) — likely validation gate",
+    "DATA-GAP: plan=0 in DB — plan review tabs, portal plan view, PDF captured EMPTY or not at all; populated capture deferred to P2 journey drive"
+  ]
+}

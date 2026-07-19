@@ -1,0 +1,20 @@
+{
+  "generated": "2026-07-19",
+  "log": [
+    "login OK",
+    "client options: [\"Seleziona cliente...\",\"Raphael Federico — raphael.federico2@gmail.com\",\"Niccolò Ambrosi — n.ambrosi88@gmail.com\"] → selecting index 2",
+    "shot: 01-wizard-populated @ http://localhost:3001/plans/generate",
+    "genera clicked — capturing wait state",
+    "shot: 03-post-generate-landing @ http://localhost:3001/plans/bafce20c-9a67-4fe7-8c95-22f6c40f9f84/review",
+    "plan URL: http://localhost:3001/plans/bafce20c-9a67-4fe7-8c95-22f6c40f9f84/review (id=bafce20c-9a67-4fe7-8c95-22f6c40f9f84)",
+    "shot: 04-review-tab-default @ http://localhost:3001/plans/bafce20c-9a67-4fe7-8c95-22f6c40f9f84/review",
+    "review tabs found: 0",
+    "no Approva button found",
+    "pdf status: 500 content-type: text/plain;charset=UTF-8",
+    "shot: mobile /portal/dashboard",
+    "shot: mobile /portal/plan",
+    "shot: mobile /portal/progress",
+    "shot: desktop /portal/dashboard",
+    "shot: desktop /portal/plan"
+  ]
+}

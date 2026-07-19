@@ -1,0 +1,10 @@
+Completed the code-derived experience audit.
+
+- Report: [UX-AUDIT-CODEX.md](/Users/liamcann/roberto-scrigna-platform/docs/polish/lanes/UX-AUDIT-CODEX.md)
+- Evidence: code only, plus the permitted route manifest
+- 10 macro journeys scored
+- 17 prioritized findings covering M1–M10
+- 30 user-facing strings sampled
+- 234 unique `file:line` citations validated
+- Acceptance check `test -s` passed `(tested)`
+- No prohibited audit files were read; no builds, browser runs, network calls, or git mutations were performed.

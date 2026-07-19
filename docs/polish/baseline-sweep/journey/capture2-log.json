@@ -1,0 +1,10 @@
+[
+  "login OK",
+  "portal auth → http://localhost:3001/portal/dashboard",
+  "shot: active-mobile /portal/dashboard",
+  "shot: active-mobile /portal/plan",
+  "shot: active-mobile /portal/progress",
+  "shot: active-desktop /portal/dashboard",
+  "shot: active-desktop /portal/plan",
+  "shot: active-desktop /portal/progress"
+]
