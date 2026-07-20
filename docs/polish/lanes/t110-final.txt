@@ -1,0 +1,14 @@
+Files:
+
+- `src/pdf/chromium-launcher.ts`
+- `src/pdf/__tests__/chromium-supply.test.ts`
+- `src/app/api/pdf/[planId]/route.ts`
+- `src/app/api/invoice/[id]/pdf/route.ts`
+- `src/server/routers/legal.ts`
+- `DEPLOYMENT-GUIDE.md`
+
+Test summary:
+
+- `(tested)` Vitest: 106 files passed; 1,112 tests passed, 3 expected failures, 3 todo.
+- `(tested)` T1.10 files are TypeScript-clean. Full typecheck retains unrelated pre-existing errors in portal dashboard and dark-router tests.
+- `(tested)` `CHROMIUM_PACK_URL` grep confirms launcher and guide wiring.

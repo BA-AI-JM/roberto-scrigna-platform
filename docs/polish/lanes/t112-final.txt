@@ -1,0 +1,10 @@
+Files:
+
+- [021_gdpr_mechanism.sql](/Users/liamcann/roberto-scrigna-platform/supabase/migrations/021_gdpr_mechanism.sql)
+- [gdpr.ts](/Users/liamcann/roberto-scrigna-platform/src/server/routers/gdpr.ts)
+- [_app.ts](/Users/liamcann/roberto-scrigna-platform/src/server/routers/_app.ts)
+- [gdpr.test.ts](/Users/liamcann/roberto-scrigna-platform/src/server/routers/__tests__/gdpr.test.ts)
+
+Tests: 5/5 GDPR tests and 1,119/1,119 suite tests passed. TypeScript reports no errors in changed files; unrelated pre-existing `dark-routers.test.ts` errors remain.
+
+Retention: plans and invoices remain for fiscal duties, linked only through the anonymized client row.

@@ -1,0 +1,3 @@
+- Files: added `src/server/db-errors.ts`, `src/server/__tests__/db-errors.test.ts`; updated routers: checkin, client, document, feedback, guidance, invoice, legal, notification, signature, task, training-log.
+- Remaining conflations: **0**.
+- Tests: **112 files passed; 1,149 passed, 3 expected failures, 3 todo**. T1.5 files have no TypeScript diagnostics; repository-wide typecheck has 4 unrelated errors in `plan-bundle-golden.test.ts`.

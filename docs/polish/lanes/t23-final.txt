@@ -1,0 +1,12 @@
+Added-test counts:
+
+- [marco-bellini.test.ts](/Users/liamcann/roberto-scrigna-platform/src/__tests__/fidelity/marco-bellini.test.ts): 2
+- [niccolo.test.ts](/Users/liamcann/roberto-scrigna-platform/src/__tests__/fidelity/niccolo.test.ts): 2
+- [raphael.test.ts](/Users/liamcann/roberto-scrigna-platform/src/__tests__/fidelity/raphael.test.ts): 2
+- [goal-rate-overrides-matrix.test.ts](/Users/liamcann/roberto-scrigna-platform/src/__tests__/fidelity/goal-rate-overrides-matrix.test.ts): 12
+
+(tested) Requested files: 87/87 passing; existing fixture diffs are additions-only.
+
+(blocked) Full suite has three unrelated G29 router-test failures; repository typecheck has four errors in the unrelated untracked `plan-bundle-golden.test.ts`.
+
+Sample pinned line: `Marco training protein override — P=180g / F=74g / C=310g / 2626 kcal.`

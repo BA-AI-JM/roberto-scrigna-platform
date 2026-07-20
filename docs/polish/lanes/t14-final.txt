@@ -1,0 +1,16 @@
+Files changed
+
+- [src/env.ts](/Users/liamcann/roberto-scrigna-platform/src/env.ts)
+- [src/env.client.ts](/Users/liamcann/roberto-scrigna-platform/src/env.client.ts)
+- [client.ts](/Users/liamcann/roberto-scrigna-platform/src/lib/supabase/client.ts)
+- [server.ts](/Users/liamcann/roberto-scrigna-platform/src/lib/supabase/server.ts)
+- [service.ts](/Users/liamcann/roberto-scrigna-platform/src/lib/supabase/service.ts)
+- [middleware.ts](/Users/liamcann/roberto-scrigna-platform/src/lib/supabase/middleware.ts)
+- [env-schema.test.ts](/Users/liamcann/roberto-scrigna-platform/src/__tests__/env-schema.test.ts)
+
+Test output summary
+
+- `(tested)` Env schema: 3/3 passed.
+- `(tested)` Whole suite: 106/106 files; 1,111 passed, 3 expected failures, 3 todos.
+- `(tested)` Supabase `process.env` grep: zero matches.
+- `(blocked)` Repository typecheck exits 2 only on concurrent out-of-fence portal-dashboard and dark-router files; no T1.4-file diagnostics.

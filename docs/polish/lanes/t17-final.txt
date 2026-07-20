@@ -1,0 +1,28 @@
+Files
+
+- [020_intake_txn.sql](/Users/liamcann/roberto-scrigna-platform/supabase/migrations/020_intake_txn.sql)
+- [client.ts](/Users/liamcann/roberto-scrigna-platform/src/server/routers/client.ts)
+- [IntakeForm.tsx](/Users/liamcann/roberto-scrigna-platform/src/app/(dashboard)/plans/new/IntakeForm.tsx)
+- [intake-txn.test.ts](/Users/liamcann/roberto-scrigna-platform/src/server/routers/__tests__/intake-txn.test.ts)
+
+Test summary
+
+- `(tested)` T1.7 tests: 2/2 passed.
+- `(tested)` Suite excluding unrelated GDPR test: 1114 passed, 3 expected failures, 3 todo.
+- `(blocked)` Full suite: 1 unrelated failure because migration `021_gdpr_mechanism.sql` is absent.
+- `(blocked)` Full typecheck: existing errors only in `dark-routers.test.ts`; no diagnostics in T1.7 files.
+- `(tested)` Old two-mutation IntakeForm sequence: absent.
+
+```sql
+intake_create_client_with_snapshot(
+  p_partner_id UUID,
+  p_idempotency_key TEXT,
+  p_client JSONB,
+  p_snapshot JSONB
+) RETURNS TABLE (
+  client_id UUID,
+  snapshot_id UUID,
+  was_replay BOOLEAN,
+  invalid_reason TEXT
+)
+```

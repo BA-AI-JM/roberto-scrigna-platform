@@ -1,0 +1,30 @@
+Files:
+
+- [supabase/migrate.ts](/Users/liamcann/roberto-scrigna-platform/supabase/migrate.ts)
+- [018_migration_ledger.sql](/Users/liamcann/roberto-scrigna-platform/supabase/migrations/018_migration_ledger.sql)
+- [DEPLOYMENT-GUIDE.md](/Users/liamcann/roberto-scrigna-platform/DEPLOYMENT-GUIDE.md)
+- [migration-runner.test.ts](/Users/liamcann/roberto-scrigna-platform/src/__tests__/migration-runner.test.ts)
+
+```text
+Could not read migration ledger: Error: Was there a typo in the url or port? Treating every migration as pending for this read-only command.
+Pending migrations (19):
+  001_initial_schema.sql
+  002_client_media_storage.sql
+  003_client_media_client_write.sql
+  004_training_log_session_type_freeform.sql
+  005_training_log_exercise_method_freeform.sql
+  006_plan_versioning_and_feedback.sql
+  007_placeholder_skipped.sql
+  008_plan_update_suggested_trigger.sql
+  009_legal_documents.sql
+  010_signature_requests.sql
+  011_snapshot_edit_audit.sql
+  012_reminder_settings.sql
+  013_urgent_feedback.sql
+  014_session_kcal_override.sql
+  015_partner_practice_profile.sql
+  016_invoice_number_per_partner.sql
+  017_checkin_token_rpc.sql
+  018_migration_ledger.sql
+  019_delivery_outbox_and_active_invariant.sql
+```
