@@ -69,14 +69,14 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="rounded-xl border-[0.5px] bg-white p-8 shadow-sm">
-      <div className="mb-6 text-center">
-        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-brand text-2xl font-medium text-white">
-          RS
+    <div>
+      <div className="mb-8">
+        <div className="mb-2 text-[11.5px] font-medium uppercase tracking-[0.14em] text-ink-3">
+          Area professionista
         </div>
-        <h1 className="text-2xl font-medium tracking-tight text-ink">Accedi</h1>
-        <p className="mt-1 text-sm text-zinc-500">
-          Roberto Scrigna — Nutrition Platform
+        <h1 className="text-[34px] text-ink">Bentornato</h1>
+        <p className="mt-1.5 text-sm text-muted-foreground">
+          Scrigna — Nutrizione Sportiva
         </p>
       </div>
 
@@ -86,7 +86,7 @@ export default function LoginPage() {
             <div>
               <label
                 htmlFor="email"
-                className="mb-1 block text-sm font-medium text-zinc-700"
+                className="mb-1.5 block text-[13px] font-medium text-ink"
               >
                 Email
               </label>
@@ -97,7 +97,7 @@ export default function LoginPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 disabled={loading}
-                className="w-full rounded-md border border-zinc-300 px-4 py-3 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand disabled:opacity-50"
+                className="w-full rounded-[12px] border border-border bg-card px-4 py-3 text-[15px] text-ink focus:border-brand disabled:opacity-50"
                 placeholder="roberto@example.com"
                 autoComplete="email"
                 autoFocus
@@ -107,7 +107,7 @@ export default function LoginPage() {
             <div>
               <label
                 htmlFor="password"
-                className="mb-1 block text-sm font-medium text-zinc-700"
+                className="mb-1.5 block text-[13px] font-medium text-ink"
               >
                 Password
               </label>
@@ -118,14 +118,14 @@ export default function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 disabled={loading}
-                className="w-full rounded-md border border-zinc-300 px-4 py-3 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand disabled:opacity-50"
+                className="w-full rounded-[12px] border border-border bg-card px-4 py-3 text-[15px] text-ink focus:border-brand disabled:opacity-50"
                 placeholder="••••••••"
                 autoComplete="current-password"
               />
             </div>
 
             {error && (
-              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              <div className="rounded-[12px] bg-red-wash px-4 py-3 text-sm text-destructive">
                 {error}
               </div>
             )}
@@ -133,7 +133,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading || !email || !password}
-              className="w-full rounded-md bg-brand px-4 py-3 text-sm font-medium text-white hover:bg-brand-deep disabled:cursor-not-allowed disabled:opacity-50"
+              className="w-full rounded-full bg-brand px-4 py-3.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-brand-deep disabled:cursor-not-allowed disabled:opacity-50"
             >
               {loading ? "Accesso in corso…" : "Accedi"}
             </button>
@@ -158,7 +158,7 @@ export default function LoginPage() {
         <>
           {resetSuccess ? (
             <div className="space-y-4">
-              <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-4 text-sm text-green-800">
+              <div className="rounded-[12px] bg-brand-wash px-4 py-4 text-sm text-brand-deep">
                 Email di recupero inviata. Controlla la tua casella.
               </div>
               <button
@@ -167,21 +167,21 @@ export default function LoginPage() {
                   setShowReset(false);
                   setResetSuccess(false);
                 }}
-                className="w-full rounded-md border-[0.5px] border-zinc-200 px-4 py-3 text-sm font-medium text-zinc-600 hover:bg-zinc-50"
+                className="w-full rounded-full border border-border px-4 py-3.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary"
               >
                 Torna al login
               </button>
             </div>
           ) : (
             <>
-              <p className="mb-4 text-sm text-zinc-600">
+              <p className="mb-4 text-sm text-muted-foreground">
                 Inserisci la tua email per ricevere il link di recupero password.
               </p>
               <form onSubmit={handlePasswordReset} className="space-y-4">
                 <div>
                   <label
                     htmlFor="reset-email"
-                    className="mb-1 block text-sm font-medium text-zinc-700"
+                    className="mb-1.5 block text-[13px] font-medium text-ink"
                   >
                     Email
                   </label>
@@ -192,7 +192,7 @@ export default function LoginPage() {
                     onChange={(e) => setResetEmail(e.target.value)}
                     required
                     disabled={resetLoading}
-                    className="w-full rounded-md border border-zinc-300 px-4 py-3 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand disabled:opacity-50"
+                    className="w-full rounded-[12px] border border-border bg-card px-4 py-3 text-[15px] text-ink focus:border-brand disabled:opacity-50"
                     placeholder="roberto@example.com"
                     autoComplete="email"
                     autoFocus
@@ -200,7 +200,7 @@ export default function LoginPage() {
                 </div>
 
                 {resetError && (
-                  <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  <div className="rounded-[12px] bg-red-wash px-4 py-3 text-sm text-destructive">
                     {resetError}
                   </div>
                 )}
@@ -208,7 +208,7 @@ export default function LoginPage() {
                 <button
                   type="submit"
                   disabled={resetLoading || !resetEmail}
-                  className="w-full rounded-md bg-brand px-4 py-3 text-sm font-medium text-white hover:bg-brand-deep disabled:cursor-not-allowed disabled:opacity-50"
+                  className="w-full rounded-full bg-brand px-4 py-3.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-brand-deep disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {resetLoading ? "Invio in corso…" : "Invia link di recupero"}
                 </button>
@@ -219,7 +219,7 @@ export default function LoginPage() {
                     setShowReset(false);
                     setResetError("");
                   }}
-                  className="w-full rounded-md border-[0.5px] border-zinc-200 px-4 py-3 text-sm font-medium text-zinc-600 hover:bg-zinc-50"
+                  className="w-full rounded-full border border-border px-4 py-3.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary"
                 >
                   Torna al login
                 </button>
