@@ -14,7 +14,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { renderInvoiceHtml } from "@/pdf/invoice-renderer";
-import { launchPdfBrowser } from "@/pdf/chromium-launcher";
+import { launchPdfBrowser, PdfDependencyError } from "@/pdf/chromium-launcher";
 
 interface LineItem {
   description: string;
@@ -107,18 +107,27 @@ export async function GET(
 
   // Generate PDF via the shared serverless-Chromium launcher (chromium-min).
   let pdfBuffer: Uint8Array;
-  const browser = await launchPdfBrowser();
   try {
-    const page = await browser.newPage();
-    await page.setContent(html, { waitUntil: "networkidle0" });
-    pdfBuffer = await page.pdf({
-      format: "A4",
-      printBackground: true,
-      preferCSSPageSize: true,
-      margin: { top: "0", right: "0", bottom: "0", left: "0" },
-    });
-  } finally {
-    await browser.close();
+    const browser = await launchPdfBrowser();
+    try {
+      const page = await browser.newPage();
+      await page.setContent(html, { waitUntil: "networkidle0" });
+      pdfBuffer = await page.pdf({
+        format: "A4",
+        printBackground: true,
+        preferCSSPageSize: true,
+        margin: { top: "0", right: "0", bottom: "0", left: "0" },
+      });
+    } finally {
+      await browser.close();
+    }
+  } catch (err) {
+    if (err instanceof PdfDependencyError) {
+      return new NextResponse("Servizio PDF temporaneamente non disponibile", {
+        status: 503,
+      });
+    }
+    throw err;
   }
 
   const filename = `fattura-${invoice.invoice_number}.pdf`;

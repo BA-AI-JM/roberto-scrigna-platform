@@ -16,6 +16,7 @@
 import type { NextRequest } from "next/server";
 import { createSupabaseServer } from "../../../../lib/supabase/server";
 import { generatePdf } from "../../../../pdf/generator";
+import { PdfDependencyError } from "../../../../pdf/chromium-launcher";
 import type { SerializedPlanResult } from "../../../../services/plan-generator";
 import type { PdfReportData } from "../../../../pdf/types";
 // #18 → PDF: representative training time from the client's intake, attached to
@@ -111,6 +112,11 @@ export async function GET(
     });
   } catch (err) {
     console.error("[pdf/route] Puppeteer error:", err);
+    if (err instanceof PdfDependencyError) {
+      return new Response("Servizio PDF temporaneamente non disponibile", {
+        status: 503,
+      });
+    }
     return new Response("Errore durante la generazione del PDF.", {
       status: 500,
     });

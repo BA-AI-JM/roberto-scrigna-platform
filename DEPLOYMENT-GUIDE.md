@@ -77,16 +77,101 @@ You will collect these as you work through each section:
 
 ### 2.2 Run the Database Migration
 
-1. In the Supabase dashboard, go to **SQL Editor** (left sidebar, the terminal icon).
-2. Click **New query**.
-3. Open `supabase/migrations/001_initial_schema.sql` from this repository and paste
-   the entire contents into the query editor.
-4. Click **Run** (or press Cmd+Enter / Ctrl+Enter).
-5. You should see `Success. No rows returned` at the bottom. If you see any error,
-   check the Troubleshooting section at the end of this document.
+There are 18 ordered migrations, `001_initial_schema.sql` through
+`018_migration_ledger.sql`. **Back up the database before every migration run.** In
+Supabase, use **Database > Backups** and confirm that a restorable backup exists.
+Never continue past a SQL error: preserve the output and restore before retrying if
+the failed file was not transactional.
 
-This migration creates 18 tables, all indexes, all RLS policies, the `update_updated_at`
-trigger function, and enables the `uuid-ossp` extension.
+The repository runner is deliberately a SQL-bundle generator. This project has no
+direct Postgres client dependency and a service-role key cannot run DDL through the
+Data API. It may use the service role only to read the protected ledger, then writes
+`supabase/apply-pending.sql` for an operator to inspect and paste into **SQL Editor**.
+Each migration is wrapped in an atomic ledger guard and is recorded by filename with
+a SHA-256 checksum after success.
+
+`SUPABASE_DB_URL` is reserved for a future direct-client/`psql` runner. For local
+Supabase it is `postgresql://postgres:postgres@127.0.0.1:54322/postgres`; for
+production it is the dashboard connection string supplied by the operator at runtime.
+Never commit that URL or its password.
+
+#### Fresh database
+
+- Local development: `supabase db reset` applies every file in
+  `supabase/migrations/` in order. This is destructive; use it only for a disposable
+  local database, never for production.
+- Fresh hosted project: configure `NEXT_PUBLIC_SUPABASE_URL` and
+  `SUPABASE_SERVICE_ROLE_KEY` for that project, run
+  `bun run supabase/migrate.ts --dry-run`, then run
+  `bun run supabase/migrate.ts`. Review `supabase/apply-pending.sql`, paste the whole
+  bundle into SQL Editor, and run it once. Finally rerun `--dry-run`; it must report
+  no pending migrations.
+
+The generated bundle bootstraps an empty ledger before guarding migration 001.
+Migration 018 remains the source of record for the table, its RLS policy, and the
+001–017 backfill.
+
+#### Existing production database (current delta)
+
+Production already has 001–005 but has no trustworthy migration history. After the
+backup, use the verification query below to confirm the 001–005 landmarks. In SQL
+Editor, apply these repository files individually and in this exact order:
+
+```text
+006_plan_versioning_and_feedback.sql
+007_placeholder_skipped.sql
+008_plan_update_suggested_trigger.sql
+009_legal_documents.sql
+010_signature_requests.sql
+011_snapshot_edit_audit.sql
+012_reminder_settings.sql
+013_urgent_feedback.sql
+014_session_kcal_override.sql
+015_partner_practice_profile.sql
+016_invoice_number_per_partner.sql
+017_checkin_token_rpc.sql
+018_migration_ledger.sql
+```
+
+Migration 007 is an intentional no-op placeholder. Apply 018 last: its backfill marks
+001–017 as `applied_by = 'backfill-2026-07-20'` with a nullable checksum because the
+exact historical file bytes cannot be proven. A null checksum means “accepted
+historical baseline,” not checksum drift. Migrations applied by the runner thereafter
+carry their SHA-256 checksum; changing or deleting one of those files makes
+`bun run supabase/migrate.ts --verify` exit nonzero. Verification also exits nonzero
+when a repository migration is pending.
+
+#### Verify one landmark per migration
+
+Run this after either path. Every row must return `true`; 007 is verified by its
+ledger entry because it intentionally creates no schema object.
+
+```sql
+SELECT * FROM (VALUES
+  ('001', to_regclass('public.partner') IS NOT NULL),
+  ('002', EXISTS (SELECT 1 FROM storage.buckets WHERE id = 'client-media')),
+  ('003', EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'storage' AND tablename = 'objects' AND policyname = 'client_media_client_training_write')),
+  ('004', NOT EXISTS (SELECT 1 FROM pg_constraint c JOIN pg_class r ON r.oid = c.conrelid WHERE r.relname = 'training_log' AND c.contype = 'c' AND pg_get_constraintdef(c.oid) ILIKE '%session_type%')),
+  ('005', NOT EXISTS (SELECT 1 FROM pg_constraint c JOIN pg_class r ON r.oid = c.conrelid WHERE r.relname = 'training_log' AND c.contype = 'c' AND pg_get_constraintdef(c.oid) ILIKE '%exercise_method%')),
+  ('006', EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'plan' AND column_name = 'parent_plan_id')),
+  ('007', EXISTS (SELECT 1 FROM schema_migrations_applied WHERE filename = '007_placeholder_skipped.sql')),
+  ('008', EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'notification_trigger_check' AND pg_get_constraintdef(oid) ILIKE '%plan_update_suggested%')),
+  ('009', to_regclass('public.legal_document') IS NOT NULL),
+  ('010', to_regclass('public.signature_request') IS NOT NULL),
+  ('011', to_regclass('public.snapshot_edit_audit') IS NOT NULL),
+  ('012', to_regclass('public.client_reminder_settings') IS NOT NULL),
+  ('013', to_regclass('public.urgent_feedback') IS NOT NULL),
+  ('014', EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'training_log' AND column_name = 'kcal_override')),
+  ('015', to_regclass('public.partner_practice_profile') IS NOT NULL),
+  ('016', to_regclass('public.idx_invoice_number_partner') IS NOT NULL),
+  ('017', to_regprocedure('public.checkin_validate_token(uuid)') IS NOT NULL),
+  ('018', EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'schema_migrations_applied'))
+) AS migration_landmarks(migration, present)
+ORDER BY migration;
+```
+
+Then run `bun run supabase/migrate.ts --verify` using the target project's URL and
+service-role key. Do not expose the key in shell history, logs, or client-side code.
 
 ### 2.3 Create Roberto's Auth User
 
@@ -434,6 +519,7 @@ steps or assume something works because the build passed.
 | `RESEND_API_KEY` | Required | Resend > API Keys | `re_XXXXXXXXXXXXXXXX` |
 | `RESEND_FROM_EMAIL` | Required | Your verified Resend domain | `noreply@robertoscrigna.com` |
 | `NEXT_PUBLIC_APP_URL` | Required | Your Vercel deployment URL | `https://roberto-scrigna.vercel.app` |
+| `CHROMIUM_PACK_URL` | Recommended | Immutable URL for the mirrored Chromium 147.0.2 pack | `https://artifacts.example.com/chromium/chromium-v147.0.2-pack.x64.tar` |
 | `CHROMIUM_PATH` | Optional | Leave empty on Vercel; set to local Chrome path for development only | `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome` |
 
 Notes:
@@ -453,28 +539,34 @@ Notes:
 
 ### PDF Generation Fails or Times Out
 
-**Symptom:** Clicking "Download PDF" returns a 500 error or times out after 10 seconds.
+**Runtime package and version.** The application uses
+`@sparticuz/chromium-min` 147.0.2, not the bundled `@sparticuz/chromium` package.
+The `-min` package contains no browser binary: on Vercel the launcher downloads an
+x64 Chromium pack at runtime, extracts it under `/tmp`, and then starts Puppeteer.
+The pack URL must contain `147.0.2`; a different pack version is rejected before
+download to prevent Puppeteer/Chromium protocol mismatches. Update the hardcoded
+launcher version, dependency, lockfile, and mirrored artifact together.
 
-**Cause 1 — Function timeout too short.** The Hobby plan enforces a 10-second limit.
-PDF generation with `@sparticuz/chromium` typically takes 12-20 seconds on a cold start.
+**Mirror the production artifact.** Do not make PDF availability depend solely on a
+GitHub release. Download `chromium-v147.0.2-pack.x64.tar` from the matching Sparticuz
+release, upload the unchanged file to storage owned by the practice or deployment
+operator, and expose it through an immutable HTTPS URL. Keep `147.0.2` in the object
+name or path, then set `CHROMIUM_PACK_URL` to that URL in every Vercel environment. If
+the variable is absent, the pinned GitHub release URL remains the fallback. The URL is
+operational configuration, so do not include signed query strings or credentials in it.
 
-**Fix:** Upgrade to Vercel Pro and set the max duration to 60 seconds on the PDF routes
-(see Section 5.2). Warm invocations are faster (~3-5s) but you still need headroom for
-cold starts.
+**Timeouts and service response.** Keep the PDF route duration at 60 seconds (see
+Section 5.2). The launcher gives each download/launch attempt 25 seconds, retries once
+after a short backoff, and reports exhausted Chromium supply failures as HTTP 503 with
+`Servizio PDF temporaneamente non disponibile`. Check the deployment logs for the
+structured `pdf_chromium_source` line to confirm whether the mirror or fallback was
+selected; the URL itself is deliberately not logged.
 
-**Cause 2 — `CHROMIUM_PATH` set incorrectly on Vercel.** If `CHROMIUM_PATH` is set to
-a local path like `/Applications/Google Chrome.app/...`, Vercel will try to launch a
-binary that does not exist in the serverless container.
-
-**Fix:** Delete the `CHROMIUM_PATH` environment variable from Vercel entirely. The
-generator detects `process.env.VERCEL` automatically and uses
-`chromium.executablePath()` from `@sparticuz/chromium`.
-
-**Cause 3 — Missing `@sparticuz/chromium` bundle.** If the dependency was removed from
-`package.json`, Vercel will not bundle the Chromium binary.
-
-**Fix:** Confirm `@sparticuz/chromium` is present in `dependencies` (not
-`devDependencies`) in `package.json`.
+**Local development.** Set `CHROMIUM_PATH` to the real Chrome or Chromium executable,
+for example `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome` on macOS.
+Never set that local path on Vercel. A cold first local render can exceed 30 seconds
+while Chrome starts and the document settles; allow at least 60 seconds before treating
+it as failed. Later renders are normally faster.
 
 ---
 

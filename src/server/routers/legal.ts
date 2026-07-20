@@ -21,6 +21,7 @@ import { hashDocumentBody, ENGAGEMENT_LETTER_IT } from "../legal-templates";
 import { fillEngagementLetter } from "../legal-letter";
 import { generateEngagementLetterPdf } from "../legal-letter-pdf";
 import { renderEngagementLetterHtml } from "../../pdf/engagement-letter-renderer";
+import { PdfDependencyError } from "../../pdf/chromium-launcher";
 
 // The RLS-bound server client carried on ctx.supabase (no generated DB types in this repo).
 type Db = Awaited<ReturnType<typeof createSupabaseServer>>;
@@ -410,6 +411,12 @@ export const legalRouter = router({
           err,
           err instanceof Error ? err.stack : ""
         );
+        if (err instanceof PdfDependencyError) {
+          throw new TRPCError({
+            code: "SERVICE_UNAVAILABLE",
+            message: "Servizio PDF temporaneamente non disponibile",
+          });
+        }
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message:
