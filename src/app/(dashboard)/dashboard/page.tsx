@@ -1,21 +1,19 @@
 /**
- * Roberto Dashboard — main operational overview.
+ * Coach dashboard — T3 Wave A rebuild to the operator-approved concept 1.
  *
- * Displays:
- * - 5 KPI cards (active clients, pending check-ins, flagged weight, revenue, overdue tasks)
- * - Smart alerts section (items requiring attention)
- * - Revenue timeline (12-month bar chart placeholder)
- * - Pipeline breakdown (client status distribution)
- * - Engagement heatmap (12-week client × activity grid)
- * - Quick action links
+ * Composition (calm register, DIRECTION.md): conviction header · three stats ·
+ * athlete panel with la nota · severity-tinted "Da gestire" rail from live alerts.
+ * The heatmap / revenue / pipeline charts were deliberately removed from this
+ * surface (approved "emptier defaults") — their data remains on Monitoraggio and
+ * Fatture. Every color is a semantic token: this page is dual-theme by construction.
+ * La nota here is COMPOSED FROM REAL NUMBERS only (NORTHSTAR: nothing invented) —
+ * Roberto's own authored notes arrive with the coach-notes feature, not as fakery.
  */
 
 "use client";
 
 import Link from "next/link";
 import { trpc } from "../../../lib/trpc/client";
-
-// ── Types ─────────────────────────────────────────────────────────────────────
 
 interface SmartAlert {
   id: string;
@@ -27,703 +25,242 @@ interface SmartAlert {
   clientName: string | null;
 }
 
-interface HeatmapRow {
-  clientId: string;
-  clientName: string;
-  weeks: number[];
+// ── Small pieces ──────────────────────────────────────────────────────────────
+
+function Skeleton({ className = "" }: { className?: string }) {
+  return <div className={`animate-pulse rounded-lg bg-secondary ${className}`} />;
 }
 
-// ── Loading Skeleton ──────────────────────────────────────────────────────────
-
-function SkeletonBlock({ width, height }: { width?: string; height?: string }) {
+function StatCard({ label, value, sub, loading }: { label: string; value: string; sub?: string; loading?: boolean }) {
   return (
-    <div
-      style={{
-        width: width ?? "100%",
-        height: height ?? "20px",
-        backgroundColor: "#e5e7eb",
-        borderRadius: "4px",
-        animation: "pulse 1.5s ease-in-out infinite",
-      }}
-    />
-  );
-}
-
-// ── KPI Card ──────────────────────────────────────────────────────────────────
-
-function KpiCard({
-  label,
-  value,
-  trend,
-  accent,
-  loading,
-}: {
-  label: string;
-  value: string;
-  trend?: string;
-  accent?: boolean;
-  loading?: boolean;
-}) {
-  return (
-    <div
-      style={{
-        padding: "20px 24px",
-        background: accent ? "#1a1a2e" : "#ffffff",
-        color: accent ? "#ffffff" : "#1a1a2e",
-        border: "1px solid #e2e8f0",
-        borderRadius: "12px",
-        flex: "1 1 200px",
-        minWidth: "180px",
-      }}
-    >
-      <div style={{ fontSize: "13px", opacity: 0.7, marginBottom: "8px" }}>{label}</div>
+    <div className="rounded-[14px] border border-border bg-card px-[18px] py-4">
+      <div className="text-[12.5px] text-ink-3">{label}</div>
       {loading ? (
-        <div style={{ marginTop: "4px" }}>
-          <SkeletonBlock width="60%" height="32px" />
-        </div>
+        <Skeleton className="mt-2 h-8 w-20" />
       ) : (
-        <>
-          <div className="tnum" style={{ fontSize: "28px", fontWeight: 500 }}>{value}</div>
-          {trend && (
-            <div
-              style={{
-                fontSize: "12px",
-                marginTop: "6px",
-                color: accent ? "rgba(255,255,255,0.7)" : "#6b7280",
-              }}
-            >
-              {trend}
-            </div>
-          )}
-        </>
+        <div className="tnum mt-1 text-[30px] font-medium leading-[1.1] text-ink">
+          {value}
+          {sub && <span className="ml-1 text-[14px] font-normal text-ink-3">{sub}</span>}
+        </div>
       )}
     </div>
   );
 }
 
-// ── Alert Card ────────────────────────────────────────────────────────────────
-
-const ALERT_COLORS: Record<string, { border: string; bg: string; icon: string }> = {
-  danger: { border: "#ef4444", bg: "#fef2f2", icon: "🚨" },
-  warning: { border: "#f59e0b", bg: "#fffbeb", icon: "⚠️" },
-  info: { border: "#3b82f6", bg: "#eff6ff", icon: "ℹ️" },
-  success: { border: "#22c55e", bg: "#f0fdf4", icon: "✅" },
+const STATUS_CHIP: Record<string, { label: string; cls: string }> = {
+  active: { label: "Attivo", cls: "bg-brand-wash text-brand-deep" },
+  paused: { label: "In pausa", cls: "bg-amber-wash text-amber" },
+  archived: { label: "Archiviato", cls: "bg-secondary text-muted-foreground" },
 };
 
 function AlertCard({ alert }: { alert: SmartAlert }) {
-  const colors = ALERT_COLORS[alert.type] ?? ALERT_COLORS.info!;
-  const content = (
-    <div
-      style={{
-        padding: "14px 18px",
-        background: colors.bg,
-        borderLeft: `4px solid ${colors.border}`,
-        borderRadius: "8px",
-        cursor: alert.actionUrl ? "pointer" : "default",
-      }}
-    >
-      <div style={{ display: "flex", gap: "10px", alignItems: "flex-start" }}>
-        <span style={{ fontSize: "16px" }}>{colors.icon}</span>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: "13px", fontWeight: 600, color: "#374151", marginBottom: "2px" }}>
-            <span style={{ color: "#6b7280", fontWeight: 400, marginRight: "8px" }}>
-              {alert.category}
-            </span>
-            {alert.title}
-          </div>
-          <div style={{ fontSize: "13px", color: "#6b7280" }}>{alert.description}</div>
-        </div>
-      </div>
-    </div>
-  );
-
-  if (alert.actionUrl) {
-    return (
-      <Link href={alert.actionUrl} style={{ textDecoration: "none" }}>
-        {content}
-      </Link>
-    );
-  }
-  return content;
-}
-
-// ── Engagement Heatmap ────────────────────────────────────────────────────────
-
-function EngagementHeatmap({ data }: { data: HeatmapRow[] }) {
-  const hasActivity = data.length > 0 && data.some((r) => r.weeks.some((w) => w > 0));
-
-  if (data.length === 0 || !hasActivity) {
-    return (
-      <div style={{ textAlign: "center", padding: "40px", color: "#6b7280" }}>
-        <div style={{ fontSize: "32px", marginBottom: "8px" }}>📅</div>
-        <p style={{ fontSize: "14px", margin: 0 }}>Nessun check-in registrato</p>
-        <p style={{ fontSize: "12px", marginTop: "4px", color: "#6b7280" }}>
-          L&apos;attività dei clienti apparirà qui dopo il primo check-in
-        </p>
-      </div>
-    );
-  }
-
-  const maxValue = Math.max(...data.flatMap((r) => r.weeks), 1);
-
+  const tone =
+    alert.type === "danger"
+      ? { box: "bg-red-wash", act: "text-destructive" }
+      : alert.type === "warning"
+        ? { box: "bg-amber-wash", act: "text-amber" }
+        : { box: "border border-border bg-card", act: "text-brand-deep" };
   return (
-    <div style={{ overflowX: "auto" }}>
-      <table style={{ borderCollapse: "collapse", width: "100%" }}>
-        <thead>
-          <tr>
-            <th
-              style={{
-                padding: "8px 12px",
-                textAlign: "left",
-                fontSize: "11px",
-                fontWeight: 600,
-                color: "#6b7280",
-                minWidth: "140px",
-              }}
-            >
-              Cliente
-            </th>
-            {Array.from({ length: 12 }, (_, i) => (
-              <th
-                key={i}
-                style={{
-                  padding: "8px 4px",
-                  textAlign: "center",
-                  fontSize: "10px",
-                  color: "#6b7280",
-                  fontWeight: 400,
-                }}
-              >
-                S{12 - i}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {data.map((row) => (
-            <tr key={row.clientId}>
-              <td
-                style={{
-                  padding: "4px 12px",
-                  fontSize: "13px",
-                  fontWeight: 500,
-                  color: "#374151",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {row.clientName}
-              </td>
-              {row.weeks.map((count, i) => {
-                const intensity = count / maxValue;
-                const bg =
-                  count === 0
-                    ? "#f3f4f6"
-                    : intensity < 0.33
-                      ? "#dcfce7"
-                      : intensity < 0.66
-                        ? "#86efac"
-                        : "#22c55e";
-                return (
-                  <td key={i} style={{ padding: "4px" }}>
-                    <div
-                      style={{
-                        width: "28px",
-                        height: "28px",
-                        borderRadius: "4px",
-                        backgroundColor: bg,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontSize: "10px",
-                        color: count > 0 ? "#065f46" : "#d1d5db",
-                        fontWeight: 600,
-                        margin: "0 auto",
-                      }}
-                      title={`${row.clientName}: ${count} attività nella settimana ${12 - i}`}
-                    >
-                      {count > 0 ? count : ""}
-                    </div>
-                  </td>
-                );
-              })}
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div className={`mb-[11px] rounded-[13px] px-4 py-3.5 ${tone.box}`}>
+      <div className="flex items-baseline justify-between gap-2 text-[13.5px] font-medium text-ink">
+        <span>{alert.title}</span>
+      </div>
+      {alert.description && (
+        <p className="mb-2 mt-0.5 text-[13px] text-muted-foreground">{alert.description}</p>
+      )}
+      {alert.actionUrl && (
+        <Link href={alert.actionUrl} className={`text-[13px] font-medium ${tone.act}`}>
+          Apri →
+        </Link>
+      )}
     </div>
   );
 }
 
-// ── Revenue Chart Placeholder ─────────────────────────────────────────────────
-
-function RevenueChart({
-  data,
-}: {
-  data: Array<{ month: string; revenueCents: number }>;
-}) {
-  const hasData = data.length > 0 && data.some((d) => d.revenueCents > 0);
-
-  if (!hasData) {
-    return (
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          height: "180px",
-          color: "#6b7280",
-          flexDirection: "column",
-          gap: "8px",
-        }}
-      >
-        <div style={{ fontSize: "32px" }}>📊</div>
-        <p style={{ fontSize: "14px", margin: 0 }}>Nessun dato di fatturazione</p>
-        <p style={{ fontSize: "12px", margin: 0, color: "#6b7280" }}>
-          I dati appariranno dopo la prima fattura pagata
-        </p>
-      </div>
-    );
-  }
-
-  const maxRevenue = Math.max(...data.map((d) => d.revenueCents), 1);
-
-  return (
-    <div style={{ display: "flex", alignItems: "flex-end", gap: "8px", height: "180px", padding: "0 8px" }}>
-      {data.map((d) => {
-        const height = Math.max((d.revenueCents / maxRevenue) * 160, 4);
-        const monthLabel = d.month.split("-")[1]!;
-        return (
-          <div
-            key={d.month}
-            style={{
-              flex: 1,
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "flex-end",
-            }}
-          >
-            <div
-              style={{
-                width: "100%",
-                maxWidth: "40px",
-                height: `${height}px`,
-                backgroundColor: d.revenueCents > 0 ? "#1a1a2e" : "#e5e7eb",
-                borderRadius: "4px 4px 0 0",
-                transition: "height 0.3s",
-              }}
-              title={`€${(d.revenueCents / 100).toFixed(0)}`}
-            />
-            <div
-              style={{
-                fontSize: "10px",
-                color: "#6b7280",
-                marginTop: "6px",
-                fontWeight: 500,
-              }}
-            >
-              {monthLabel}
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-// ── Pipeline Chart ────────────────────────────────────────────────────────────
-
-function PipelineChart({ data }: { data: Array<{ status: string; count: number }> }) {
-  const total = data.reduce((sum, d) => sum + d.count, 0);
-  const labels: Record<string, string> = {
-    active: "Attivi",
-    paused: "In pausa",
-    archived: "Archiviati",
-  };
-  const colors: Record<string, string> = {
-    active: "#22c55e",
-    paused: "#f59e0b",
-    archived: "#6b7280",
-  };
-
-  if (total === 0) {
-    return (
-      <div style={{ textAlign: "center", padding: "40px", color: "#6b7280" }}>
-        <p style={{ fontSize: "14px" }}>Nessun cliente</p>
-      </div>
-    );
-  }
-
-  return (
-    <div>
-      {/* Bar */}
-      <div
-        style={{
-          display: "flex",
-          borderRadius: "8px",
-          overflow: "hidden",
-          height: "32px",
-          marginBottom: "16px",
-        }}
-      >
-        {data
-          .filter((d) => d.count > 0)
-          .map((d) => (
-            <div
-              key={d.status}
-              style={{
-                flex: d.count,
-                backgroundColor: colors[d.status] ?? "#e5e7eb",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: "12px",
-                fontWeight: 600,
-                color: "#ffffff",
-                minWidth: "30px",
-              }}
-            >
-              {d.count}
-            </div>
-          ))}
-      </div>
-      {/* Legend */}
-      <div style={{ display: "flex", gap: "20px", justifyContent: "center" }}>
-        {data.map((d) => (
-          <div key={d.status} style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-            <div
-              style={{
-                width: "10px",
-                height: "10px",
-                borderRadius: "50%",
-                backgroundColor: colors[d.status] ?? "#e5e7eb",
-              }}
-            />
-            <span style={{ fontSize: "13px", color: "#6b7280" }}>
-              {labels[d.status] ?? d.status}: {d.count}
-            </span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// ── Error Banner ──────────────────────────────────────────────────────────────
-
-function ErrorBanner({ message }: { message: string }) {
-  return (
-    <div
-      style={{
-        padding: "12px 16px",
-        backgroundColor: "#fef2f2",
-        border: "1px solid #fecaca",
-        borderRadius: "8px",
-        color: "#dc2626",
-        fontSize: "13px",
-        marginBottom: "16px",
-      }}
-    >
-      Errore nel caricamento: {message}
-    </div>
-  );
-}
-
-// ── Page Component ────────────────────────────────────────────────────────────
+// ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
   const overviewQuery = trpc.dashboard.overview.useQuery();
   const alertsQuery = trpc.dashboard.alerts.useQuery();
-  const heatmapQuery = trpc.dashboard.engagementHeatmap.useQuery();
-  const revenueQuery = trpc.dashboard.revenueTimeline.useQuery();
-  const pipelineQuery = trpc.dashboard.pipelineBreakdown.useQuery();
+  const clientsQuery = trpc.client.list.useQuery({ limit: 5, offset: 0 });
 
-  const overview = overviewQuery.data;
-  const alerts = alertsQuery.data ?? [];
-  const heatmapData = heatmapQuery.data?.data ?? [];
-  const revenueData = revenueQuery.data ?? [];
-  const pipelineData = pipelineQuery.data ?? [
-    { status: "active", count: 0 },
-    { status: "paused", count: 0 },
-    { status: "archived", count: 0 },
-  ];
+  const o = overviewQuery.data;
+  const alerts = (alertsQuery.data ?? []) as SmartAlert[];
+  const clients = clientsQuery.data?.clients ?? [];
 
-  const overviewLoading = overviewQuery.isLoading;
+  const today = new Date().toLocaleDateString("it-IT", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+
+  const euro = (cents: number) =>
+    new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(
+      cents / 100,
+    );
+
+  // La nota — factual composition from live numbers only.
+  const nota =
+    o &&
+    [
+      o.checkins.pending > 0
+        ? `${o.checkins.pending} check-in in attesa${o.checkins.flagged > 0 ? `, ${o.checkins.flagged} con variazione peso da rivedere` : ""}`
+        : "nessun check-in in attesa",
+      o.tasks.overdue > 0 ? `${o.tasks.overdue} attività scadute` : null,
+      o.revenue.outstandingCents > 0 ? `${euro(o.revenue.outstandingCents)} da incassare` : null,
+    ]
+      .filter(Boolean)
+      .join(" · ") + ".";
+
+  const anyError = overviewQuery.isError || alertsQuery.isError || clientsQuery.isError;
 
   return (
-    <div className="coach-container">
-      {/* Header */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: "28px",
-        }}
-      >
-        <div>
-          <p className="mb-1 text-xs font-medium uppercase tracking-wide text-brand-deep">Roberto Scrigna</p>
-          <h1 style={{ fontSize: "26px", fontWeight: 500, letterSpacing: "-0.01em", margin: 0, color: "#0f1729" }}>Dashboard</h1>
-          <p style={{ color: "#6b7280", marginTop: "4px", fontSize: "14px" }}>Panoramica operativa</p>
-        </div>
-        <div style={{ display: "flex", gap: "12px" }}>
+    <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_300px]">
+      {/* ── Main column ── */}
+      <div>
+        <div className="mb-7 flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <div className="mb-2 text-[11.5px] font-medium uppercase tracking-[0.14em] text-ink-3">{today}</div>
+            <h1 className="text-[40px] tracking-[-0.01em] text-ink">Buongiorno</h1>
+            {o && (
+              <div className="mt-1.5 text-sm text-ink-3">
+                {o.clients.active} atleti attivi · {o.checkins.pending} check-in in attesa
+              </div>
+            )}
+          </div>
           <Link
-            href="/monitoring"
-            style={{
-              padding: "10px 20px",
-              backgroundColor: "#ffffff",
-              color: "#1a1a2e",
-              border: "1px solid #e2e8f0",
-              borderRadius: "8px",
-              textDecoration: "none",
-              fontSize: "14px",
-              fontWeight: 600,
-            }}
+            href="/plans/generate"
+            className="rounded-full bg-brand px-5 py-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-brand-deep"
           >
-            Monitoraggio
-          </Link>
-          <Link
-            href="/invoices"
-            style={{
-              padding: "10px 20px",
-              backgroundColor: "#ffffff",
-              color: "#1a1a2e",
-              border: "1px solid #e2e8f0",
-              borderRadius: "8px",
-              textDecoration: "none",
-              fontSize: "14px",
-              fontWeight: 600,
-            }}
-          >
-            Fatture
-          </Link>
-          <Link
-            href="/plans/new"
-            style={{
-              padding: "10px 20px",
-              backgroundColor: "#1a1a2e",
-              color: "#ffffff",
-              border: "none",
-              borderRadius: "8px",
-              textDecoration: "none",
-              fontSize: "14px",
-              fontWeight: 600,
-            }}
-          >
-            + Nuovo Piano
+            Nuovo piano
           </Link>
         </div>
-      </div>
 
-      {/* Overview error */}
-      {overviewQuery.error && (
-        <ErrorBanner message={overviewQuery.error.message} />
-      )}
+        {anyError && (
+          <div className="mb-5 rounded-[12px] bg-red-wash px-4 py-3 text-sm text-destructive">
+            Errore nel caricamento di alcuni dati. Ricarica la pagina o riprova tra poco.
+          </div>
+        )}
 
-      {/* First-time onboarding card — shown when there are zero clients */}
-      {!overviewLoading && !overviewQuery.error && overview && overview.clients.active === 0 && overview.clients.total === 0 && (
-        <div
-          style={{
-            background: "linear-gradient(135deg, #1a56db, #2563eb)",
-            borderRadius: 16,
-            padding: 40,
-            textAlign: "center",
-            color: "#fff",
-            marginBottom: 32,
-          }}
-        >
-          <h2 style={{ fontSize: 24, fontWeight: 700, marginBottom: 12, marginTop: 0 }}>
-            Benvenuto nella tua piattaforma!
-          </h2>
-          <p style={{ fontSize: 16, opacity: 0.9, marginBottom: 24, marginTop: 0 }}>
-            Inizia aggiungendo il tuo primo cliente per generare un piano nutrizionale personalizzato.
-          </p>
-          <a
-            href="/clients/new"
-            style={{
-              background: "#fff",
-              color: "#1a56db",
-              padding: "12px 32px",
-              borderRadius: 8,
-              fontWeight: 600,
-              textDecoration: "none",
-              fontSize: 14,
-              display: "inline-block",
-            }}
-          >
-            + Aggiungi il primo cliente
-          </a>
+        <div className="mb-6 grid grid-cols-1 gap-3.5 sm:grid-cols-3">
+          <StatCard
+            label="Atleti attivi"
+            value={String(o?.clients.active ?? "—")}
+            sub={o ? `su ${o.clients.total}` : undefined}
+            loading={overviewQuery.isLoading}
+          />
+          <StatCard
+            label="Check-in in attesa"
+            value={String(o?.checkins.pending ?? "—")}
+            sub={o && o.checkins.flagged > 0 ? `${o.checkins.flagged} segnalati` : undefined}
+            loading={overviewQuery.isLoading}
+          />
+          <StatCard
+            label="Fatturato mese"
+            value={o ? euro(o.revenue.thisMonthCents) : "—"}
+            loading={overviewQuery.isLoading}
+          />
         </div>
-      )}
 
-      {/* KPI Cards */}
-      <div style={{ display: "flex", gap: "16px", marginBottom: "32px", flexWrap: "wrap" }}>
-        <KpiCard
-          label="Clienti attivi"
-          value={overview ? String(overview.clients.active) : "—"}
-          trend={overview ? `su ${overview.clients.total} totali` : undefined}
-          accent
-          loading={overviewLoading}
-        />
-        <KpiCard
-          label="Check-in in attesa"
-          value={overview ? String(overview.checkins.pending + overview.checkins.awaitingReview) : "—"}
-          loading={overviewLoading}
-        />
-        <KpiCard
-          label="Segnalazioni peso"
-          value={overview ? String(overview.checkins.flagged) : "—"}
-          loading={overviewLoading}
-        />
-        <KpiCard
-          label="Fatturato mese"
-          value={overview ? `€ ${(overview.revenue.thisMonthCents / 100).toLocaleString("it-IT", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : "—"}
-          trend={overview ? `€ ${(overview.revenue.outstandingCents / 100).toLocaleString("it-IT", { minimumFractionDigits: 0, maximumFractionDigits: 0 })} in sospeso` : undefined}
-          loading={overviewLoading}
-        />
-        <KpiCard
-          label="Task scaduti"
-          value={overview ? String(overview.tasks.overdue) : "—"}
-          loading={overviewLoading}
-        />
-      </div>
+        {/* Athletes panel */}
+        <div className="overflow-hidden rounded-[14px] border border-border bg-card">
+          <div className="flex items-center justify-between border-b border-line-2 px-[22px] py-[15px]">
+            <h3 className="text-[16px] text-ink">Atleti</h3>
+            <Link href="/clients" className="text-[13px] text-brand-deep">
+              Tutti →
+            </Link>
+          </div>
 
-      {/* Smart Alerts */}
-      <div style={{ marginBottom: "32px" }}>
-        <h2 style={{ fontSize: "18px", fontWeight: 700, color: "#1a1a2e", marginBottom: "16px" }}>
-          Avvisi
-        </h2>
-
-        {alertsQuery.isLoading && (
-          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-            {[1, 2].map((i) => (
-              <div
-                key={i}
-                style={{
-                  padding: "14px 18px",
-                  background: "#f9fafb",
-                  borderLeft: "4px solid #e5e7eb",
-                  borderRadius: "8px",
-                }}
+          {clientsQuery.isLoading ? (
+            <div className="space-y-3 p-[22px]">
+              <Skeleton className="h-10" />
+              <Skeleton className="h-10" />
+            </div>
+          ) : clients.length === 0 ? (
+            <div className="px-[22px] py-12 text-center">
+              <h2 className="text-[22px] text-ink">Benvenuto nel tuo studio digitale</h2>
+              <p className="mx-auto mt-2 max-w-[42ch] text-sm text-muted-foreground">
+                Inizia dal primo atleta: il modulo di intake crea la scheda e la prima misurazione insieme.
+              </p>
+              <Link
+                href="/plans/new"
+                className="mt-5 inline-block rounded-full bg-brand px-5 py-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-brand-deep"
               >
-                <SkeletonBlock width="70%" height="16px" />
-                <div style={{ marginTop: "6px" }}>
-                  <SkeletonBlock width="45%" height="13px" />
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {alertsQuery.error && (
-          <ErrorBanner message={alertsQuery.error.message} />
-        )}
-
-        {!alertsQuery.isLoading && !alertsQuery.error && alerts.length === 0 ? (
-          <div
-            style={{
-              padding: "32px",
-              background: "#f0fdf4",
-              borderRadius: "12px",
-              textAlign: "center",
-              border: "1px solid #dcfce7",
-            }}
-          >
-            <span style={{ fontSize: "24px" }}>✅</span>
-            <p style={{ fontSize: "14px", color: "#15803d", marginTop: "8px", fontWeight: 500 }}>
-              Nessun avviso — tutto in ordine!
-            </p>
-          </div>
-        ) : (
-          !alertsQuery.isLoading && !alertsQuery.error && (
-            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-              {alerts.map((alert) => (
-                <AlertCard key={alert.id} alert={alert} />
-              ))}
+                Aggiungi il primo atleta
+              </Link>
             </div>
-          )
-        )}
-      </div>
-
-      {/* Two-column layout: Revenue + Pipeline */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[2fr_1fr]" style={{ marginBottom: "32px" }}>
-        <div
-          style={{
-            background: "#ffffff",
-            border: "1px solid #e2e8f0",
-            borderRadius: "12px",
-            padding: "24px",
-          }}
-        >
-          <h3 style={{ fontSize: "16px", fontWeight: 700, color: "#1a1a2e", marginBottom: "20px" }}>
-            Fatturato (ultimi 12 mesi)
-          </h3>
-          {revenueQuery.isLoading ? (
-            <div style={{ display: "flex", alignItems: "flex-end", gap: "8px", height: "180px" }}>
-              {Array.from({ length: 12 }, (_, i) => (
-                <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end" }}>
-                  <div style={{ width: "100%", maxWidth: "40px", height: `${20 + Math.random() * 100}px`, backgroundColor: "#e5e7eb", borderRadius: "4px 4px 0 0" }} />
-                </div>
-              ))}
-            </div>
-          ) : revenueQuery.error ? (
-            <ErrorBanner message={revenueQuery.error.message} />
           ) : (
-            <RevenueChart data={revenueData} />
+            <div className="table-scroll">
+              <table className="w-full text-[14px]">
+                <thead>
+                  <tr className="border-b border-line-2 text-left">
+                    <th className="px-[22px] py-[11px] text-[11.5px] font-medium uppercase tracking-[0.08em] text-ink-3">
+                      Atleta
+                    </th>
+                    <th className="px-[22px] py-[11px] text-[11.5px] font-medium uppercase tracking-[0.08em] text-ink-3">
+                      Stato
+                    </th>
+                    <th className="px-[22px] py-[11px]" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {clients.map((c) => {
+                    const chip = STATUS_CHIP[c.status as string] ?? STATUS_CHIP.active!;
+                    return (
+                      <tr key={c.id} className="border-b border-line-2 last:border-b-0">
+                        <td className="px-[22px] py-[14px]">
+                          <div className="font-medium text-ink">{c.full_name}</div>
+                          {Array.isArray(c.tags) && c.tags.length > 0 && (
+                            <div className="text-[12.5px] text-ink-3">{(c.tags as string[]).join(" · ")}</div>
+                          )}
+                        </td>
+                        <td className="px-[22px] py-[14px]">
+                          <span className={`whitespace-nowrap rounded-full px-[11px] py-[5px] text-[12px] font-medium ${chip.cls}`}>
+                            {chip.label}
+                          </span>
+                        </td>
+                        <td className="px-[22px] py-[14px] text-right">
+                          <Link href={`/clients/${c.id}`} className="text-[13px] font-medium text-brand-deep">
+                            Apri →
+                          </Link>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           )}
-        </div>
-        <div
-          style={{
-            background: "#ffffff",
-            border: "1px solid #e2e8f0",
-            borderRadius: "12px",
-            padding: "24px",
-          }}
-        >
-          <h3 style={{ fontSize: "16px", fontWeight: 700, color: "#1a1a2e", marginBottom: "20px" }}>
-            Pipeline Clienti
-          </h3>
-          {pipelineQuery.isLoading ? (
-            <div style={{ padding: "20px 0" }}>
-              <SkeletonBlock height="32px" />
-              <div style={{ marginTop: "16px", display: "flex", gap: "16px", justifyContent: "center" }}>
-                <SkeletonBlock width="80px" height="16px" />
-                <SkeletonBlock width="80px" height="16px" />
-                <SkeletonBlock width="80px" height="16px" />
-              </div>
+
+          {nota && clients.length > 0 && (
+            <div className="flex gap-3.5 border-t border-line-2 px-[22px] py-4">
+              <div className="w-[3px] flex-none rounded-full bg-brand" aria-hidden />
+              <p className="font-display max-w-[64ch] text-[15px] font-medium italic leading-[1.55] text-muted-foreground">
+                {nota.charAt(0).toUpperCase() + nota.slice(1)}
+              </p>
             </div>
-          ) : pipelineQuery.error ? (
-            <ErrorBanner message={pipelineQuery.error.message} />
-          ) : (
-            <PipelineChart data={pipelineData} />
           )}
         </div>
       </div>
 
-      {/* Engagement Heatmap */}
-      <div
-        style={{
-          background: "#ffffff",
-          border: "1px solid #e2e8f0",
-          borderRadius: "12px",
-          padding: "24px",
-        }}
-      >
-        <h3 style={{ fontSize: "16px", fontWeight: 700, color: "#1a1a2e", marginBottom: "20px" }}>
-          Engagement Heatmap (12 settimane)
-        </h3>
-        {heatmapQuery.isLoading ? (
-          <div style={{ padding: "20px 0", display: "flex", flexDirection: "column", gap: "8px" }}>
-            {[1, 2, 3].map((i) => (
-              <SkeletonBlock key={i} height="36px" />
-            ))}
+      {/* ── "Da gestire" rail ── */}
+      <aside>
+        <div className="mb-3.5 text-[11.5px] font-medium uppercase tracking-[0.14em] text-ink-3">
+          Da gestire{alerts.length > 0 ? ` · ${alerts.length}` : ""}
+        </div>
+        {alertsQuery.isLoading ? (
+          <div className="space-y-3">
+            <Skeleton className="h-24" />
+            <Skeleton className="h-24" />
           </div>
-        ) : heatmapQuery.error ? (
-          <ErrorBanner message={heatmapQuery.error.message} />
+        ) : alerts.length === 0 ? (
+          <div className="rounded-[13px] border border-border bg-card px-4 py-5 text-sm text-muted-foreground">
+            Tutto in ordine — nessuna azione richiesta.
+          </div>
         ) : (
-          <EngagementHeatmap data={heatmapData} />
+          alerts.map((a) => <AlertCard key={a.id} alert={a} />)
         )}
-      </div>
+      </aside>
     </div>
   );
 }
