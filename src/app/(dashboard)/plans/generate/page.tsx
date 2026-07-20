@@ -203,10 +203,16 @@ export default function GeneratePlanPage() {
     sourcePins: { ...EMPTY_SELECTIONS },
   });
   const [error, setError] = useState<string | null>(null);
+  // T3 Wave A — 4-step wizard shell (concept 2). Sections themselves unchanged.
+  const [step, setStep] = useState(1);
+  const STEP_TITLES = ["Cliente e dati", "Obiettivo e deficit", "Struttura settimana", "Rivedi e genera"];
 
   // Load active clients for the selector
   const { data: clientsData, isLoading: clientsLoading } =
     trpc.client.list.useQuery({ status: "active", limit: 100 });
+  const selectedClientName =
+    (clientsData?.clients ?? []).find((c) => c.id === form.clientId)?.full_name ?? null;
+  const canContinue = form.clientId !== "";
 
   // Engine preview for the selected client — drives the "Obiettivo & deficit"
   // card readouts. Fetched once per client change.
@@ -504,36 +510,60 @@ export default function GeneratePlanPage() {
   };
 
   return (
-    <div className="coach-container max-w-[820px]">
+    <div className="coach-container">
       {/* Header */}
-      <div style={{ marginBottom: "28px" }}>
-        <a
-          href="/plans"
-          style={{ fontSize: "13px", color: "#71717a", textDecoration: "none" }}
-        >
-          ← Torna ai Piani
-        </a>
-        <p className="mb-1 mt-2 text-xs font-medium uppercase tracking-wide text-brand-deep">
-          Piani nutrizionali
-        </p>
-        <h1
-          className="text-ink"
-          style={{
-            fontSize: "24px",
-            fontWeight: 500,
-            letterSpacing: "-0.01em",
-            marginTop: 0,
-            marginBottom: 0,
-          }}
-        >
-          Genera Piano Nutrizionale
-        </h1>
-        <p style={{ fontSize: "13px", color: "#71717a", marginTop: "4px" }}>
-          Seleziona un cliente con misurazione di partenza e configura le preferenze.
-          Il piano viene calcolato e salvato automaticamente.
-        </p>
+      <div className="mb-7">
+        <a href="/plans" className="text-[13px] text-muted-foreground hover:text-ink">← Torna ai piani</a>
+        <div className="mb-1 mt-3 text-[11.5px] font-medium uppercase tracking-[0.14em] text-ink-3">
+          Nuovo piano{selectedClientName ? ` · ${selectedClientName}` : ""}
+        </div>
+        <h1 className="text-[32px] tracking-[-0.01em] text-ink">{STEP_TITLES[step - 1]}</h1>
       </div>
 
+      <div className="grid gap-8 lg:grid-cols-[230px_minmax(0,1fr)]">
+        {/* Steps rail */}
+        <aside className="lg:sticky lg:top-8 lg:self-start">
+          <ol className="space-y-1">
+            {STEP_TITLES.map((title, i) => {
+              const n = i + 1;
+              const state = n < step ? "done" : n === step ? "on" : "todo";
+              const clickable = n < step || (n === step + 0) || (canContinue && n <= 4);
+              return (
+                <li key={title}>
+                  <button
+                    type="button"
+                    onClick={() => { if (n < step || (canContinue && n !== step)) setStep(n); }}
+                    className={`flex w-full items-center gap-3 rounded-[10px] px-3 py-2.5 text-left text-sm transition-colors ${
+                      state === "on"
+                        ? "border border-border bg-card font-medium text-ink"
+                        : state === "done"
+                        ? "text-ink hover:bg-card"
+                        : "text-ink-3"
+                    } ${!clickable ? "cursor-default" : ""}`}
+                  >
+                    <span
+                      className={`grid h-[22px] w-[22px] flex-none place-items-center rounded-full border text-[11px] ${
+                        state === "on"
+                          ? "border-brand bg-brand text-primary-foreground"
+                          : state === "done"
+                          ? "border-brand-soft bg-brand-wash text-brand-deep"
+                          : "border-border bg-card text-ink-3"
+                      }`}
+                    >
+                      {state === "done" ? "✓" : n}
+                    </span>
+                    {title}
+                  </button>
+                </li>
+              );
+            })}
+          </ol>
+        </aside>
+
+        {/* Step body — existing sections re-housed verbatim */}
+        <div className="min-w-0 max-w-[820px]">
+          {step === 1 && (
+            <>
       {/* Client Selection */}
       <div style={sectionStyle}>
         <label style={labelStyle}>Cliente *</label>
@@ -578,6 +608,11 @@ export default function GeneratePlanPage() {
         )}
       </div>
 
+            </>
+          )}
+
+          {step === 2 && (
+            <>
       {/* Obiettivo & deficit (Phase A) */}
       {form.clientId && estimate && (
         <div style={sectionStyle}>
@@ -782,8 +817,12 @@ export default function GeneratePlanPage() {
         </div>
       )}
 
+            </>
+          )}
+
+          {step === 3 && form.clientId && form.weekSchedule && (
+            <>
       {/* Struttura del piano (Phase B) */}
-      {form.clientId && form.weekSchedule && (
         <WeekStructureCard
           weekSchedule={form.weekSchedule}
           perDaySessions={form.perDaySessions}
@@ -795,10 +834,12 @@ export default function GeneratePlanPage() {
           labelStyle={labelStyle}
           inputStyle={inputStyle}
         />
-      )}
+            </>
+          )}
 
+          {step === 4 && form.clientId && form.weekSchedule && (
+            <>
       {/* Macro overrides (Phase C) */}
-      {form.clientId && form.weekSchedule && (
         <MacroOverridesCard
           weekSchedule={form.weekSchedule}
           macroOverrides={form.macroOverrides}
@@ -825,7 +866,6 @@ export default function GeneratePlanPage() {
           labelStyle={labelStyle}
           inputStyle={inputStyle}
         />
-      )}
 
       {/* Source swap (#16b) */}
       {form.clientId && form.weekSchedule && (
@@ -994,6 +1034,9 @@ export default function GeneratePlanPage() {
       </div>
 
       {/* Error */}
+            </>
+          )}
+
       {error && (
         <div
           style={{
@@ -1010,33 +1053,54 @@ export default function GeneratePlanPage() {
         </div>
       )}
 
-      {/* Generate button */}
-      <button
-        onClick={handleGenerate}
-        disabled={isGenerating || !form.clientId || belowFloor}
-        style={{
-          width: "100%",
-          padding: "14px",
-          backgroundColor:
-            isGenerating || !form.clientId || belowFloor ? "#a1a1aa" : "#18181b",
-          color: "#ffffff",
-          border: "none",
-          borderRadius: "10px",
-          fontSize: "16px",
-          fontWeight: 700,
-          cursor:
-            isGenerating || !form.clientId || belowFloor ? "not-allowed" : "pointer",
-        }}
-      >
-        {isGenerating
-          ? "Generazione in corso..."
-          : belowFloor
-          ? "Sotto la soglia minima — riduci il deficit"
-          : "Genera Piano Nutrizionale"}
-      </button>
+
+          {/* Footer navigation */}
+          <div className="mt-7 flex items-center justify-between gap-4">
+            {step > 1 ? (
+              <button
+                type="button"
+                onClick={() => setStep(step - 1)}
+                className="rounded-full border border-border px-5 py-3 text-sm font-medium text-ink transition-colors hover:bg-secondary"
+              >
+                ← Indietro
+              </button>
+            ) : (
+              <span />
+            )}
+            <div className="hidden items-center gap-2 text-[13px] text-ink-3 sm:flex">
+              <span className="rounded-[6px] border border-b-2 border-border bg-secondary px-1.5 py-0.5 text-[11px]">⌘</span>
+              <span className="rounded-[6px] border border-b-2 border-border bg-secondary px-1.5 py-0.5 text-[11px]">↵</span>
+              {step < 4 ? "continua" : "genera"}
+            </div>
+            {step < 4 ? (
+              <button
+                type="button"
+                onClick={() => canContinue && setStep(step + 1)}
+                disabled={!canContinue}
+                className="rounded-full bg-brand px-6 py-3.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-brand-deep disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Continua →
+              </button>
+            ) : (
+            <button
+              onClick={handleGenerate}
+              disabled={isGenerating || !form.clientId || belowFloor}
+              className="rounded-full bg-brand px-6 py-3.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-brand-deep disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isGenerating
+                ? "Generazione in corso…"
+                : belowFloor
+                ? "Sotto la soglia minima — riduci il deficit"
+                : "Genera piano nutrizionale"}
+            </button>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
+
 
 // ── Week structure wizard ────────────────────────────────────────────────────
 

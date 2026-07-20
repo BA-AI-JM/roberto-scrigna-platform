@@ -13,6 +13,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { trpc } from "../../../lib/trpc/client";
 
 interface SmartAlert {
@@ -88,11 +89,11 @@ export default function DashboardPage() {
   const alerts = (alertsQuery.data ?? []) as SmartAlert[];
   const clients = clientsQuery.data?.clients ?? [];
 
-  const today = new Date().toLocaleDateString("it-IT", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-  });
+  // Client-only date: server/client locale rendering can differ (hydration).
+  const [today, setToday] = useState("");
+  useEffect(() => {
+    setToday(new Date().toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long" }));
+  }, []);
 
   const euro = (cents: number) =>
     new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(
