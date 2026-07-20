@@ -61,10 +61,12 @@ function makeDb(tables: Record<string, Row[]>, auth: Auth = {}) {
           for (const { col, op, val } of ranges) {
             const rv = r[col] as string | number | null | undefined;
             if (rv == null) return false;
-            if (op === "lt" && !(rv < (val as never))) return false;
-            if (op === "lte" && !(rv <= (val as never))) return false;
-            if (op === "gt" && !(rv > (val as never))) return false;
-            if (op === "gte" && !(rv >= (val as never))) return false;
+            // rv/val are same-typed at call sites (ISO dates or numbers); compare loosely.
+            const a = rv as unknown as number, b = val as unknown as number;
+            if (op === "lt" && !(a < b)) return false;
+            if (op === "lte" && !(a <= b)) return false;
+            if (op === "gt" && !(a > b)) return false;
+            if (op === "gte" && !(a >= b)) return false;
           }
           return true;
         });
@@ -362,10 +364,10 @@ describe("guidanceRouter (G29)", () => {
       heightCm: 180,
       dailySteps: 9000,
       occupationalLevel: "sedentary" as const,
-      weekSchedule: ["training", "rest", "training", "rest", "training", "rest", "rest"] as const,
+      weekSchedule: ["training", "rest", "training", "rest", "training", "rest", "rest"] as ("training" | "rest" | "refeed" | "deload")[],
     },
     bodyComposition: { bodyFatPct: 18, leanMassKg: 67, fatMassKg: 15 },
-    dayTypes: ["training", "rest"] as const,
+    dayTypes: ["training", "rest"] as ("training" | "rest" | "refeed" | "deload")[],
     trainingDaysPerWeek: 3,
     isDeficit: true,
     isSurplus: false,
