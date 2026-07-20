@@ -18,6 +18,7 @@ import { createSupabaseServer } from "../../../../lib/supabase/server";
 import { generatePdf } from "../../../../pdf/generator";
 import { PdfDependencyError } from "../../../../pdf/chromium-launcher";
 import type { SerializedPlanResult } from "../../../../services/plan-generator";
+import { parsePlanBundle } from "../../../../lib/plan-bundle";
 import type { PdfReportData } from "../../../../pdf/types";
 // #18 → PDF: representative training time from the client's intake, attached to
 // training-day plans so the renderer draws the peri-workout box (mirrors the
@@ -63,15 +64,22 @@ export async function GET(
     return new Response("Piano non trovato.", { status: 404 });
   }
 
-  // 3. Extract plan_bundle from JSONB storage
+  // 3. Decode plan_bundle through the ONE decoder (T1.8/G11) — a malformed
+  // bundle is a real error (500 with reason class), never dressed as absence.
   const dailyTargets = plan.daily_targets as Record<string, unknown> | null;
-  const planBundle = dailyTargets?.plan_bundle as SerializedPlanResult | null;
-
-  if (!planBundle?.reportData) {
+  const rawBundle = dailyTargets?.plan_bundle;
+  if (rawBundle == null) {
     return new Response(
       "Dati del piano non disponibili. Rigenerare il piano.",
       { status: 422 }
     );
+  }
+  let planBundle: SerializedPlanResult;
+  try {
+    planBundle = parsePlanBundle(rawBundle).bundle;
+  } catch (err) {
+    console.error("[api/pdf] bundle decode:", err);
+    return new Response("Dati del piano non validi (bundle). Contattare l'assistenza.", { status: 500 });
   }
 
   let reportData: PdfReportData = planBundle.reportData;

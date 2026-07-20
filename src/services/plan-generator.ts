@@ -502,8 +502,20 @@ export function generatePlan(
 
 // ── Serialization helpers for review UI ─────────────────────────────────────
 
+/**
+ * T1.8 (G11): persisted bundles carry an explicit schema version. v1 = every row
+ * written before 2026-07-20 (no version field, no waterLoading). Bump this ONLY
+ * with a paired decoder change in src/lib/plan-bundle.ts + golden fixtures.
+ */
+export const PLAN_BUNDLE_SCHEMA_VERSION = 2 as const;
+
 /** Serializable version of PlanGenerationResult (Map → Record) */
 export interface SerializedPlanResult {
+  /** Bundle schema version (absent on legacy v1 rows) */
+  schemaVersion?: number;
+  /** Water-loading protocol (combat sports, pt2 Item 11) — was silently DROPPED
+   * by v1 serialization while the engine computed it (register G11). */
+  waterLoading?: WaterLoadingSchedule;
   /** Complete PDF report data */
   reportData: PdfReportData;
   /** Weekly plan */
@@ -536,6 +548,8 @@ export function serializePlanResult(
   }
 
   return {
+    schemaVersion: PLAN_BUNDLE_SCHEMA_VERSION,
+    ...(result.waterLoading ? { waterLoading: result.waterLoading } : {}),
     reportData: result.reportData,
     weeklyPlan: result.weeklyPlan,
     bodyComposition: result.bodyComposition,

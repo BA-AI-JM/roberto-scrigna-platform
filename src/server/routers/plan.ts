@@ -26,6 +26,7 @@ import type { PdfClientInfo } from "../../pdf/types";
 import { sendEmail } from "../../lib/resend/client";
 import { createSupabaseServiceRole } from "../../lib/supabase/service";
 import { ensurePortalAuthUser } from "../../services/portal-auth";
+import { parsePlanBundle } from "../../lib/plan-bundle";
 import { withinReconcileTolerance } from "../../engine/meal-plan/reconcile";
 import type { SourcePin } from "../../engine/meal-plan/types";
 import { foodCatalogue } from "../../engine/meal-plan";
@@ -747,7 +748,19 @@ export const planRouter = router({
       //    against the latest snapshot.
       const srcDt = (src.daily_targets as Record<string, unknown> | null) ?? {};
       const mp = (srcDt.macro_payload as Record<string, unknown> | undefined) ?? {};
-      const srcBundle = srcDt.plan_bundle as Record<string, unknown> | undefined;
+      // T1.8 (G11): never replay a version from a bundle we can't decode.
+      let srcBundle: Record<string, unknown> | undefined;
+      if (srcDt.plan_bundle != null) {
+        try {
+          srcBundle = parsePlanBundle(srcDt.plan_bundle).bundle as unknown as Record<string, unknown>;
+        } catch (err) {
+          console.error("[router/plan.createVersion] source bundle decode:", err);
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Bundle del piano sorgente non valido — impossibile creare la versione.",
+          });
+        }
+      }
       const clientSex: "male" | "female" = (client.sex as "male" | "female") ?? "male";
       const snapshotRecord = snapshotRow as unknown as Record<string, unknown>;
       const planDate = new Date().toISOString().split("T")[0]!;
@@ -1130,10 +1143,24 @@ export const planRouter = router({
         .eq("id", plan.client_id)
         .single();
 
-      // Extract typed payloads from JSONB
+      // T1.8 (G11): decode through the ONE decoder — a malformed bundle surfaces
+      // as a REAL error with its reason, never as absence (the G31 lesson: a
+      // schema error once told the coach "Piano non trovato" for a live plan).
       const dailyTargets = plan.daily_targets as Record<string, unknown> | null;
       const macroPayload = (dailyTargets?.macro_payload as Record<string, unknown>) ?? {};
-      const planBundle = dailyTargets?.plan_bundle ?? null;
+      const rawBundle = dailyTargets?.plan_bundle ?? null;
+      let planBundle: unknown = null;
+      if (rawBundle != null) {
+        try {
+          planBundle = parsePlanBundle(rawBundle).bundle;
+        } catch (err) {
+          console.error("[router/plan.getById] bundle decode:", err);
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Dati del piano non validi (bundle). Contattare l'assistenza.",
+          });
+        }
+      }
 
       return {
         id: plan.id,

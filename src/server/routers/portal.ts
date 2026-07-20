@@ -29,6 +29,7 @@ import { createSupabaseServiceRole } from "../../lib/supabase/service";
 import { toClientPlanHistory, type RawPlanRow } from "../plan-versioning";
 import type { SupplementEntry } from "../../pdf/types";
 import { rateLimit, getClientIp } from "../../lib/rate-limit";
+import { tryParsePlanBundle } from "../../lib/plan-bundle";
 // #18 → portal: representative per-week training time from the client's latest
 // intake (_intake.training_sessions). Pure, framework-free helper shared with
 // the coach card so the portal timed-session box mirrors it exactly.
@@ -165,10 +166,15 @@ export const portalRouter = router({
       }
     }
 
-    // Extract the meal plan from the plan bundle stored in daily_targets.
-    // The engine writes meal data to daily_targets.plan_bundle.reportData.dayTypePlans,
-    // not to the meal_distribution column (which is never written during plan generation).
-    const planBundle = (data.daily_targets as Record<string, unknown> | null)?.plan_bundle as Record<string, unknown> | undefined;
+    // Decode the plan bundle through the ONE decoder (T1.8/G11). The portal
+    // degrades VISIBLY on a malformed bundle (bundleError flag) — never renders
+    // a broken plan as "no plan" (error≠empty, NORTHSTAR).
+    const rawBundle = (data.daily_targets as Record<string, unknown> | null)?.plan_bundle;
+    const parsed = rawBundle != null ? tryParsePlanBundle(rawBundle) : null;
+    if (rawBundle != null && parsed == null) {
+      console.error("[router/portal.getActivePlan] bundle decode failed for plan", data.id);
+    }
+    const planBundle = parsed?.bundle as unknown as Record<string, unknown> | undefined;
     const dayTypePlans = (planBundle?.reportData as Record<string, unknown> | undefined)?.dayTypePlans ?? [];
     // #23: supplements live in the plan bundle (coach-curated), NOT the write-dead
     // supplement_protocol relation. Read what the coach actually set.
@@ -196,6 +202,11 @@ export const portalRouter = router({
       mealPlan: dayTypePlans as Array<{ dayType: string; label: string; mealPlan?: { withinTolerance: boolean; slots: Array<{ slot: string; primary: { template: { name: string }; scaledIngredients: Array<{ name: string; grams: number }>; actualMacros: { kcal: number; proteinG: number; carbsG: number; fatG: number } } }> } }>,
       supplements,
       trainingTime,
+      // T1.8: combat-sport water protocol restored to the delivery path (pt2 Item 11 —
+      // computed by the engine since June, dropped by v1 serialization). UI renders in T3.5.
+      waterLoading: (planBundle?.waterLoading as Record<string, unknown> | undefined) ?? null,
+      // Visible degradation: a bundle that exists but fails decode (error ≠ empty).
+      bundleError: rawBundle != null && parsed == null,
     };
   }),
 

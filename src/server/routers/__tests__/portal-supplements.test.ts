@@ -16,7 +16,8 @@ const { activePlanDb } = vi.hoisted(() => {
   ];
   const planRow = {
     id: "plan-1", name: "Piano", status: "active",
-    daily_targets: { plan_bundle: { reportData: { dayTypePlans: [] }, supplements: SUPPS } },
+    // T1.8: the mock must be a VALID v1 bundle — the decoder now rejects partial shapes.
+    daily_targets: { plan_bundle: { reportData: { dayTypePlans: [] }, weeklyPlan: { days: [] }, mealPlans: {}, energyBalance: "maintenance", assumptions: [], supplements: SUPPS } },
   };
   // Chainable builder resolving at .maybeSingle() (getActivePlan's terminal).
   const db = {
