@@ -36,3 +36,13 @@ Style module: **minimalist-ui** (best-fit signal: "calm B2B, content-first" — 
 Dials: VARIANCE=4 · MOTION=4 · DENSITY=5 (coach surfaces may run denser *tables* inside calm chrome; portal leans 4 — two-register density, one chrome). Stated deviations from 8/6/4 baseline are deliberate, per the operator's "not too busy."
 Tension check: (1) audience↔adjective — "warm" vs expert efficiency: resolved, warmth lives in chrome+voice, precision in data grammar. (2) **brand-color contrast — FLAGGED FORWARD to FD-2**: the teal ramp's AA pairs were verified against white; the new warm-bone canvas changes the base — recompute every pair. (3) reference↔anti-adjective — Whoop borders "gamified/dark": annotated does-not-carry; structure only. (4) brief-raised — density dial vs coach cockpit-appetite: resolved via the two-register rule above.
 Diverges from prior direction on: first DIRECTION.md for this project, n/a (lineage: extends the June proposal rather than diverging — ratified explicitly).
+
+---
+## Reference-round amendments (2026-07-20, operator: "we can do a bit better")
+Eight field references captured to `docs/polish/concepts/references/` (Whoop, TrainingPeaks, Everfit, Healthie, Levels, Attio, Amie, Linear — all opened for operator). Three inspected at depth by the design lane. Five concrete upgrades bound into concepts v2 and the build:
+1. **Type-scale conviction** (Whoop, Levels): the moment that matters speaks at 34–44px Fraunces in-app (day header, plan reveal, "Oggi", login) and larger on artifacts — v1's 24–26px was polite where it should be assured.
+2. **Humanity through image** (Levels, Whoop): chrome alone is not warmth. Login panel, portal header band, PDF cover, and key empty states carry warm photographic/textural moments — bone-light food and practice photography in OUR palette; never dark-consumer washes (anti-adjective guard holds).
+3. **Hero-object presentation** (Attio): the generated plan is presented as an object under a soft ambient wash at the reveal — the product's own artifact treated with reverence.
+4. **Micro-refinement layer** (Attio, Linear): kbd hints on coach surfaces, pill CTAs, 2–3% ambient gradients, purposeful eyebrow labels — the distance between clean and expensive.
+5. **Emptier defaults** (operator instinct + Attio): fewer, larger elements; dashboard stat strip drops to three; more air between panels. Calm, pushed further.
+Imported: conviction, atmosphere, refinement. NOT imported: their darkness, their English-consumer tone, their gamified edges.
