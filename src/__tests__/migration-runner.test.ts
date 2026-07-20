@@ -91,3 +91,23 @@ describe("migration runner logic", () => {
     expect(bundle.match(/INSERT INTO schema_migrations_applied/g)).toHaveLength(1);
   });
 });
+
+// T1.2-followup: existing-DB delta path — files ≤ the watermark are STAMPED, not executed.
+import { generateGuardBundle as genBundle } from "../../supabase/migrate";
+describe("assume-applied watermark", () => {
+  const migs = [
+    { filename: "001_a.sql", sql: "CREATE TABLE t1 (id int);", checksum: "c1" },
+    { filename: "019_b.sql", sql: "CREATE TABLE t2 (id int);", checksum: "c2" },
+  ] as never[];
+  it("stamps early files without executing, executes later files", () => {
+    const bundle = genBundle(migs as never, { stampOnlyThrough: "017_zzz.sql" });
+    expect(bundle).toContain("001_a.sql (assumed applied — stamped, NOT executed)");
+    expect(bundle).not.toMatch(/EXECUTE[\s\S]{0,200}CREATE TABLE t1/);
+    expect(bundle).toMatch(/EXECUTE[\s\S]{0,400}CREATE TABLE t2/);
+    expect(bundle).toContain("'assume-applied'");
+  });
+  it("no watermark → everything executes", () => {
+    const bundle = genBundle(migs as never, {});
+    expect(bundle).toMatch(/EXECUTE[\s\S]{0,200}CREATE TABLE t1/);
+  });
+});

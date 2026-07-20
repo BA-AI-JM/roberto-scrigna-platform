@@ -15,6 +15,8 @@
  *   bun run supabase/migrate.ts --dry-run
  *   bun run supabase/migrate.ts --verify
  *   bun run supabase/migrate.ts [--output /safe/path/apply-pending.sql]
+ *   bun run supabase/migrate.ts --assume-applied=017_checkin_token_rpc.sql
+ *     (existing-DB delta path: files ≤ the watermark are ledger-STAMPED, not executed)
  */
 
 import { createHash } from "node:crypto";
@@ -237,8 +239,18 @@ function uniqueDollarTag(prefix: string, sql: string): string {
   return tag;
 }
 
-export function generateGuardBundle(migrations: MigrationFile[]): string {
+export function generateGuardBundle(
+  migrations: MigrationFile[],
+  options: { stampOnlyThrough?: string } = {},
+): string {
   const generatedAt = new Date().toISOString();
+  // Existing-DB delta path (DEPLOYMENT-GUIDE §2.2): a database that predates the
+  // ledger has real objects but zero ledger rows — EXECUTE-ing its own history
+  // aborts on the first CREATE TABLE (proven locally 2026-07-20). The operator
+  // declares the known-applied watermark; those files are STAMPED, not run.
+  const stampCutoff = options.stampOnlyThrough ?? null;
+  const isStampOnly = (filename: string) =>
+    stampCutoff !== null && filename.localeCompare(stampCutoff) <= 0;
   const ledgerBootstrap = `-- Bootstrap only: migration 018 remains the source of record and performs backfill.
 CREATE TABLE IF NOT EXISTS schema_migrations_applied (
   filename TEXT PRIMARY KEY,
@@ -253,6 +265,9 @@ CREATE POLICY schema_migrations_applied_service_role_only
   ON schema_migrations_applied FOR ALL TO service_role
   USING (true) WITH CHECK (true);`;
   const blocks = migrations.map((migration, migrationIndex) => {
+    if (isStampOnly(migration.filename)) {
+      return `-- ${migration.filename} (assumed applied — stamped, NOT executed)\nINSERT INTO schema_migrations_applied (filename, checksum, applied_by)\nVALUES (${sqlLiteral(migration.filename)}, ${sqlLiteral(migration.checksum)}, 'assume-applied')\nON CONFLICT (filename) DO NOTHING;`;
+    }
     const statements = splitSqlStatements(migration.sql);
     const guardTag = uniqueDollarTag(`migration_guard_${migrationIndex}`, migration.sql);
     const executions = statements
@@ -351,8 +366,13 @@ async function main(args = process.argv.slice(2)): Promise<void> {
   const outputIndex = args.indexOf("--output");
   const outputPath = outputIndex >= 0 ? args[outputIndex + 1] : DEFAULT_OUTPUT;
   if (!outputPath) throw new Error("--output requires a path.");
-  await writeFile(outputPath, generateGuardBundle(pending), "utf8");
-  console.log(`Generated ${outputPath}`);
+  const assumeArg = args.find((a) => a.startsWith("--assume-applied="));
+  const stampOnlyThrough = assumeArg ? assumeArg.split("=")[1] : undefined;
+  if (assumeArg && !stampOnlyThrough) throw new Error("--assume-applied requires =<filename>.");
+  await writeFile(outputPath, generateGuardBundle(pending, { stampOnlyThrough }), "utf8");
+  console.log(
+    `Generated ${outputPath}${stampOnlyThrough ? ` (stamp-only through ${stampOnlyThrough})` : ""}`,
+  );
 }
 
 if (import.meta.main) {
