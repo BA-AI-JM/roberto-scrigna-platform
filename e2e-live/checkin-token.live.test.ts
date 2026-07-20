@@ -3,10 +3,10 @@
  * Requires: supabase local up + dev server on :3001. Run: bun test e2e-live/
  * (Deliberately outside vitest's src/** include — this is the live tier, not the 1.7s unit tier.)
  *
- * STATUS AT AUTHORING (2026-07-19): RED by design. A valid pending token exists in the DB,
- * yet the anon caller gets {valid:false} because publicProcedure's anon client is blocked by
- * partner-scoped RLS (register G1, runtime-proven). This spec turns GREEN when T1.1 ships the
- * SECURITY DEFINER / service-role token-consumption path. Do not "fix" the test — fix the app.
+ * STATUS AT AUTHORING (2026-07-19): RED by design — valid pending token → {valid:false},
+ * anon client blocked by partner-scoped RLS (register G1, runtime-proven).
+ * FLIPPED GREEN 2026-07-20 by T1.1a: migration 017 SECURITY DEFINER token RPCs + router
+ * rewire. This spec is now the permanent regression guard for the public check-in journey.
  */
 import { test, expect, beforeAll, afterAll } from "bun:test";
 

@@ -129,6 +129,8 @@ export const checkinRouter = router({
           partner_id: ctx.partnerId,
           status: "pending",
           due_date: input.dueDate ?? null,
+          // G6: the emailed link promises 7 days — the consumed token now enforces it.
+          token_expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
         })
         .select("id, token")
         .single();
@@ -176,21 +178,42 @@ export const checkinRouter = router({
         throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "Troppi tentativi. Riprova tra poco." });
       }
 
-      const { data: checkin } = await ctx.supabase
-        .from("check_in")
-        .select(
-          `id, status, due_date, created_at,
-           client:client_id (id, full_name)`
-        )
-        .eq("token", input.token)
-        .eq("status", "pending")
-        .single();
+      // T1.1 (G1): the anon ctx client is blocked by partner-scoped RLS, so token
+      // validation goes through the narrow SECURITY DEFINER RPC (migration 017).
+      const { data: rows, error } = await ctx.supabase.rpc("checkin_validate_token", {
+        p_token: input.token,
+      });
+      const v = (Array.isArray(rows) ? rows[0] : rows) as
+        | {
+            checkin_id: string;
+            client_id: string;
+            partner_id: string;
+            client_first_name: string | null;
+            due_date: string | null;
+            prev_weight_kg: number | null;
+            is_valid: boolean;
+            invalid_reason: string | null;
+          }
+        | undefined;
 
-      if (!checkin) {
+      if (error) {
+        console.error("[router/checkin.validateToken] rpc:", error);
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Errore di verifica. Riprova tra poco." });
+      }
+      if (!v?.is_valid) {
         return { valid: false as const, checkin: null };
       }
 
-      return { valid: true as const, checkin };
+      return {
+        valid: true as const,
+        checkin: {
+          id: v.checkin_id,
+          status: "pending" as const,
+          due_date: v.due_date,
+          created_at: null,
+          client: { id: v.client_id, full_name: v.client_first_name },
+        },
+      };
     }),
 
   /**
@@ -205,44 +228,42 @@ export const checkinRouter = router({
         throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "Troppi tentativi. Riprova tra poco." });
       }
 
-      // 1. Validate token
-      const { data: checkin } = await ctx.supabase
-        .from("check_in")
-        .select("id, client_id, partner_id, status")
-        .eq("token", input.token)
-        .eq("status", "pending")
-        .single();
+      // 1+2. Validate token AND fetch deviation context through the SECURITY
+      // DEFINER RPC (T1.1/G1 — the anon client's direct reads are RLS-blocked,
+      // which also silently nulled the previous-weight lookup before).
+      const { data: vRows, error: vErr } = await ctx.supabase.rpc("checkin_validate_token", {
+        p_token: input.token,
+      });
+      const checkinCtx = (Array.isArray(vRows) ? vRows[0] : vRows) as
+        | {
+            checkin_id: string;
+            client_id: string;
+            partner_id: string;
+            prev_weight_kg: number | null;
+            is_valid: boolean;
+            invalid_reason: string | null;
+          }
+        | undefined;
 
-      if (!checkin) {
+      if (vErr) {
+        console.error("[router/checkin.submitCheckin] validate rpc:", vErr);
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Errore nel salvataggio. Riprova tra poco." });
+      }
+      if (!checkinCtx?.is_valid) {
         throw new TRPCError({
           code: "NOT_FOUND",
-          message: "Check-in non trovato o già completato.",
+          message:
+            checkinCtx?.invalid_reason === "expired"
+              ? "Il link è scaduto. Chiedi al tuo nutrizionista un nuovo check-in."
+              : "Check-in non trovato o già completato.",
         });
       }
-
-      // 2. Get previous weight for deviation calculation
-      const { data: previousCheckin } = await ctx.supabase
-        .from("check_in")
-        .select("weight_kg")
-        .eq("client_id", checkin.client_id)
-        .eq("status", "completed")
-        .order("completed_at", { ascending: false })
-        .limit(1)
-        .single();
-
-      let previousKg = previousCheckin?.weight_kg ?? null;
-
-      // If no previous check-in, try initial snapshot
-      if (previousKg === null) {
-        const { data: snapshot } = await ctx.supabase
-          .from("client_snapshot")
-          .select("weight_kg")
-          .eq("client_id", checkin.client_id)
-          .order("taken_at", { ascending: false })
-          .limit(1)
-          .single();
-        previousKg = snapshot?.weight_kg ?? null;
-      }
+      const checkin = {
+        id: checkinCtx.checkin_id,
+        client_id: checkinCtx.client_id,
+        partner_id: checkinCtx.partner_id,
+      };
+      const previousKg = checkinCtx.prev_weight_kg ?? null;
 
       const deviation = computeWeightDeviation(input.weightKg, previousKg);
       const summary = generateCheckinSummary({
@@ -254,35 +275,42 @@ export const checkinRouter = router({
         deviationKg: deviation?.deviationKg ?? null,
       });
 
-      // 3. Update the check-in record
-      const { error } = await ctx.supabase
-        .from("check_in")
-        .update({
-          status: "completed",
-          completed_at: new Date().toISOString(),
-          weight_kg: input.weightKg,
-          waist_cm: input.waistCm ?? null,
-          hip_cm: input.hipCm ?? null,
-          energy_level: input.energyLevel,
-          sleep_quality: input.sleepQuality,
-          stress_level: input.stressLevel,
-          hunger_level: input.hungerLevel,
-          digestive_health: input.digestiveHealth,
-          adherence_pct: input.adherencePct,
-          training_adherence: input.trainingAdherence ?? null,
-          notes: input.notes ?? null,
-          photos: input.photos ?? [],
-          weight_deviation_kg: deviation?.deviationKg ?? null,
-          weight_flagged: deviation?.flagged ?? false,
-          ai_summary: summary,
-        })
-        .eq("id", checkin.id);
+      // 3. Consume the token atomically via the SECURITY DEFINER RPC — the
+      // UPDATE's WHERE (token + pending + unexpired) is the replay/race guard.
+      const { data: sRows, error } = await ctx.supabase.rpc("checkin_submit_token", {
+        p_token: input.token,
+        p_weight_kg: input.weightKg,
+        p_energy: input.energyLevel,
+        p_sleep: input.sleepQuality,
+        p_stress: input.stressLevel,
+        p_hunger: input.hungerLevel,
+        p_digestive: input.digestiveHealth,
+        p_adherence_pct: input.adherencePct,
+        p_training_adherence: input.trainingAdherence ?? null,
+        p_waist_cm: input.waistCm ?? null,
+        p_hip_cm: input.hipCm ?? null,
+        p_notes: input.notes ?? null,
+        p_photos: input.photos ?? [],
+        p_weight_deviation_kg: deviation?.deviationKg ?? null,
+        p_weight_flagged: deviation?.flagged ?? false,
+        p_ai_summary: summary,
+      });
+      const submitRes = (Array.isArray(sRows) ? sRows[0] : sRows) as
+        | { checkin_id: string; consumed: boolean; invalid_reason: string | null }
+        | undefined;
 
       if (error) {
         console.error("[router/checkin.submitCheckin]", error);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Errore nel salvataggio. Riprova tra poco.",
+        });
+      }
+      if (!submitRes?.consumed) {
+        // Lost the race or expired between validate and submit — honest state, no silent success.
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: "Questo check-in risulta già inviato o scaduto.",
         });
       }
 
