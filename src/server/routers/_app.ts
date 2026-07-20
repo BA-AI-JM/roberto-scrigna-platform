@@ -20,6 +20,7 @@ import { legalRouter } from "./legal";
 import { signatureRouter } from "./signature";
 import { feedbackRouter } from "./feedback";
 import { practiceProfileRouter } from "./practice-profile";
+import { gdprRouter } from "./gdpr";
 
 export const appRouter = router({
   auth: authRouter,
@@ -38,6 +39,7 @@ export const appRouter = router({
   signature: signatureRouter,
   feedback: feedbackRouter,
   practiceProfile: practiceProfileRouter,
+  gdpr: gdprRouter,
 });
 
 /** Type-safe router type for client-side usage */
