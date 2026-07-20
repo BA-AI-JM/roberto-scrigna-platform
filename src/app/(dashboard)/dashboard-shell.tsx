@@ -42,20 +42,20 @@ export function DashboardShell({ partnerName, children }: DashboardShellProps) {
       {/* Main content area */}
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Mobile top bar */}
-        <header className="flex items-center gap-4 border-b border-zinc-200 bg-white px-4 py-3 lg:hidden">
+        <header className="flex items-center gap-4 border-b border-line-2 bg-secondary px-4 py-3 lg:hidden">
           <button
             onClick={() => setSidebarOpen(true)}
-            className="rounded-lg p-2 text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900"
+            className="rounded-lg p-2 text-muted-foreground hover:bg-card hover:text-ink"
             aria-label="Apri menu"
           >
             {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
-          <span className="text-sm font-semibold tracking-tight text-zinc-900">
+          <span className="font-display text-sm font-semibold text-ink">
             Roberto Scrigna
           </span>
         </header>
 
-        <main className="flex-1 overflow-y-auto bg-zinc-50 p-4 lg:p-8">
+        <main className="flex-1 overflow-y-auto bg-background p-4 lg:p-8">
           {children}
         </main>
       </div>

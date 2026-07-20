@@ -16,10 +16,10 @@ import {
 } from "lucide-react";
 
 const NAV_ITEMS = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/clients", label: "Clienti", icon: Users },
+  { href: "/dashboard", label: "Oggi", icon: LayoutDashboard },
+  { href: "/clients", label: "Atleti", icon: Users },
   { href: "/plans", label: "Piani", icon: ClipboardList },
-  { href: "/plans/new", label: "Nuovo Cliente", icon: UserPlus },
+  { href: "/plans/new", label: "Nuovo atleta", icon: UserPlus },
   { href: "/invoices", label: "Fatturazione", icon: Receipt },
   { href: "/monitoring", label: "Monitoraggio", icon: Activity },
   { href: "/monitoring/training", label: "Allenamenti", icon: Dumbbell },
@@ -44,13 +44,11 @@ export function Sidebar({ partnerName, onNavigate }: SidebarProps) {
   }
 
   return (
-    <aside className="flex h-full w-64 flex-col border-r border-zinc-200 bg-white">
+    <aside className="flex h-full w-64 flex-col border-r border-line-2 bg-secondary">
       {/* Brand */}
-      <div className="border-b border-zinc-200 px-6 py-5">
-        <div className="text-lg font-bold tracking-tight text-zinc-900">
-          Roberto Scrigna
-        </div>
-        <div className="text-xs text-zinc-400">Nutrizione Sportiva</div>
+      <div className="px-6 pb-6 pt-6">
+        <div className="font-display text-[18px] font-semibold text-ink">Scrigna</div>
+        <div className="text-xs text-ink-3">Nutrizione Sportiva</div>
       </div>
 
       {/* Navigation */}
@@ -68,11 +66,11 @@ export function Sidebar({ partnerName, onNavigate }: SidebarProps) {
               onClick={onNavigate}
               className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
                 isActive
-                  ? "bg-zinc-900 text-white"
-                  : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900"
+                  ? "border border-border bg-card text-ink"
+                  : "border border-transparent text-muted-foreground hover:bg-card hover:text-ink"
               }`}
             >
-              <Icon size={18} />
+              <Icon size={17} strokeWidth={1.75} />
               {label}
             </Link>
           );
@@ -80,13 +78,13 @@ export function Sidebar({ partnerName, onNavigate }: SidebarProps) {
       </nav>
 
       {/* Footer */}
-      <div className="border-t border-zinc-200 px-4 py-4">
-        <div className="mb-3 truncate text-sm font-medium text-zinc-700">
+      <div className="border-t border-line-2 px-4 py-4">
+        <div className="mb-3 truncate text-sm font-medium text-ink">
           {partnerName}
         </div>
         <button
           onClick={handleLogout}
-          className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-xs font-medium text-zinc-500 hover:bg-zinc-50 hover:text-zinc-700"
+          className="w-full rounded-full border border-border px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-card hover:text-ink"
         >
           Esci
         </button>
