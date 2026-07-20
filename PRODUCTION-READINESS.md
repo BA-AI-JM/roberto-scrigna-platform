@@ -1,3 +1,8 @@
+> ⚠️ **SUPERSEDED — 2026-07-20 (G17).** This April "READY FOR DEPLOYMENT" verdict no longer governs.
+> Authoritative status now lives in [`NORTHSTAR.md`](./NORTHSTAR.md), [`docs/polish/PLAN-OF-RECORD.md`](./docs/polish/PLAN-OF-RECORD.md),
+> and the audit register (`docs/polish/01-CODE-GAP-REGISTER.md`). Deploy readiness is proven per-release by a
+> dated release manifest (commit + migrations + env + smoke evidence), not by this document. History kept below.
+
 # Roberto Scrigna Platform — Production Readiness Assessment
 
 **Date:** 2026-04-27 (supersedes 2026-03-30 assessment)
