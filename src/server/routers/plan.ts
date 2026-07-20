@@ -1213,47 +1213,69 @@ export const planRouter = router({
         }
       }
 
-      // Set start_date on activation (preserving any existing value) so the
-      // feedback-reminder cadence (≈21 days after start_date) becomes live.
-      const activationDate =
-        (plan.start_date as string | null) ?? new Date().toISOString().split("T")[0]!;
-      const { error } = await ctx.supabase
-        .from("plan")
-        .update({ status: "active", start_date: activationDate })
-        .eq("id", input.id)
-        .eq("partner_id", ctx.partnerId);
-
-      if (error) {
-        console.error("[router/plan.approve]", error);
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Errore nell'aggiornamento. Riprova.",
-        });
-      }
-
-      // Fetch client name for the Inngest event
+      // T1.6a (G8+G12): activation is now ONE Postgres transaction — archive any
+      // prior active plan, activate this one, and write a durable delivery_outbox
+      // row — via approve_plan_txn (migration 019). The event can no longer be
+      // lost between a committed state change and a failed dispatch.
       const { data: client } = await ctx.supabase
         .from("client")
         .select("full_name")
         .eq("id", plan.client_id)
         .single();
 
-      // Dispatch plan/delivered event — wrapped so a dispatch failure never breaks the response
-      try {
-        await inngest.send({
-          name: "plan/delivered",
-          data: {
-            planId: plan.id,
-            clientId: plan.client_id,
-            clientName: client?.full_name ?? "Cliente",
-            partnerId: ctx.partnerId,
-          },
+      const eventPayload = {
+        planId: plan.id,
+        clientId: plan.client_id,
+        clientName: client?.full_name ?? "Cliente",
+        partnerId: ctx.partnerId,
+      };
+      const activationDate =
+        (plan.start_date as string | null) ?? new Date().toISOString().split("T")[0]!;
+
+      const svcDb = createSupabaseServiceRole();
+      const { data: txnRows, error: txnErr } = await svcDb.rpc("approve_plan_txn", {
+        p_plan_id: input.id,
+        p_partner_id: ctx.partnerId,
+        p_event_payload: eventPayload,
+        p_start_date: activationDate,
+      });
+      const txn = (Array.isArray(txnRows) ? txnRows[0] : txnRows) as
+        | { approved: boolean; outbox_id: string | null; prior_archived: number; invalid_reason: string | null }
+        | undefined;
+
+      if (txnErr || !txn) {
+        console.error("[router/plan.approve] txn:", txnErr);
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Errore nell'aggiornamento. Riprova." });
+      }
+      if (!txn.approved) {
+        if (txn.invalid_reason === "already_active") {
+          throw new TRPCError({ code: "CONFLICT", message: "Il piano è già attivo." });
+        }
+        if (txn.invalid_reason === "not_found") {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Piano non trovato." });
+        }
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Il piano non è approvabile dallo stato attuale.",
         });
-      } catch (err) {
-        console.error("[router/plan.approve] inngest.send failed:", err);
       }
 
-      return { success: true, planId: input.id };
+      // Dispatch NOW; the outbox row is the durable truth either way.
+      let deliveryPending = false;
+      try {
+        await inngest.send({ name: "plan/delivered", data: eventPayload });
+        if (txn.outbox_id) await svcDb.rpc("outbox_mark_dispatched", { p_id: txn.outbox_id });
+      } catch (err) {
+        deliveryPending = true; // honest state — reconciler (T1.6b) re-sends from the outbox
+        console.error("[router/plan.approve] inngest.send failed; outbox retained:", err);
+        if (txn.outbox_id) {
+          await svcDb
+            .rpc("outbox_mark_failed", { p_id: txn.outbox_id, p_error: String(err).slice(0, 500) })
+            .then(undefined, () => {});
+        }
+      }
+
+      return { success: true, planId: input.id, deliveryPending, priorArchived: txn.prior_archived };
     }),
 
   /**

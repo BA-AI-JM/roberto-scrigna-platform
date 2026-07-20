@@ -248,8 +248,8 @@ function WeightHistorySection({ data, planStartDate, loading, snapshots }: {
           { key: "weight", label: "Peso", color: "#1a1a2e", unit: " kg", points: weightPoints },
         ];
         const adherenceSeries: TrendSeries[] = [
-          { key: "nutrition", label: "Aderenza dieta", color: "#16a34a", unit: "%", points: trend.filter((e) => e.nutrition_adherence != null).map((e) => ({ date: e.check_in_date, value: e.nutrition_adherence as number })) },
-          { key: "training", label: "Aderenza allenamento", color: "#3b82f6", unit: "%", points: trend.filter((e) => e.training_adherence != null).map((e) => ({ date: e.check_in_date, value: e.training_adherence as number })) },
+          { key: "nutrition", label: "Aderenza dieta", color: "#16a34a", unit: "%", points: trend.filter((e) => e.nutrition_adherence != null && e.check_in_date != null).map((e) => ({ date: e.check_in_date as string, value: e.nutrition_adherence as number })) },
+          { key: "training", label: "Aderenza allenamento", color: "#3b82f6", unit: "%", points: trend.filter((e) => e.training_adherence != null && e.check_in_date != null).map((e) => ({ date: e.check_in_date as string, value: e.training_adherence as number })) },
         ];
         return (
           <>
