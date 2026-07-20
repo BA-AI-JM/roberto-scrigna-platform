@@ -84,6 +84,21 @@ ffmpeg -i docs/demo/raw/<take>.webm -c:v libx264 -preset medium -crf 20 \
 ./docs/demo/reset-take.sh          # clean up the take's draft + snapshot
 ```
 
+## Post-production addendum (2026-07-20, later the same day)
+
+- Bugs 3, 4, 5 are now closed: 4 (Escape) and 5 (Progressi merge) landed in `e2d4e83`
+  (parallel lane); the launcher self-locate fallback for 2/3 landed after this report.
+- **Bug 2's diagnosis corrected.** Re-tested: Chrome 150 + clean launch args renders PDFs
+  fine — puppeteer-core 24.42 drives it without issue. The "Requesting main frame too
+  early!" failure was ALSO caused by the @sparticuz Lambda args (bug 1), not a version
+  mismatch. The Chrome-147 `CHROMIUM_PATH` pin was never necessary once bug 1 was fixed.
+  Also found: `.env.local:21` has set `CHROMIUM_PATH` to the system Chrome all along
+  (Next loads it in-process, invisible to `ps`), which is why every dev server run used
+  it. That value works post-fix and needs no change. The launcher now additionally
+  self-locates the puppeteer-cache build when `CHROMIUM_PATH` is absent (proven: deleted
+  the env var, `launchPdfBrowser()` resolved `~/.cache/puppeteer/.../147.0.7727.57` and
+  rendered a PDF), so a bare machine no longer fails.
+
 ## Suggested follow-ups
 
 - Voiceover pass over the same take (beats.json gives the timing map).

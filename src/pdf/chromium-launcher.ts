@@ -57,7 +57,7 @@ function logChromiumSource(): void {
       ? process.env.CHROMIUM_PACK_URL
         ? "CHROMIUM_PACK_URL"
         : "default_github_release"
-      : "puppeteer_default";
+      : "local_puppeteer_cache";
 
   console.info(
     JSON.stringify({
@@ -72,7 +72,10 @@ function logChromiumSource(): void {
  * Resolve the Chromium executable:
  *  1. CHROMIUM_PATH override (CI / custom setups)
  *  2. On Vercel → fetch + extract the remote pack (chromium-min, never bundled)
- *  3. Local → undefined; puppeteer-core falls back to the system browser
+ *  3. Local → the ~/.cache/puppeteer build matching this puppeteer-core's
+ *     pinned Chrome revision. Previously this returned undefined and the
+ *     launch failed outright on any machine without CHROMIUM_PATH set —
+ *     the pinned-revision cache build is the guaranteed-compatible choice.
  */
 async function resolveExecutablePath(): Promise<string | undefined> {
   if (process.env.CHROMIUM_PATH) return process.env.CHROMIUM_PATH;
@@ -81,7 +84,38 @@ async function resolveExecutablePath(): Promise<string | undefined> {
     assertPackVersion(packUrl);
     return chromium.executablePath(packUrl);
   }
-  return undefined;
+  return localCacheExecutablePath();
+}
+
+/**
+ * Locate the pinned-revision Chrome in the puppeteer cache. Everything is
+ * dynamically imported and failure-tolerant: on any miss this returns
+ * undefined, which is exactly the pre-existing local behaviour (launch throws
+ * PdfDependencyError with the install hint below rather than crashing here).
+ */
+async function localCacheExecutablePath(): Promise<string | undefined> {
+  try {
+    const [browsers, { PUPPETEER_REVISIONS }, { existsSync }, os, path] = await Promise.all([
+      import("@puppeteer/browsers"),
+      import("puppeteer-core/internal/revisions.js"),
+      import("node:fs"),
+      import("node:os"),
+      import("node:path"),
+    ]);
+    const candidate = browsers.computeExecutablePath({
+      browser: browsers.Browser.CHROME,
+      buildId: PUPPETEER_REVISIONS.chrome,
+      cacheDir: path.join(os.homedir(), ".cache", "puppeteer"),
+    });
+    if (existsSync(candidate)) return candidate;
+    console.warn(
+      `[pdf/chromium-launcher] No cached Chrome ${PUPPETEER_REVISIONS.chrome} — ` +
+        `run \`npx puppeteer browsers install chrome@${PUPPETEER_REVISIONS.chrome}\` or set CHROMIUM_PATH.`
+    );
+    return undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 function delay(ms: number): Promise<void> {
