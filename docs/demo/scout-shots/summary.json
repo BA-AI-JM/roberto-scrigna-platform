@@ -1,0 +1,82 @@
+[
+  {
+    "beat": "coach-login",
+    "ok": true,
+    "msg": "logged in, landed on /dashboard"
+  },
+  {
+    "beat": "dashboard",
+    "ok": true,
+    "msg": "dashboard renders; dark flip works"
+  },
+  {
+    "beat": "clients",
+    "ok": true,
+    "msg": "client detail loads"
+  },
+  {
+    "beat": "plans-list",
+    "ok": true,
+    "msg": "plans list loads"
+  },
+  {
+    "beat": "wizard(skipped — reusing draft)",
+    "ok": true,
+    "msg": "reusing draft 81a70aa0-f8e5-47b1-9b45-36f5ea88d8b8"
+  },
+  {
+    "beat": "review-draft",
+    "ok": true,
+    "msg": "verdict strip present"
+  },
+  {
+    "beat": "review-draft",
+    "ok": true,
+    "msg": "all six tabs switch"
+  },
+  {
+    "beat": "review-draft",
+    "ok": true,
+    "msg": "Approva button on draft: true"
+  },
+  {
+    "beat": "pdf",
+    "ok": true,
+    "msg": "PDF endpoint 200, application/pdf, 221720 bytes in 1590 ms"
+  },
+  {
+    "beat": "pdf",
+    "ok": true,
+    "msg": "sips PDF→PNG conversion works"
+  },
+  {
+    "beat": "review-active",
+    "ok": true,
+    "msg": "Condividi modal opens (not sent), Escape closes"
+  },
+  {
+    "beat": "portal-login",
+    "ok": true,
+    "msg": "magic link fetched from Mailpit"
+  },
+  {
+    "beat": "portal-login",
+    "ok": true,
+    "msg": "portal dashboard, Ciao greeting present: true"
+  },
+  {
+    "beat": "registra-peso",
+    "ok": true,
+    "msg": "91.3 visible after submit WITHOUT reload: true (before: [\"91.5\",\"91.7\",\"91.7\",\"91.5\",\"91.7\"])"
+  },
+  {
+    "beat": "portal-pages",
+    "ok": true,
+    "msg": "diary shows seeded entries (Fiocchi d'avena visible: true)"
+  },
+  {
+    "beat": "portal-pages",
+    "ok": true,
+    "msg": "progress page loads"
+  }
+]
