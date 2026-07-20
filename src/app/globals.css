@@ -10,41 +10,94 @@
   /* Shape scale: cards rounded-xl = 16px, controls 10px, items 8px, pills 999px. */
   --radius: 0.75rem;
 
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  /* Branded focus ring — teal at ring-2 + ring-offset-2 (3.4:1 vs white). */
-  --ring: #1d9e75;
+  /* T3.2 LIGHT THEME — the operator-approved v2 concept values (DIRECTION.md:
+     Levels×Everfit clean-neutral; greige canvas, white panels, single teal accent).
+     Contrast pairs verified against THIS base by scripts/check-contrast.py. */
+  --background: #f8f7f4;            /* greige canvas */
+  --foreground: #191b19;            /* warm ink, never #000 */
+  --card: #ffffff;
+  --card-foreground: #191b19;
+  --popover: #ffffff;
+  --popover-foreground: #191b19;
+  --primary: #159a6e;               /* teal is THE action color */
+  --primary-foreground: #ffffff;
+  --secondary: #f1efea;             /* panel-2: sidebars, rails */
+  --secondary-foreground: #191b19;
+  --muted: #f1efea;
+  --muted-foreground: #575c57;      /* ink-2 */
+  --accent: #e5f3ec;                /* teal wash as interactive tint */
+  --accent-foreground: #0c6b4d;
+  --destructive: #b23b2e;
+  --destructive-foreground: #ffffff;
+  --border: #e7e5df;
+  --input: #e7e5df;
+  /* Branded focus ring — teal at ring-2 + ring-offset-2. */
+  --ring: #159a6e;
+  --ink-3: #8b908a;                 /* faint labels/eyebrows */
+  --line-2: #efede8;                /* hairlines inside panels */
+  --red-wash: #f9ece9;
+  /* Data-viz roles (charts + macro figures ONLY — DIRECTION color strategy) */
+  --viz-kcal: #b07018;
+  --viz-p: #3b6fb5;
+  --viz-c: #7a5cb8;
+  --viz-f: #3e8e5a;
 
   /* ── Brand palette — ONE identity, two expressions ────────────────────────
      Patient surfaces lean into the warm teal washes; the coach surface stays
      neutral/serious and uses teal only as an accent. Consolidates the teal that
      previously lived only inline in the signing screen + the portal navy/green.
      Text on a coloured fill uses the DARK shade of the same ramp (AA-verified). */
-  --brand: #1d9e75;        /* teal core — accent, active states, patient warmth */
-  --brand-deep: #0f6e56;   /* deep teal — text on teal tint (5.5:1 on wash) */
+  --brand: #159a6e;        /* teal core — accent, active states, patient warmth */
+  --brand-deep: #0c6b4d;   /* deep teal — text on teal tint (AA on wash) */
   --brand-ink: #0f3d30;    /* strongest teal-ink — hero headlines */
-  --brand-wash: #e1f5ee;   /* soft teal surface (patient) */
-  --brand-soft: #9fe1cb;   /* teal border / track */
+  --brand-wash: #e5f3ec;   /* soft teal surface (patient) */
+  --brand-soft: #bfe0d2;   /* teal border / track */
   --accent-blue: #185fa5;  /* secondary accent — links / info (6.5:1 on white) */
-  --amber: #8a560f;        /* warm accent / kcal — deep for AA on white + wash */
-  --amber-wash: #fbf1e3;
-  --ink: #0f1729;          /* serious near-black ink for coach text */
+  --amber: #a05b10;        /* warm accent / kcal — deep for AA on white + wash */
+  --amber-wash: #f8f0e1;
+  --ink: #191b19;          /* warm ink for coach text (one ink family app-wide) */
+}
+
+/* ── T3.2 DARK THEME — first-class second expression of the SAME semantics.
+   Warm charcoal (never pure black); teal re-tuned for dark bases; severity and
+   data-viz roles re-tuned per theme. Toggled solely via <html data-theme>. ── */
+[data-theme="dark"] {
+  --background: #151714;
+  --foreground: #f1f0ea;
+  --card: #1d201c;
+  --card-foreground: #f1f0ea;
+  --popover: #1d201c;
+  --popover-foreground: #f1f0ea;
+  --primary: #2fb585;
+  --primary-foreground: #0c1f18;
+  --secondary: #232722;
+  --secondary-foreground: #f1f0ea;
+  --muted: #232722;
+  --muted-foreground: #a9aea5;
+  --accent: #12352a;
+  --accent-foreground: #7fd6b4;
+  --destructive: #e0705f;
+  --destructive-foreground: #1a0f0c;
+  --border: #2b2f29;
+  --input: #2b2f29;
+  --ring: #2fb585;
+  --ink-3: #8b9088;
+  --line-2: #242822;
+  --red-wash: #39201b;
+  --viz-kcal: #d89a4a;
+  --viz-p: #7fa6dd;
+  --viz-c: #a98fdd;
+  --viz-f: #6fbe8c;
+
+  --brand: #2fb585;
+  --brand-deep: #7fd6b4;
+  --brand-ink: #baeeda;
+  --brand-wash: #12352a;
+  --brand-soft: #1e4b3b;
+  --accent-blue: #7fa6dd;
+  --amber: #d89a4a;
+  --amber-wash: #33270f;
+  --ink: #f1f0ea;
 }
 
 .dark {
@@ -101,6 +154,14 @@
   --color-amber: var(--amber);
   --color-amber-wash: var(--amber-wash);
   --color-ink: var(--ink);
+  /* T3.2 additions: faint ink, inner hairlines, severity wash, data-viz roles */
+  --color-ink-3: var(--ink-3);
+  --color-line-2: var(--line-2);
+  --color-red-wash: var(--red-wash);
+  --color-viz-kcal: var(--viz-kcal);
+  --color-viz-p: var(--viz-p);
+  --color-viz-c: var(--viz-c);
+  --color-viz-f: var(--viz-f);
 
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -114,13 +175,24 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-family: system-ui, -apple-system, sans-serif;
+    /* T3.2 identity type: IBM Plex Sans body (next/font var), system fallback. */
+    font-family: var(--font-body, system-ui), system-ui, -apple-system, sans-serif;
     /* Body reading rhythm + crisp smoothing. */
     line-height: 1.6;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
   }
+  /* The voice: Fraunces on headings app-wide (DIRECTION typographic voice).
+     Legacy inline font styles lose to this by specificity of the base layer only
+     where they didn't set font-family — the T3 surface rebuilds finish the job. */
+  h1, h2, h3, .font-display {
+    font-family: var(--font-display, Georgia), Georgia, serif;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+  }
+  html { color-scheme: light; }
+  [data-theme="dark"] { color-scheme: dark; }
   /* Figures read "engineered": data entry uses tabular + lining numerals so
      weights / macros / energy align. Prose stays proportional. */
   input,
