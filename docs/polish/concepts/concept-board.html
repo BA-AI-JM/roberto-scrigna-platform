@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Concept — Scrigna Nutrition, direzione ratificata</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400;1,9..144,500&family=IBM+Plex+Sans:ital,wght@0,400;0,450;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+  /* ─ DIRECTION tokens (concept fidelity — FD-2 will compile the real set) ─ */
+  :root{
+    --bone:#FAF7F2; --bone-2:#F3EEE6; --card:#FFFFFF;
+    --ink:#1F241F; --ink-soft:#5A615A; --ink-faint:#8A918A;
+    --line:#E7E1D6; --line-soft:#EFEAE0;
+    --teal:#1d9e75; --teal-deep:#0f6e56; --teal-wash:#E7F4EF; --teal-line:#BFE3D5;
+    --amber:#B45309; --amber-wash:#FBF3E4; --red:#B3402F; --red-wash:#FBEDE9;
+    --viz-kcal:#C07C1F; --viz-p:#3B6FB5; --viz-c:#7A5CB8; --viz-f:#3E8E5A;
+    --r-card:16px; --r-ctl:10px; --shadow:0 1px 2px rgba(31,36,31,.04), 0 8px 24px rgba(31,36,31,.05);
+  }
+  *{box-sizing:border-box; margin:0}
+  body{background:var(--bone); color:var(--ink); font:450 15px/1.6 "IBM Plex Sans",sans-serif; -webkit-font-smoothing:antialiased; padding:48px 0 96px}
+  .board-label{max-width:1200px;margin:0 auto 10px;padding:0 32px;font:500 12px/1 "IBM Plex Sans";letter-spacing:.12em;text-transform:uppercase;color:var(--ink-faint)}
+  .surface{max-width:1200px;margin:0 auto 72px;padding:0 32px}
+  .frame{background:var(--card);border:1px solid var(--line);border-radius:var(--r-card);box-shadow:var(--shadow);overflow:hidden}
+  h1,h2,h3{font-family:"Fraunces",serif;font-weight:500;line-height:1.2}
+  .num{font-variant-numeric:tabular-nums lining-nums;white-space:nowrap}
+  .nota{display:flex;gap:12px;padding:14px 18px;border-top:1px solid var(--line-soft)}
+  .nota::before{content:"";width:3px;border-radius:2px;background:var(--teal);flex:none}
+  .nota p{font:italic 500 14.5px/1.55 "Fraunces";color:var(--ink-soft)}
+  .btn{font:500 14px/1 "IBM Plex Sans";border-radius:var(--r-ctl);padding:11px 16px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+  .btn.primary{background:var(--teal);border-color:var(--teal);color:#fff}
+  .btn.quiet{border-color:transparent;color:var(--ink-soft)}
+  .chip{white-space:nowrap;font:500 12px/1 "IBM Plex Sans";padding:5px 10px;border-radius:999px;background:var(--teal-wash);color:var(--teal-deep);border:1px solid var(--teal-line)}
+  svg{display:block}
+
+  /* ── 1 · COACH DASHBOARD ── */
+  .dash{display:grid;grid-template-columns:220px 1fr 316px;min-height:720px}
+  .side{border-right:1px solid var(--line-soft);padding:22px 14px;background:var(--bone-2)}
+  .side .brand{padding:6px 10px 20px}
+  .side .brand b{font:600 17px "Fraunces";display:block}
+  .side .brand span{font-size:12px;color:var(--ink-faint)}
+  .navi a{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:10px;color:var(--ink-soft);text-decoration:none;font-size:14px}
+  .navi a.on{background:var(--card);color:var(--ink);border:1px solid var(--line);font-weight:500}
+  .navi .ic{width:17px;height:17px;stroke:currentColor;stroke-width:1.75;fill:none;stroke-linecap:round;stroke-linejoin:round}
+  .main{padding:28px 32px}
+  .main .hd{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:22px}
+  .main .hd h1{font-size:26px}
+  .main .hd .sub{color:var(--ink-faint);font-size:13.5px}
+  .strip{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:22px}
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+  .stat .k{font-size:12.5px;color:var(--ink-faint)}
+  .stat .v{font:500 26px/1.15 "IBM Plex Sans";margin-top:2px}
+  .stat .v small{font-size:13px;color:var(--ink-faint);font-weight:450}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:14px;margin-bottom:16px;overflow:hidden}
+  .panel .ph{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid var(--line-soft)}
+  .panel .ph h3{font-size:15.5px}
+  .panel .ph a{font-size:13px;color:var(--teal-deep);text-decoration:none}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th{font:500 12px/1 "IBM Plex Sans";letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint);text-align:left;padding:10px 18px;border-bottom:1px solid var(--line-soft)}
+  td{padding:11px 18px;border-bottom:1px solid var(--line-soft)}
+  tr:last-child td{border-bottom:0}
+  td .who{font-weight:500;white-space:nowrap}
+  td .sub{color:var(--ink-faint);font-size:12.5px}
+  .spark{color:var(--teal)}
+  .rail{border-left:1px solid var(--line-soft);padding:26px 20px;background:var(--bone)}
+  .rail h3{font-size:14px;margin-bottom:12px;color:var(--ink-soft)}
+  .todo{border:1px solid var(--line);border-radius:12px;background:var(--card);padding:13px 14px;margin-bottom:10px}
+  .todo.amber{background:var(--amber-wash);border-color:#EFD9B8}
+  .todo.red{background:var(--red-wash);border-color:#EFC7BE}
+  .todo .t{display:flex;justify-content:space-between;font-size:13.5px;font-weight:500}
+  .todo .t time{font-weight:450;color:var(--ink-faint);font-size:12px}
+  .todo p{font-size:13px;color:var(--ink-soft);margin:3px 0 8px}
+  .todo .act{font-size:13px;font-weight:500;color:var(--teal-deep);text-decoration:none}
+  .todo.red .act{color:var(--red)} .todo.amber .act{color:var(--amber)}
+
+  /* ── 2 · WIZARD ── */
+  .wiz{display:grid;grid-template-columns:250px 1fr;min-height:560px}
+  .steps{border-right:1px solid var(--line-soft);padding:30px 22px;background:var(--bone-2)}
+  .steps h2{font-size:19px;margin-bottom:18px}
+  .step{display:flex;gap:12px;padding:11px 0;color:var(--ink-faint);font-size:14px;align-items:center}
+  .step .dot{width:22px;height:22px;border-radius:50%;border:1.5px solid var(--line);display:grid;place-items:center;font-size:11.5px;background:var(--card)}
+  .step.done{color:var(--ink-soft)} .step.done .dot{background:var(--teal-wash);border-color:var(--teal-line);color:var(--teal-deep)}
+  .step.on{color:var(--ink);font-weight:500} .step.on .dot{background:var(--teal);border-color:var(--teal);color:#fff}
+  .wbody{padding:30px 34px}
+  .wbody .crumb{font-size:12.5px;color:var(--ink-faint);letter-spacing:.08em;text-transform:uppercase}
+  .wbody h1{font-size:24px;margin:6px 0 4px}
+  .wbody .lead{color:var(--ink-soft);font-size:14px;margin-bottom:20px}
+  .goalcard{border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:14px;background:var(--card)}
+  .facts{display:flex;gap:26px;margin-bottom:14px}
+  .facts .f .k{font-size:12px;color:var(--ink-faint)} .facts .f .v{font:500 19px "IBM Plex Sans"}
+  .readout{background:var(--teal-wash);border:1px solid var(--teal-line);border-radius:12px;padding:14px 16px;font-size:14px;color:var(--teal-deep)}
+  .readout b{font-weight:600}
+  .band{display:inline-block;margin-left:8px;padding:3px 9px;border-radius:999px;background:#fff;font-size:12px;font-weight:500}
+  .auto{margin-top:14px;border:1px dashed var(--line);border-radius:12px;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;color:var(--ink-soft);font-size:13.5px}
+  .wfoot{display:flex;justify-content:space-between;margin-top:22px}
+
+  /* ── 3 · REVIEW ── */
+  .rev{padding:26px 32px}
+  .rev .top{display:flex;justify-content:space-between;align-items:start;margin-bottom:18px}
+  .rev h1{font-size:23px}
+  .checks{display:flex;gap:10px;margin:16px 0 18px}
+  .check{flex:1;border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:var(--card);font-size:13.5px}
+  .check b{display:flex;gap:7px;align-items:center;font-weight:500}
+  .ok b{color:var(--teal-deep)} .warn{background:var(--amber-wash);border-color:#EFD9B8} .warn b{color:var(--amber)}
+  .check .s{color:var(--ink-faint);font-size:12.5px;margin-top:2px}
+  .macros{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .day{border:1px solid var(--line);border-radius:14px;overflow:hidden}
+  .day .dh{padding:11px 16px;border-bottom:1px solid var(--line-soft);display:flex;justify-content:space-between;font-weight:500;font-size:14px}
+  .day .dh span{color:var(--ink-faint);font-weight:450;font-size:13px}
+  .mrow{display:flex;justify-content:space-between;padding:9px 16px;font-size:14px;border-bottom:1px solid var(--line-soft)}
+  .mrow:last-child{border-bottom:0}
+  .mrow .lab{color:var(--ink-soft)}
+  .mrow .val{font-weight:500}
+  .kcal .val{color:var(--viz-kcal)} .pp .val{color:var(--viz-p)} .cc .val{color:var(--viz-c)} .ff .val{color:var(--viz-f)}
+
+  /* ── 4 · PORTAL OGGI (mobile) ── */
+  .phone{width:390px;margin:0 auto;background:var(--bone);border:1px solid var(--line);border-radius:34px;overflow:hidden;box-shadow:var(--shadow)}
+  .p-head{padding:26px 22px 14px}
+  .p-head .hi{font-size:13px;color:var(--ink-faint)}
+  .p-head h1{font-size:24px}
+  .p-today{background:var(--card);border-top:1px solid var(--line);padding:18px 22px}
+  .p-today .k{display:flex;justify-content:space-between;align-items:baseline}
+  .p-today .k h2{font-size:17px}
+  .p-today .k span{font-size:12.5px;color:var(--ink-faint)}
+  .meal{border:1px solid var(--line);border-radius:14px;padding:14px;margin-top:12px}
+  .meal.next{border-color:var(--teal-line);background:var(--teal-wash)}
+  .meal .mh{display:flex;justify-content:space-between;font-size:13px;color:var(--ink-faint)}
+  .meal .mh b{color:var(--ink);font-weight:500;font-size:14.5px}
+  .meal .ing{margin-top:8px;font-size:14px}
+  .meal .ing div{display:flex;justify-content:space-between;padding:3.5px 0}
+  .meal .ing span{color:var(--ink-soft)}
+  .meal .later{color:var(--ink-faint);font-size:13px;margin-top:6px}
+  .p-nav{display:flex;border-top:1px solid var(--line);background:var(--card)}
+  .p-nav a{flex:1;text-align:center;padding:12px 0 16px;font-size:11.5px;color:var(--ink-faint);text-decoration:none}
+  .p-nav a.on{color:var(--teal-deep);font-weight:500}
+  .p-nav .ic{width:20px;height:20px;margin:0 auto 3px;stroke:currentColor;stroke-width:1.75;fill:none;stroke-linecap:round}
+
+  /* ── 5 · LOGIN ── */
+  .login{display:grid;grid-template-columns:1fr 1fr;min-height:520px}
+  .l-left{background:var(--teal-deep);color:#fff;padding:44px;display:flex;flex-direction:column;justify-content:space-between}
+  .l-left .mark{font:600 20px "Fraunces"}
+  .l-left blockquote{font:italic 500 24px/1.4 "Fraunces";max-width:360px}
+  .l-left .who{font-size:13px;opacity:.75}
+  .l-right{padding:52px;display:flex;flex-direction:column;justify-content:center}
+  .l-right h1{font-size:26px;margin-bottom:4px}
+  .l-right .sub{color:var(--ink-faint);font-size:14px;margin-bottom:24px}
+  .field label{display:block;font-size:13px;font-weight:500;margin:14px 0 6px}
+  .field input{width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:var(--r-ctl);font:450 15px "IBM Plex Sans";background:var(--card)}
+  .l-right .btn.primary{width:100%;margin-top:20px;padding:13px}
+</style>
+</head>
+<body>
+
+<!-- ═══ 1 · COACH DASHBOARD ═══ -->
+<div class="board-label">Concept 1 · Dashboard del nutrizionista — «calma operativa»</div>
+<section class="surface"><div class="frame dash">
+  <aside class="side">
+    <div class="brand"><b>Scrigna</b><span>Nutrizione Sportiva</span></div>
+    <nav class="navi">
+      <a class="on" href="#"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>Oggi</a>
+      <a href="#"><svg class="ic" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 20c.6-3.4 2.9-5 5.5-5s4.9 1.6 5.5 5"/><circle cx="17" cy="9" r="2.4"/><path d="M14.5 20c.4-2.4 1.6-3.7 3.5-3.9"/></svg>Atleti</a>
+      <a href="#"><svg class="ic" viewBox="0 0 24 24"><path d="M7 3h8l4 4v14H7z"/><path d="M15 3v4h4"/><path d="M10 12h6M10 16h6"/></svg>Piani</a>
+      <a href="#"><svg class="ic" viewBox="0 0 24 24"><path d="M3 17l5-6 4 3 6-8 3 4"/></svg>Monitoraggio</a>
+      <a href="#"><svg class="ic" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 10h8M8 14h5"/></svg>Fatture</a>
+    </nav>
+  </aside>
+  <div class="main">
+    <div class="hd"><div><h1>Lunedì 20 luglio</h1><div class="sub">2 atleti attivi · 1 check-in atteso</div></div><button class="btn primary">Nuovo piano</button></div>
+    <div class="strip">
+      <div class="stat"><div class="k">Atleti attivi</div><div class="v num">2</div></div>
+      <div class="stat"><div class="k">Check-in in attesa</div><div class="v num">1</div></div>
+      <div class="stat"><div class="k">Aderenza media 30 gg</div><div class="v num">86<small>%</small></div></div>
+      <div class="stat"><div class="k">Fatturato luglio</div><div class="v num">€ 640</div></div>
+    </div>
+    <div class="panel">
+      <div class="ph"><h3>Atleti</h3><a href="#">Tutti →</a></div>
+      <table>
+        <tr><th>Atleta</th><th>Peso</th><th style="white-space:nowrap">Trend 8 sett.</th><th>Aderenza</th><th>Piano</th></tr>
+        <tr>
+          <td><div class="who">Niccolò Ambrosi</div><div class="sub">Ciclismo · definizione</div></td>
+          <td class="num">91,5 kg</td>
+          <td><svg class="spark" width="88" height="26" viewBox="0 0 88 26" fill="none"><path d="M2 6 L14 9 L26 8 L38 12 L50 14 L62 15 L74 18 L86 20" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></td>
+          <td class="num">88%</td>
+          <td><span class="chip">Attivo · sett. 3</span></td>
+        </tr>
+        <tr>
+          <td><div class="who">Raphael Federico</div><div class="sub">MMA · -66 kg</div></td>
+          <td class="num">68,2 kg</td>
+          <td><svg class="spark" width="88" height="26" viewBox="0 0 88 26" fill="none"><path d="M2 8 L14 10 L26 13 L38 12 L50 15 L62 17 L74 17 L86 19" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></td>
+          <td class="num">79%</td>
+          <td><span class="chip" style="background:var(--amber-wash);color:var(--amber);border-color:#EFD9B8">Rinnovo tra 9 gg</span></td>
+        </tr>
+      </table>
+      <div class="nota"><p>Niccolò è in linea col deficit; il calo di Raphael rallenta da due settimane — valuta un refeed prima del taglio peso.</p></div>
+    </div>
+  </div>
+  <aside class="rail">
+    <h3>Da gestire · 3</h3>
+    <div class="todo red"><div class="t">Segnalazione infortunio <time>2 gg fa</time></div><p>Raphael — dolore al ginocchio negli squat.</p><a class="act" href="#">Vedi segnalazione →</a></div>
+    <div class="todo amber"><div class="t">Check-in in ritardo <time>4 gg</time></div><p>Niccolò — cadenza ogni 21 giorni.</p><a class="act" href="#">Invia promemoria →</a></div>
+    <div class="todo"><div class="t">Fattura in scadenza <time>ven</time></div><p>Raphael — mensile luglio, € 320.</p><a class="act" href="#">Prepara fattura →</a></div>
+  </aside>
+</div></section>
+
+<!-- ═══ 2 · GENERATE WIZARD ═══ -->
+<div class="board-label">Concept 2 · Generazione piano — quattro passi, un fatto alla volta</div>
+<section class="surface"><div class="frame wiz">
+  <aside class="steps">
+    <h2>Nuovo piano<br>· Niccolò</h2>
+    <div class="step done"><span class="dot">✓</span> Dati di partenza</div>
+    <div class="step on"><span class="dot">2</span> Obiettivo e deficit</div>
+    <div class="step"><span class="dot">3</span> Struttura settimana</div>
+    <div class="step"><span class="dot">4</span> Rivedi e genera</div>
+  </aside>
+  <div class="wbody">
+    <div class="crumb">Passo 2 di 4</div>
+    <h1>Obiettivo e deficit</h1>
+    <p class="lead">Il motore parte dall'ultima misurazione. Cambia solo ciò che serve.</p>
+    <div class="goalcard">
+      <div class="facts">
+        <div class="f"><div class="k">Peso attuale</div><div class="v num">91,5 kg</div></div>
+        <div class="f"><div class="k">Massa magra</div><div class="v num">83,1 kg</div></div>
+        <div class="f"><div class="k">TDEE medio</div><div class="v num">2 925 kcal</div></div>
+        <div class="f"><div class="k">Peso target</div><div class="v num">86,0 kg</div></div>
+      </div>
+      <div class="readout"><b>−0,45 kg a settimana</b> · deficit di <b>≈ 490 kcal/giorno</b> · 12 settimane <span class="band" style="color:var(--teal-deep)">Moderato</span></div>
+      <div class="nota" style="border-top:0;padding:12px 2px 0"><p>Sotto la soglia di sicurezza il pulsante si blocca da solo: floor a 1 830 kcal per la sua massa magra.</p></div>
+    </div>
+    <div class="auto"><span>Macro e periodizzazione: <b>calcolate dal motore</b> — apri solo se vuoi forzarle.</span><button class="btn quiet">Mostra avanzate ↓</button></div>
+    <div class="wfoot"><button class="btn">← Indietro</button><button class="btn primary">Continua → Struttura</button></div>
+  </div>
+</div></section>
+
+<!-- ═══ 3 · PLAN REVIEW ═══ -->
+<div class="board-label">Concept 3 · Revisione — le eccezioni prima di tutto</div>
+<section class="surface"><div class="frame rev">
+  <div class="top">
+    <div><div class="crumb" style="font-size:12px;color:var(--ink-faint);letter-spacing:.08em;text-transform:uppercase">Piano nutrizionale · bozza</div><h1>Niccolò Ambrosi — Definizione</h1></div>
+    <div style="display:flex;gap:10px"><button class="btn">Scarica PDF</button><button class="btn primary">Approva e consegna</button></div>
+  </div>
+  <div class="checks">
+    <div class="check ok"><b>✓ Proteine</b><div class="s num">209 g vs 208 prescritti (+0,6%)</div></div>
+    <div class="check ok"><b>✓ Energia</b><div class="s num">3 103 kcal vs 3 170 (−2,1%)</div></div>
+    <div class="check warn"><b>△ Grassi sotto target</b><div class="s num">66,6 g vs 82 (−18,8%) — rivedi gli spuntini</div></div>
+    <div class="check ok"><b>✓ Sicurezza</b><div class="s">Sopra il floor energetico</div></div>
+  </div>
+  <div class="macros">
+    <div class="day">
+      <div class="dh">Giorno di allenamento <span class="num">3 170 kcal target</span></div>
+      <div class="mrow kcal"><span class="lab">Energia</span><span class="val num">3 103 kcal</span></div>
+      <div class="mrow pp"><span class="lab">Proteine</span><span class="val num">209 g</span></div>
+      <div class="mrow cc"><span class="lab">Carboidrati</span><span class="val num">418 g</span></div>
+      <div class="mrow ff"><span class="lab">Grassi</span><span class="val num">67 g</span></div>
+    </div>
+    <div class="day">
+      <div class="dh">Giorno di riposo <span class="num">2 748 kcal target</span></div>
+      <div class="mrow kcal"><span class="lab">Energia</span><span class="val num">2 660 kcal</span></div>
+      <div class="mrow pp"><span class="lab">Proteine</span><span class="val num">183 g</span></div>
+      <div class="mrow cc"><span class="lab">Carboidrati</span><span class="val num">327 g</span></div>
+      <div class="mrow ff"><span class="lab">Grassi</span><span class="val num">70 g</span></div>
+    </div>
+  </div>
+  <div class="nota"><p>Un solo punto da guardare: i grassi restano sotto target in entrambe le giornate — il risolutore privilegia kcal e proteine. Aggiusta l'olio EVO a cena o approva così.</p></div>
+</div></section>
+
+<!-- ═══ 4 · PORTAL «OGGI» (mobile) ═══ -->
+<div class="board-label">Concept 4 · Portale atleta — «Oggi», non un documento</div>
+<section class="surface"><div class="phone">
+  <div class="p-head"><div class="hi">Ciao Niccolò · lunedì</div><h1>Oggi, allenamento</h1></div>
+  <div class="p-today">
+    <div class="k"><h2>I tuoi pasti</h2><span class="num">3 170 kcal · P 208</span></div>
+    <div class="meal next">
+      <div class="mh"><b>Pranzo · adesso</b><span class="num">967 kcal</span></div>
+      <div class="ing">
+        <div>Pasta integrale <span class="num">165 g</span></div>
+        <div>Petto di pollo <span class="num">135 g</span></div>
+        <div>Pesto alla genovese <span class="num">35 g</span></div>
+        <div>Parmigiano <span class="num">10 g</span></div>
+      </div>
+    </div>
+    <div class="meal">
+      <div class="mh"><b>Spuntino · 16:30</b><span class="num">457 kcal</span></div>
+      <div class="later">Frullato: whey 30 g · banana 190 g · avena 50 g</div>
+    </div>
+    <div class="meal">
+      <div class="mh"><b>Cena · dopo la sessione</b><span class="num">907 kcal</span></div>
+      <div class="later">Manzo, quinoa e verdure — pronto in 25 min</div>
+    </div>
+    <div class="nota" style="padding:14px 2px 4px"><p>Sessione alle 18: carboidrati pieni a pranzo, proteine subito dopo. — Roberto</p></div>
+  </div>
+  <nav class="p-nav">
+    <a class="on" href="#"><svg class="ic" viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v9a1 1 0 0 1-1 1h-5v-6h-4v6H5a1 1 0 0 1-1-1z"/></svg>Oggi</a>
+    <a href="#"><svg class="ic" viewBox="0 0 24 24"><path d="M7 3h8l4 4v14H7z"/><path d="M15 3v4h4"/></svg>Piano</a>
+    <a href="#"><svg class="ic" viewBox="0 0 24 24"><path d="M3 17l5-6 4 3 6-8 3 4"/></svg>Progressi</a>
+    <a href="#"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.4"/><path d="M5 20c.8-3.7 3.4-5.5 7-5.5s6.2 1.8 7 5.5"/></svg>Profilo</a>
+  </nav>
+</div></section>
+
+<!-- ═══ 5 · LOGIN ═══ -->
+<div class="board-label">Concept 5 · Accesso — la pratica, non un template</div>
+<section class="surface"><div class="frame login">
+  <div class="l-left">
+    <div class="mark">Scrigna</div>
+    <blockquote>«Ogni numero che vedi qui dentro è passato dal mio giudizio.»<div class="who" style="margin-top:14px">Roberto Scrigna — Nutrizione Sportiva</div></blockquote>
+    <div class="who">Bologna · dal 2019</div>
+  </div>
+  <div class="l-right">
+    <h1>Bentornato</h1>
+    <div class="sub">Area professionista</div>
+    <div class="field"><label>Email</label><input value="roberto@scrignanutrition.app"></div>
+    <div class="field"><label>Password</label><input type="password" value="············"></div>
+    <button class="btn primary">Accedi</button>
+  </div>
+</div></section>
+
+</body>
+</html>
