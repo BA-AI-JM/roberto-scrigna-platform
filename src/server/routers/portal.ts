@@ -124,7 +124,7 @@ export const portalRouter = router({
       .select(
         `id, name, status, start_date, end_date, daily_targets,
          water_ml_training, water_ml_rest, salt_g_training, salt_g_rest,
-         meals_per_day, meal_distribution, diet_emphasis, notes`
+         meals_per_day, meal_distribution, diet_emphasis, notes, first_viewed_at`
       )
       .eq("client_id", ctx.clientId)
       .eq("status", "active")
@@ -139,6 +139,31 @@ export const portalRouter = router({
     }
 
     if (!data) return null;
+
+    // T1.6b (G9): the client just VIEWED the plan — record it once (idempotent
+    // WHERE guard), fire-and-forget so the read path never blocks on it. This is
+    // the signal the 48h/7d "not viewed" reminders key on (was: dead 'delivered'
+    // status check + unconditional escalation).
+    if (!data.first_viewed_at) {
+      try {
+        void Promise.resolve(
+          db.from("plan")
+            .update({ first_viewed_at: new Date().toISOString() })
+            .eq("id", data.id)
+            .is("first_viewed_at", null)
+        ).then(
+          (res) => {
+            const viewErr = (res as { error?: unknown } | null)?.error;
+            if (viewErr) console.error("[router/portal.getActivePlan] first_viewed_at:", viewErr);
+          },
+          (err) => console.error("[router/portal.getActivePlan] first_viewed_at:", err)
+        );
+      } catch (err) {
+        // The view-marker must NEVER break the plan read (NORTHSTAR: nothing hidden,
+        // but the deliverable comes first). Mocked/partial db clients land here.
+        console.error("[router/portal.getActivePlan] first_viewed_at sync:", err);
+      }
+    }
 
     // Extract the meal plan from the plan bundle stored in daily_targets.
     // The engine writes meal data to daily_targets.plan_bundle.reportData.dayTypePlans,

@@ -256,13 +256,16 @@ ${btnHtml(portalUrl("/login"), "Visualizza il piano")}`
 
     await step.run("check-plan-viewed-48h", async () => {
       const db = getServiceDb();
+      // T1.6b (G9): 'delivered' was never a real status (schema CHECK: draft/active/
+      // completed/archived) — this branch was dead code. The real signal is
+      // first_viewed_at (mig 019), set by the portal on first plan view.
       const { data: plan } = await db
         .from("plan")
-        .select("id, status")
+        .select("id, status, first_viewed_at")
         .eq("id", planId)
         .single();
 
-      if (plan && plan.status === "delivered") {
+      if (plan && plan.status === "active" && !plan.first_viewed_at) {
         await createNotification({
           partnerId,
           clientId,
@@ -278,6 +281,17 @@ ${btnHtml(portalUrl("/login"), "Visualizza il piano")}`
     await step.sleep("wait-5d-more", "5d");
 
     await step.run("escalate-plan-not-viewed", async () => {
+      // T1.6b (G9): previously escalated UNCONDITIONALLY — every plan produced a
+      // false "not viewed" alarm even when the client opened it on day one.
+      const db = getServiceDb();
+      const { data: plan } = await db
+        .from("plan")
+        .select("id, status, first_viewed_at")
+        .eq("id", planId)
+        .single();
+
+      if (!plan || plan.status !== "active" || plan.first_viewed_at) return;
+
       await createNotification({
         partnerId,
         clientId,
@@ -1046,6 +1060,44 @@ ${btnHtml(portalUrl("/progress"), "Aggiorna le misurazioni")}`
 
 // ── Export all functions ─────────────────────────────────────────────────────
 
+// ── Outbox reconciler (T1.6b, G8) ────────────────────────────────────────────
+// approve_plan_txn (mig 019) writes a durable delivery_outbox row in the SAME
+// transaction as activation; the router then attempts a live dispatch. This cron
+// is the safety net: any row still undispatched (Inngest was down, process died
+// between commit and send) gets re-sent here. Idempotency downstream: dedupe
+// guards already exist on the daily scanners; onPlanDelivered emails at-most-once
+// per outbox row because we mark dispatched before moving on.
+export const reconcileOutbox = inngest.createFunction(
+  { id: "reconcile-delivery-outbox", retries: 1, triggers: [{ cron: "*/15 * * * *" }] },
+  async ({ step }) => {
+    const sent = await step.run("resend-undispatched", async () => {
+      const db = getServiceDb();
+      const cutoff = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+      const { data: pending } = await db
+        .from("delivery_outbox")
+        .select("id, event_name, payload, attempts")
+        .is("dispatched_at", null)
+        .lt("created_at", cutoff)
+        .lt("attempts", 5)
+        .order("created_at", { ascending: true })
+        .limit(20);
+
+      let ok = 0;
+      for (const row of pending ?? []) {
+        try {
+          await inngest.send({ name: row.event_name as "plan/delivered", data: row.payload as Record<string, unknown> });
+          await db.rpc("outbox_mark_dispatched", { p_id: row.id });
+          ok++;
+        } catch (err) {
+          await db.rpc("outbox_mark_failed", { p_id: row.id, p_error: String(err).slice(0, 500) });
+        }
+      }
+      return ok;
+    });
+    return { redispatched: sent };
+  },
+);
+
 export const functions = [
   onPlanDelivered,
   onCheckinDue,
@@ -1059,4 +1111,5 @@ export const functions = [
   scanFeedbackDue,
   scanPlanUpdateHeuristics,
   scanBodyCompDue,
+  reconcileOutbox,
 ];
