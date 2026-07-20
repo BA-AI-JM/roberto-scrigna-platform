@@ -98,10 +98,10 @@ const DAY_TYPE_SHORT_LABELS: Record<DayType, string> = {
 // Macro accent colours — mirror the per-day-type MacroCard palette below so the
 // summary reads as native to the rest of the review UI.
 const MACRO_ACCENTS = {
-  kcal: "#f59e0b",
-  protein: "#3b82f6",
-  carb: "#8b5cf6",
-  fat: "#10b981",
+  kcal: "var(--viz-kcal)",
+  protein: "var(--viz-p)",
+  carb: "var(--viz-c)",
+  fat: "var(--viz-f)",
 } as const;
 
 const MEAL_LABELS: Record<string, string> = {
@@ -136,9 +136,9 @@ const METRIC_LABELS: Record<string, string> = {
 };
 
 const ENERGY_THEMES: Record<string, { label: string; colour: string; bg: string }> = {
-  deficit: { label: "Deficit Calorico", colour: "#dc2626", bg: "#fef2f2" },
-  surplus: { label: "Surplus Calorico", colour: "#16a34a", bg: "#f0fdf4" },
-  maintenance: { label: "Mantenimento", colour: "#2563eb", bg: "#eff6ff" },
+  deficit: { label: "Deficit Calorico", colour: "var(--destructive)", bg: "var(--red-wash)" },
+  surplus: { label: "Surplus Calorico", colour: "var(--brand-deep)", bg: "var(--brand-wash)" },
+  maintenance: { label: "Mantenimento", colour: "var(--accent-blue)", bg: "var(--secondary)" },
 };
 
 // ── Default empty state ──────────────────────────────────────────────────────
@@ -389,16 +389,16 @@ export default function PlanReviewPage({
 
   const cardStyle = {
     padding: "20px",
-    border: "1px solid #e4e4e7",
+    border: "1px solid var(--border)",
     borderRadius: "12px",
-    backgroundColor: "#ffffff",
+    backgroundColor: "var(--card)",
     marginBottom: "16px",
   } as const;
 
   const textareaStyle = {
     width: "100%",
     padding: "10px 12px",
-    border: "1px solid #d4d4d8",
+    border: "1px solid var(--border)",
     borderRadius: "8px",
     fontSize: "14px",
     fontFamily: "inherit",
@@ -406,8 +406,8 @@ export default function PlanReviewPage({
     outline: "none",
     minHeight: "120px",
     lineHeight: "1.5",
-    color: "#18181b",
-    backgroundColor: "#ffffff",
+    color: "var(--ink)",
+    backgroundColor: "var(--card)",
     boxSizing: "border-box" as const,
     display: "block",
   } as const;
@@ -420,7 +420,7 @@ export default function PlanReviewPage({
         className="coach-container"
         style={{
           textAlign: "center",
-          color: "#71717a",
+          color: "var(--muted-foreground)",
         }}
       >
         <p style={{ fontSize: "14px", marginTop: "64px" }}>
@@ -435,7 +435,7 @@ export default function PlanReviewPage({
       <div className="coach-container">
         <a
           href="/plans"
-          style={{ fontSize: "13px", color: "#71717a", textDecoration: "none" }}
+          style={{ fontSize: "13px", color: "var(--muted-foreground)", textDecoration: "none" }}
         >
           ← Torna ai Piani
         </a>
@@ -443,10 +443,10 @@ export default function PlanReviewPage({
           style={{
             marginTop: "24px",
             padding: "16px",
-            backgroundColor: "#fef2f2",
-            border: "1px solid #fecaca",
+            backgroundColor: "var(--red-wash)",
+            border: "1px solid var(--border)",
             borderRadius: "8px",
-            color: "#dc2626",
+            color: "var(--destructive)",
             fontSize: "14px",
           }}
         >
@@ -490,24 +490,14 @@ export default function PlanReviewPage({
         }}
       >
         <div>
-          <a
-            href="/plans"
-            style={{
-              fontSize: "13px",
-              color: "#71717a",
-              textDecoration: "none",
-            }}
-          >
-            ← Torna ai Piani
+          <a href="/plans" className="text-[13px] text-muted-foreground hover:text-ink">
+            ← Torna ai piani
           </a>
-          <p className="mb-1 mt-1 text-xs font-medium uppercase tracking-wide text-brand-deep">
-            Piano Nutrizionale
+          <p className="mb-1 mt-2 text-[11.5px] font-medium uppercase tracking-[0.14em] text-ink-3">
+            Piano nutrizionale · {review.status === "draft" ? "bozza" : "attivo"}
           </p>
-          <h1
-            className="text-ink"
-            style={{ fontSize: "24px", fontWeight: 500, letterSpacing: "-0.01em", marginTop: "4px", marginBottom: "4px" }}
-          >
-            Revisione Piano{review.clientName ? `: ${review.clientName}` : ""}
+          <h1 className="mb-1 mt-0 text-[32px] tracking-[-0.01em] text-ink">
+            {review.clientName || "Revisione piano"}
           </h1>
           <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
             <span
@@ -524,7 +514,7 @@ export default function PlanReviewPage({
               {energyTheme.label}
             </span>
             {review.weeklyAvgKcal > 0 && (
-              <span className="tnum" style={{ fontSize: "13px", color: "#71717a" }}>
+              <span className="tnum" style={{ fontSize: "13px", color: "var(--muted-foreground)" }}>
                 {review.weeklyAvgKcal.toLocaleString("it-IT")} kcal/giorno media
               </span>
             )}
@@ -537,7 +527,7 @@ export default function PlanReviewPage({
               style={{
                 padding: "8px 16px",
                 fontSize: "13px",
-                color: "#16a34a",
+                color: "var(--brand-deep)",
                 fontWeight: 600,
                 alignSelf: "center",
               }}
@@ -551,7 +541,7 @@ export default function PlanReviewPage({
               style={{
                 padding: "8px 16px",
                 fontSize: "13px",
-                color: saveError ? "#dc2626" : "#16a34a",
+                color: saveError ? "var(--destructive)" : "var(--brand-deep)",
                 fontWeight: 600,
                 alignSelf: "center",
               }}
@@ -566,10 +556,10 @@ export default function PlanReviewPage({
             title="Salva le modifiche a integratori e testi guida"
             style={{
               padding: "8px 20px",
-              border: "1px solid #e4e4e7",
-              borderRadius: "8px",
-              backgroundColor: saveEditsMutation.isPending ? "#f4f4f5" : "#ffffff",
-              color: saveEditsMutation.isPending ? "#a1a1aa" : "#3f3f46",
+              border: "1px solid var(--border)",
+              borderRadius: "999px",
+              backgroundColor: saveEditsMutation.isPending ? "var(--secondary)" : "var(--card)",
+              color: saveEditsMutation.isPending ? "var(--ink-3)" : "var(--ink-2)",
               cursor: saveEditsMutation.isPending ? "not-allowed" : "pointer",
               fontSize: "13px",
               fontWeight: 600,
@@ -582,13 +572,13 @@ export default function PlanReviewPage({
             onClick={handleDownloadPdf}
             style={{
               padding: "8px 20px",
-              border: "1px solid #bfdbfe",
-              borderRadius: "8px",
-              backgroundColor: "#eff6ff",
-              color: "#2563eb",
+              border: "1px solid var(--border)",
+              borderRadius: "999px",
+              backgroundColor: "var(--card)",
+              color: "var(--ink)",
               cursor: "pointer",
               fontSize: "13px",
-              fontWeight: 600,
+              fontWeight: 500,
             }}
           >
             Scarica PDF
@@ -602,19 +592,16 @@ export default function PlanReviewPage({
             }}
             style={{
               padding: "8px 20px",
-              border: "1px solid #d9f99d",
-              borderRadius: "8px",
-              backgroundColor: "#f7fee7",
-              color: "#3d7c0a",
+              border: "1px solid var(--brand-soft)",
+              borderRadius: "999px",
+              backgroundColor: "var(--brand-wash)",
+              color: "var(--brand-deep)",
               cursor: "pointer",
               fontSize: "13px",
-              fontWeight: 600,
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
+              fontWeight: 500,
             }}
           >
-            <span>✉</span> Condividi con Cliente
+            Condividi con cliente
           </button>
 
           {review.status !== "active" && (
@@ -622,11 +609,11 @@ export default function PlanReviewPage({
               onClick={handleApprove}
               disabled={isApproving}
               style={{
-                padding: "8px 20px",
+                padding: "9px 22px",
                 border: "none",
-                borderRadius: "8px",
-                backgroundColor: isApproving ? "#6b7280" : "#16a34a",
-                color: "#ffffff",
+                borderRadius: "999px",
+                backgroundColor: isApproving ? "var(--muted-foreground)" : "var(--brand)",
+                color: "var(--primary-foreground)",
                 cursor: isApproving ? "not-allowed" : "pointer",
                 fontSize: "13px",
                 fontWeight: 600,
@@ -639,13 +626,13 @@ export default function PlanReviewPage({
           {review.status === "active" && (
             <span
               style={{
-                padding: "8px 20px",
-                borderRadius: "8px",
-                backgroundColor: "#f0fdf4",
-                color: "#16a34a",
+                padding: "9px 22px",
+                borderRadius: "999px",
+                backgroundColor: "var(--brand-wash)",
+                color: "var(--brand-deep)",
                 fontSize: "13px",
-                fontWeight: 600,
-                border: "1px solid #bbf7d0",
+                fontWeight: 500,
+                border: "1px solid var(--brand-soft)",
               }}
             >
               Approvato
@@ -654,17 +641,20 @@ export default function PlanReviewPage({
         </div>
       </div>
 
+      {/* Verifica del motore — engine's own tolerance verdicts (T3 Wave A) */}
+      {review.dayTypePlans.length > 0 && <VerdictStrip days={review.dayTypePlans} />}
+
       {/* Post-approval: how the client receives the plan */}
       {(review.status === "active" || approveSuccess) && (
         <div
           style={{
             marginBottom: "20px",
             padding: "14px 18px",
-            background: "#f0fdf4",
-            border: "1px solid #bbf7d0",
+            background: "var(--brand-wash)",
+            border: "1px solid var(--brand-soft)",
             borderRadius: "10px",
             fontSize: "13px",
-            color: "#166534",
+            color: "var(--brand-deep)",
             lineHeight: "1.6",
           }}
         >
@@ -673,7 +663,7 @@ export default function PlanReviewPage({
             href={`${typeof window !== "undefined" ? window.location.origin : ""}/portal/login`}
             target="_blank"
             rel="noreferrer"
-            style={{ color: "#15803d", fontWeight: 600 }}
+            style={{ color: "var(--brand-deep)", fontWeight: 600 }}
           >
             {(typeof window !== "undefined" ? window.location.origin : "")}/portal/login
           </a>
@@ -700,7 +690,7 @@ export default function PlanReviewPage({
         >
           <div
             style={{
-              backgroundColor: "#ffffff",
+              backgroundColor: "var(--card)",
               borderRadius: "14px",
               padding: "28px 32px",
               width: "100%",
@@ -708,14 +698,14 @@ export default function PlanReviewPage({
               boxShadow: "0 20px 60px rgba(0,0,0,0.15)",
             }}
           >
-            <h2 style={{ fontSize: "18px", fontWeight: 700, marginTop: 0, marginBottom: "6px", color: "#18181b" }}>
+            <h2 style={{ fontSize: "18px", fontWeight: 700, marginTop: 0, marginBottom: "6px", color: "var(--ink)" }}>
               Condividi con Cliente
             </h2>
-            <p style={{ fontSize: "13px", color: "#71717a", marginTop: 0, marginBottom: "20px" }}>
+            <p style={{ fontSize: "13px", color: "var(--muted-foreground)", marginTop: 0, marginBottom: "20px" }}>
               Invia il piano al cliente via email con un riepilogo macro e il link al portale.
             </p>
 
-            <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: "#3f3f46", marginBottom: "6px" }}>
+            <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: "var(--ink-2)", marginBottom: "6px" }}>
               Indirizzo email
             </label>
             <input
@@ -726,23 +716,23 @@ export default function PlanReviewPage({
               style={{
                 width: "100%",
                 padding: "10px 12px",
-                border: "1px solid #d4d4d8",
+                border: "1px solid var(--border)",
                 borderRadius: "8px",
                 fontSize: "14px",
                 outline: "none",
                 boxSizing: "border-box",
-                color: "#18181b",
+                color: "var(--ink)",
               }}
             />
 
             {shareError && (
-              <p style={{ fontSize: "13px", color: "#dc2626", marginTop: "10px", marginBottom: 0 }}>
+              <p style={{ fontSize: "13px", color: "var(--destructive)", marginTop: "10px", marginBottom: 0 }}>
                 {shareError}
               </p>
             )}
 
             {shareSuccess && (
-              <p style={{ fontSize: "13px", color: "#16a34a", fontWeight: 600, marginTop: "10px", marginBottom: 0 }}>
+              <p style={{ fontSize: "13px", color: "var(--brand-deep)", fontWeight: 600, marginTop: "10px", marginBottom: 0 }}>
                 Piano condiviso con successo!
               </p>
             )}
@@ -752,10 +742,10 @@ export default function PlanReviewPage({
                 onClick={() => setShowShareModal(false)}
                 style={{
                   padding: "9px 18px",
-                  border: "1px solid #e4e4e7",
-                  borderRadius: "8px",
-                  backgroundColor: "#ffffff",
-                  color: "#3f3f46",
+                  border: "1px solid var(--border)",
+                  borderRadius: "999px",
+                  backgroundColor: "var(--card)",
+                  color: "var(--ink-2)",
                   cursor: "pointer",
                   fontSize: "13px",
                   fontWeight: 500,
@@ -770,8 +760,8 @@ export default function PlanReviewPage({
                   padding: "9px 20px",
                   border: "none",
                   borderRadius: "8px",
-                  backgroundColor: shareMutation.isPending || shareSuccess ? "#6b7280" : "#16a34a",
-                  color: "#ffffff",
+                  backgroundColor: shareMutation.isPending || shareSuccess ? "var(--muted-foreground)" : "var(--brand)",
+                  color: "var(--primary-foreground)",
                   cursor: shareMutation.isPending || shareSuccess ? "not-allowed" : "pointer",
                   fontSize: "13px",
                   fontWeight: 600,
@@ -790,7 +780,7 @@ export default function PlanReviewPage({
           display: "flex",
           gap: "0",
           marginBottom: "24px",
-          borderBottom: "2px solid #e4e4e7",
+          borderBottom: "1px solid var(--border)",
         }}
       >
         {TABS.map((tab) => (
@@ -802,14 +792,14 @@ export default function PlanReviewPage({
               border: "none",
               borderBottom:
                 activeTab === tab.key
-                  ? "2px solid #18181b"
+                  ? "2px solid var(--brand)"
                   : "2px solid transparent",
               backgroundColor: "transparent",
-              color: activeTab === tab.key ? "#18181b" : "#71717a",
+              color: activeTab === tab.key ? "var(--ink)" : "var(--muted-foreground)",
               cursor: "pointer",
               fontSize: "14px",
               fontWeight: activeTab === tab.key ? 600 : 400,
-              marginBottom: "-2px",
+              marginBottom: "-1px",
             }}
           >
             {tab.label}
@@ -934,7 +924,7 @@ function OverviewTab({
                 key={i}
                 style={{
                   fontSize: "13px",
-                  color: "#52525b",
+                  color: "var(--ink-2)",
                   marginBottom: "6px",
                   lineHeight: "1.5",
                 }}
@@ -966,7 +956,7 @@ function MacrosTab({
     <div>
       {dayTypePlans.length === 0 ? (
         <div style={cardStyle}>
-          <p style={{ color: "#71717a", fontSize: "14px", margin: 0 }}>
+          <p style={{ color: "var(--muted-foreground)", fontSize: "14px", margin: 0 }}>
             Nessun dato macro disponibile.
           </p>
         </div>
@@ -997,39 +987,39 @@ function MacrosTab({
               label="Kcal"
               value={Math.round(plan.macros.totalKcal)}
               unit="kcal"
-              accentColour="#f59e0b"
+              accentColour="var(--viz-kcal)"
             />
             <MacroCard
               label="Proteine"
               value={Math.round(plan.macros.proteinG)}
               unit="g"
-              accentColour="#3b82f6"
+              accentColour="var(--viz-p)"
             />
             <MacroCard
               label="Carboidrati"
               value={Math.round(plan.macros.carbG)}
               unit="g"
-              accentColour="#8b5cf6"
+              accentColour="var(--viz-c)"
             />
             <MacroCard
               label="Grassi"
               value={Math.round(plan.macros.fatG)}
               unit="g"
-              accentColour="#10b981"
+              accentColour="var(--viz-f)"
             />
           </div>
           {/* Per-day energy-expenditure breakdown (BMR + NEAT + Exercise + TEF) */}
           <div
             style={{
               fontSize: "12px",
-              color: "#52525b",
+              color: "var(--ink-2)",
               padding: "10px 12px",
-              backgroundColor: "#fafafa",
+              backgroundColor: "var(--secondary)",
               borderRadius: "6px",
               marginBottom: "8px",
             }}
           >
-            <div style={{ fontWeight: 600, color: "#3f3f46", marginBottom: "6px" }}>
+            <div style={{ fontWeight: 600, color: "var(--ink-2)", marginBottom: "6px" }}>
               Composizione del fabbisogno (TDEE)
             </div>
             <div
@@ -1048,7 +1038,7 @@ function MacrosTab({
                 { k: "TDEE totale", v: plan.tdee.totalTdeeKcal, strong: true },
               ].map((c) => (
                 <div key={c.k}>
-                  <div style={{ fontSize: "10px", color: "#a1a1aa", marginBottom: "2px" }}>
+                  <div style={{ fontSize: "10px", color: "var(--ink-3)", marginBottom: "2px" }}>
                     {c.k}
                   </div>
                   <div
@@ -1056,7 +1046,7 @@ function MacrosTab({
                     style={{
                       fontSize: c.strong ? "15px" : "13px",
                       fontWeight: c.strong ? 700 : 600,
-                      color: c.strong ? "#18181b" : "#3f3f46",
+                      color: c.strong ? "var(--ink)" : "var(--ink-2)",
                     }}
                   >
                     {Math.round(c.v)}
@@ -1064,7 +1054,7 @@ function MacrosTab({
                 </div>
               ))}
             </div>
-            <div style={{ marginTop: "6px", fontSize: "11px", color: "#a1a1aa" }}>
+            <div style={{ marginTop: "6px", fontSize: "11px", color: "var(--ink-3)" }}>
               Esercizio stimato con:{" "}
               {EXERCISE_METHOD_LABELS[plan.tdee.exercise.methodUsed] ??
                 plan.tdee.exercise.methodUsed}
@@ -1080,12 +1070,12 @@ function MacrosTab({
             const ea = Math.round(((intake - exercise) / ffm) * 10) / 10;
             const band =
               ea >= 45
-                ? { label: "Ottimale", colour: "#15803d", bg: "#f0fdf4" }
+                ? { label: "Ottimale", colour: "var(--brand-deep)", bg: "var(--brand-wash)" }
                 : ea >= 30
-                ? { label: "Adeguata", colour: "#2563eb", bg: "#eff6ff" }
+                ? { label: "Adeguata", colour: "var(--accent-blue)", bg: "var(--secondary)" }
                 : ea >= 20
-                ? { label: "Bassa", colour: "#b45309", bg: "#fffbeb" }
-                : { label: "Critica", colour: "#b91c1c", bg: "#fef2f2" };
+                ? { label: "Bassa", colour: "var(--amber)", bg: "var(--amber-wash)" }
+                : { label: "Critica", colour: "var(--destructive)", bg: "var(--red-wash)" };
             return (
               <div
                 style={{
@@ -1108,7 +1098,7 @@ function MacrosTab({
                   style={{
                     padding: "1px 8px",
                     borderRadius: "10px",
-                    background: "#ffffff",
+                    background: "var(--card)",
                     fontWeight: 600,
                     fontSize: "11px",
                   }}
@@ -1126,9 +1116,9 @@ function MacrosTab({
             className="tnum"
             style={{
               fontSize: "12px",
-              color: "#71717a",
+              color: "var(--muted-foreground)",
               padding: "8px 12px",
-              backgroundColor: "#fafafa",
+              backgroundColor: "var(--secondary)",
               borderRadius: "6px",
             }}
           >
@@ -1212,7 +1202,7 @@ function MealsTab({
   if (plansWithMeals.length === 0) {
     return (
       <div style={cardStyle}>
-        <p style={{ color: "#71717a", fontSize: "14px", margin: 0 }}>
+        <p style={{ color: "var(--muted-foreground)", fontSize: "14px", margin: 0 }}>
           Nessun piano pasti generato.
         </p>
       </div>
@@ -1230,8 +1220,8 @@ function MealsTab({
             alignItems: "center",
             gap: "10px",
             fontSize: "13px",
-            backgroundColor: itemSwapResult.withinTolerance ? "#dcfce7" : "#fef9c3",
-            color: itemSwapResult.withinTolerance ? "#15803d" : "#854d0e",
+            backgroundColor: itemSwapResult.withinTolerance ? "var(--brand-wash)" : "var(--amber-wash)",
+            color: itemSwapResult.withinTolerance ? "var(--brand-deep)" : "var(--amber)",
           }}
         >
           <span style={{ fontWeight: 700 }}>Alimento sostituito:</span>
@@ -1265,9 +1255,9 @@ function MealsTab({
                   padding: "3px 10px",
                   borderRadius: "12px",
                   backgroundColor: plan.mealPlan.withinTolerance
-                    ? "#dcfce7"
-                    : "#fef9c3",
-                  color: plan.mealPlan.withinTolerance ? "#15803d" : "#854d0e",
+                    ? "var(--brand-wash)"
+                    : "var(--amber-wash)",
+                  color: plan.mealPlan.withinTolerance ? "var(--brand-deep)" : "var(--amber)",
                 }}
               >
                 {plan.mealPlan.withinTolerance ? (
@@ -1325,9 +1315,9 @@ function MealsTab({
               style={{
                 padding: "12px",
                 borderRadius: "8px",
-                backgroundColor: "#fafafa",
+                backgroundColor: "var(--secondary)",
                 marginBottom: "8px",
-                border: slotOOT ? "1px solid #fde68a" : "1px solid #f4f4f5",
+                border: slotOOT ? "1px solid var(--border)" : "1px solid var(--line-2)",
               }}
             >
               <div
@@ -1344,7 +1334,7 @@ function MealsTab({
                   style={{
                     fontWeight: 600,
                     fontSize: "14px",
-                    color: "#18181b",
+                    color: "var(--ink)",
                   }}
                 >
                   {MEAL_LABELS[slot.slot] ?? slot.slot.replace(/_/g, " ")}
@@ -1359,8 +1349,8 @@ function MealsTab({
                         marginLeft: "8px",
                         padding: "1px 8px",
                         borderRadius: "10px",
-                        backgroundColor: "#fef9c3",
-                        color: "#854d0e",
+                        backgroundColor: "var(--amber-wash)",
+                        color: "var(--amber)",
                         fontSize: "10px",
                         fontWeight: 600,
                       }}
@@ -1369,7 +1359,7 @@ function MealsTab({
                     </span>
                   )}
                 </span>
-                <span className="tnum" style={{ fontSize: "12px", color: "#71717a" }}>
+                <span className="tnum" style={{ fontSize: "12px", color: "var(--muted-foreground)" }}>
                   {Math.round(slot.primary.actualMacros.kcal)} kcal &middot; P{" "}
                   {Math.round(slot.primary.actualMacros.proteinG)}g &middot; C{" "}
                   {Math.round(slot.primary.actualMacros.carbsG)}g &middot; F{" "}
@@ -1381,7 +1371,7 @@ function MealsTab({
                   fontSize: "14px",
                   fontWeight: 600,
                   margin: "0 0 6px 0",
-                  color: "#3f3f46",
+                  color: "var(--ink-2)",
                 }}
               >
                 {slot.primary.template.name}
@@ -1421,14 +1411,14 @@ function MealsTab({
                         margin: 0,
                         fontSize: "12px",
                         fontWeight: 600,
-                        color: "#3b82f6",
+                        color: "var(--viz-p)",
                         cursor: "pointer",
                       }}
                     >
                       {isExpanded ? "▾" : "▸"} {slot.substitutions.length} alternativ
                       {slot.substitutions.length === 1 ? "a" : "e"}{" "}
                       {!isExpanded && (
-                        <span style={{ color: "#a1a1aa", fontWeight: 400 }}>
+                        <span style={{ color: "var(--ink-3)", fontWeight: 400 }}>
                           ({slot.substitutions
                             .map((s) => s.template.name)
                             .slice(0, 3)
@@ -1445,8 +1435,8 @@ function MealsTab({
                             style={{
                               padding: "10px 12px",
                               borderRadius: "8px",
-                              backgroundColor: "#ffffff",
-                              border: "1px solid #e4e4e7",
+                              backgroundColor: "var(--card)",
+                              border: "1px solid var(--border)",
                             }}
                           >
                             <div
@@ -1463,12 +1453,12 @@ function MealsTab({
                                   style={{
                                     fontSize: "13px",
                                     fontWeight: 600,
-                                    color: "#18181b",
+                                    color: "var(--ink)",
                                   }}
                                 >
                                   {sub.template.name}
                                 </div>
-                                <div className="tnum" style={{ fontSize: "11px", color: "#71717a" }}>
+                                <div className="tnum" style={{ fontSize: "11px", color: "var(--muted-foreground)" }}>
                                   {Math.round(sub.actualMacros.kcal)} kcal · P{" "}
                                   {Math.round(sub.actualMacros.proteinG)}g · C{" "}
                                   {Math.round(sub.actualMacros.carbsG)}g · F{" "}
@@ -1494,12 +1484,12 @@ function MealsTab({
                                   borderRadius: "6px",
                                   backgroundColor:
                                     swapMutation.isPending && swappingId === sub.template.id
-                                      ? "#e5e7eb"
-                                      : "#1a1a2e",
+                                      ? "var(--secondary)"
+                                      : "var(--ink)",
                                   color:
                                     swapMutation.isPending && swappingId === sub.template.id
-                                      ? "#6b7280"
-                                      : "#ffffff",
+                                      ? "var(--muted-foreground)"
+                                      : "var(--background)",
                                   border: "none",
                                   fontSize: "11px",
                                   fontWeight: 600,
@@ -1528,7 +1518,7 @@ function MealsTab({
                                     key={idx}
                                     style={{
                                       fontSize: "12px",
-                                      color: "#52525b",
+                                      color: "var(--ink-2)",
                                       padding: "1px 0",
                                       display: "flex",
                                       justifyContent: "space-between",
@@ -1536,7 +1526,7 @@ function MealsTab({
                                   >
                                     <span>{ing.name}</span>
                                     <span
-                                      style={{ fontWeight: 600, color: "#3f3f46" }}
+                                      style={{ fontWeight: 600, color: "var(--ink-2)" }}
                                     >
                                       {formatIngredientQuantity(ing.foodId, ing.grams)}
                                     </span>
@@ -1606,7 +1596,7 @@ function MonitoringTab({
           style={{
             fontSize: "12px",
             fontWeight: 600,
-            color: "#71717a",
+            color: "var(--muted-foreground)",
             textTransform: "uppercase",
             letterSpacing: "0.05em",
             margin: "0 0 4px 0",
@@ -1614,7 +1604,7 @@ function MonitoringTab({
         >
           Frequenza Check-in
         </p>
-        <p className="tnum" style={{ fontSize: "18px", fontWeight: 700, margin: 0, color: "#18181b" }}>
+        <p className="tnum" style={{ fontSize: "18px", fontWeight: 700, margin: 0, color: "var(--ink)" }}>
           Ogni {monitoring.checkInFrequencyDays} giorni
         </p>
       </div>
@@ -1624,7 +1614,7 @@ function MonitoringTab({
           style={{
             fontSize: "12px",
             fontWeight: 600,
-            color: "#71717a",
+            color: "var(--muted-foreground)",
             textTransform: "uppercase",
             letterSpacing: "0.05em",
             margin: "0 0 8px 0",
@@ -1639,10 +1629,10 @@ function MonitoringTab({
               style={{
                 padding: "4px 12px",
                 borderRadius: "20px",
-                backgroundColor: "#f4f4f5",
+                backgroundColor: "var(--secondary)",
                 fontSize: "12px",
                 fontWeight: 500,
-                color: "#3f3f46",
+                color: "var(--ink-2)",
               }}
             >
               {METRIC_LABELS[m] ?? m.replace(/_/g, " ")}
@@ -1657,7 +1647,7 @@ function MonitoringTab({
             style={{
               fontSize: "12px",
               fontWeight: 600,
-              color: "#71717a",
+              color: "var(--muted-foreground)",
               textTransform: "uppercase",
               letterSpacing: "0.05em",
               margin: "0 0 4px 0",
@@ -1669,7 +1659,7 @@ function MonitoringTab({
             style={{
               fontSize: "14px",
               margin: 0,
-              color: "#3f3f46",
+              color: "var(--ink-2)",
               lineHeight: "1.5",
             }}
           >
@@ -1689,15 +1679,15 @@ function StatCard({ label, value }: { label: string; value: string }) {
       style={{
         padding: "16px",
         borderRadius: "8px",
-        backgroundColor: "#fafafa",
-        border: "1px solid #f4f4f5",
+        backgroundColor: "var(--secondary)",
+        border: "1px solid var(--line-2)",
         textAlign: "center",
       }}
     >
       <p
         style={{
           fontSize: "11px",
-          color: "#71717a",
+          color: "var(--muted-foreground)",
           margin: "0 0 6px 0",
           textTransform: "uppercase",
           letterSpacing: "0.05em",
@@ -1708,7 +1698,7 @@ function StatCard({ label, value }: { label: string; value: string }) {
       </p>
       <p
         className="tnum"
-        style={{ fontSize: "20px", fontWeight: 700, margin: 0, color: "#18181b" }}
+        style={{ fontSize: "20px", fontWeight: 700, margin: 0, color: "var(--ink)" }}
       >
         {value}
       </p>
@@ -1732,15 +1722,15 @@ function MacroCard({
       style={{
         padding: "14px",
         borderRadius: "8px",
-        backgroundColor: "#fafafa",
-        border: "1px solid #f4f4f5",
+        backgroundColor: "var(--secondary)",
+        border: "1px solid var(--line-2)",
         textAlign: "center",
       }}
     >
       <p
         style={{
           fontSize: "11px",
-          color: "#71717a",
+          color: "var(--muted-foreground)",
           margin: "0 0 6px 0",
           textTransform: "uppercase",
           letterSpacing: "0.05em",
@@ -1761,7 +1751,7 @@ function MacroCard({
           {value}
         </span>
         <span
-          style={{ fontSize: "12px", fontWeight: 400, color: "#a1a1aa", marginLeft: "2px" }}
+          style={{ fontSize: "12px", fontWeight: 400, color: "var(--ink-3)", marginLeft: "2px" }}
         >
           {unit}
         </span>
@@ -1793,7 +1783,7 @@ function DailyTotalsTable({
 
   const headerCellStyle: React.CSSProperties = {
     fontSize: "11px",
-    color: "#71717a",
+    color: "var(--muted-foreground)",
     textTransform: "uppercase",
     letterSpacing: "0.05em",
     fontWeight: 600,
@@ -1837,13 +1827,13 @@ function DailyTotalsTable({
             {dayTypePlans.map((plan) => {
               const m = plan.macros;
               return (
-                <tr key={plan.dayType} style={{ borderTop: "1px solid #f4f4f5" }}>
+                <tr key={plan.dayType} style={{ borderTop: "1px solid var(--line-2)" }}>
                   <td
                     style={{
                       padding: "10px 12px",
                       fontSize: "14px",
                       fontWeight: 600,
-                      color: "#18181b",
+                      color: "var(--ink)",
                       whiteSpace: "nowrap",
                     }}
                   >
@@ -1903,7 +1893,7 @@ function MacroValueCell({
           style={{
             fontSize: "11px",
             fontWeight: 400,
-            color: "#a1a1aa",
+            color: "var(--ink-3)",
             marginLeft: "2px",
           }}
         >
@@ -1911,10 +1901,55 @@ function MacroValueCell({
         </span>
       </div>
       {pct != null && (
-        <div style={{ fontSize: "11px", color: "#a1a1aa", marginTop: "2px" }}>
+        <div style={{ fontSize: "11px", color: "var(--ink-3)", marginTop: "2px" }}>
           {pct}%
         </div>
       )}
     </td>
+  );
+}
+
+
+// ── Verifica del motore (Wave A) — verdicts come ONLY from the engine's own
+// ±5% tolerance rule carried in the bundle; deltas shown neutrally (NORTHSTAR:
+// no engineering-invented clinical thresholds — bounds are Roberto's EF4 call).
+type VerdictDay = {
+  label: string;
+  dayType: string;
+  mealPlan?: {
+    withinTolerance: boolean;
+    deviation: { kcal: number; proteinG: number; carbsG: number; fatG: number };
+  };
+};
+
+function VerdictStrip({ days }: { days: VerdictDay[] }) {
+  const rows = days.flatMap((d) =>
+    d.mealPlan
+      ? [{ label: d.label || d.dayType, ok: d.mealPlan.withinTolerance, dev: d.mealPlan.deviation }]
+      : [],
+  );
+  if (rows.length === 0) return null;
+  const fmt = (n: number, unit: string, dp = 0) => {
+    const r = dp === 0 ? Math.round(n) : Math.round(n * 10) / 10;
+    return `${r > 0 ? "+" : ""}${r}${unit}`;
+  };
+  return (
+    <div className="mb-6 grid gap-3 sm:grid-cols-2">
+      {rows.map((r) => (
+        <div
+          key={r.label}
+          className={`rounded-[13px] px-4 py-3.5 text-[13.5px] ${
+            r.ok ? "border border-border bg-card" : "bg-amber-wash"
+          }`}
+        >
+          <div className={`flex items-center gap-2 font-medium ${r.ok ? "text-brand-deep" : "text-amber"}`}>
+            {r.ok ? "✓" : "△"} {r.label} — {r.ok ? "entro tolleranza (regola motore ±5%)" : "fuori tolleranza"}
+          </div>
+          <div className="tnum mt-1 text-[12.5px] text-muted-foreground">
+            Δ {fmt(r.dev.kcal, " kcal")} · P {fmt(r.dev.proteinG, " g", 1)} · C {fmt(r.dev.carbsG, " g", 1)} · F {fmt(r.dev.fatG, " g", 1)}
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }
