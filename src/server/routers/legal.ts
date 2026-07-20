@@ -22,6 +22,7 @@ import { fillEngagementLetter } from "../legal-letter";
 import { generateEngagementLetterPdf } from "../legal-letter-pdf";
 import { renderEngagementLetterHtml } from "../../pdf/engagement-letter-renderer";
 import { PdfDependencyError } from "../../pdf/chromium-launcher";
+import { throwDiscriminated } from "../db-errors";
 
 // The RLS-bound server client carried on ctx.supabase (no generated DB types in this repo).
 type Db = Awaited<ReturnType<typeof createSupabaseServer>>;
@@ -321,8 +322,19 @@ export const legalRouter = router({
         .eq("partner_id", ctx.partnerId)
         .is("deleted_at", null)
         .single();
-      if (clientErr || !client) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "Cliente non trovato." });
+      if (clientErr) {
+        throwDiscriminated(
+          clientErr,
+          "Cliente non trovato.",
+          "router/legal.generateEngagementLetter"
+        );
+      }
+      if (!client) {
+        throwDiscriminated(
+          null,
+          "Cliente non trovato.",
+          "router/legal.generateEngagementLetter"
+        );
       }
 
       // Professional name.

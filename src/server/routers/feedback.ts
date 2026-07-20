@@ -20,6 +20,7 @@ import { z } from "zod/v4";
 import { TRPCError } from "@trpc/server";
 import { router, clientProcedure, protectedProcedure } from "../trpc";
 import { createSupabaseServiceRole } from "../../lib/supabase/service";
+import { throwDiscriminated } from "../db-errors";
 
 /** Service-role client (RLS bypass — scope by ctx.clientId in code). */
 function svc() {
@@ -69,8 +70,11 @@ export const feedbackRouter = router({
         .select("id, partner_id, full_name")
         .eq("id", ctx.clientId)
         .single();
-      if (clientErr || !client) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "Cliente non trovato." });
+      if (clientErr) {
+        throwDiscriminated(clientErr, "Cliente non trovato.", "router/feedback.submitUrgent");
+      }
+      if (!client) {
+        throwDiscriminated(null, "Cliente non trovato.", "router/feedback.submitUrgent");
       }
 
       const isInjury = input.kind === "injury_report";

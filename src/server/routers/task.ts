@@ -13,6 +13,7 @@
 import { z } from "zod/v4";
 import { router, protectedProcedure } from "../trpc";
 import { TRPCError } from "@trpc/server";
+import { throwDiscriminated } from "../db-errors";
 
 // ── Schemas ──────────────────────────────────────────────────────────────────
 
@@ -125,7 +126,7 @@ export const taskRouter = router({
     .mutation(async ({ ctx, input }) => {
       // Verify client ownership if clientId provided
       if (input.clientId) {
-        const { data: client } = await ctx.supabase
+        const { data: client, error: clientError } = await ctx.supabase
           .from("client")
           .select("id")
           .eq("id", input.clientId)
@@ -133,8 +134,11 @@ export const taskRouter = router({
           .is("deleted_at", null)
           .single();
 
+        if (clientError) {
+          throwDiscriminated(clientError, "Cliente non trovato.", "router/task.create:client");
+        }
         if (!client) {
-          throw new TRPCError({ code: "NOT_FOUND", message: "Cliente non trovato." });
+          throwDiscriminated(null, "Cliente non trovato.", "router/task.create:client");
         }
       }
 
@@ -152,7 +156,14 @@ export const taskRouter = router({
         .select("id")
         .single();
 
-      if (error || !data) {
+      if (error) {
+        console.error("[router/task.create]", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Errore nella creazione del task.",
+        });
+      }
+      if (!data) {
         console.error("[router/task.create]", error);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
@@ -175,7 +186,7 @@ export const taskRouter = router({
       // Without this check, a task could be associated with a client that
       // belongs to a different partner (cross-tenant data association).
       if (fields.clientId !== undefined && fields.clientId !== null) {
-        const { data: clientCheck } = await ctx.supabase
+        const { data: clientCheck, error: clientError } = await ctx.supabase
           .from("client")
           .select("id")
           .eq("id", fields.clientId)
@@ -183,8 +194,11 @@ export const taskRouter = router({
           .is("deleted_at", null)
           .single();
 
+        if (clientError) {
+          throwDiscriminated(clientError, "Cliente non trovato.", "router/task.update:client");
+        }
         if (!clientCheck) {
-          throw new TRPCError({ code: "NOT_FOUND", message: "Cliente non trovato." });
+          throwDiscriminated(null, "Cliente non trovato.", "router/task.update:client");
         }
       }
 

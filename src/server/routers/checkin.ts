@@ -16,6 +16,7 @@ import { router, protectedProcedure, publicProcedure } from "../trpc";
 import { TRPCError } from "@trpc/server";
 import { inngest } from "../../lib/inngest/client";
 import { rateLimit, getClientIp } from "../../lib/rate-limit";
+import { throwDiscriminated } from "../db-errors";
 
 // ── Schemas ──────────────────────────────────────────────────────────────────
 
@@ -102,7 +103,7 @@ export const checkinRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       // Verify client ownership
-      const { data: client } = await ctx.supabase
+      const { data: client, error: clientError } = await ctx.supabase
         .from("client")
         .select("id, full_name, email")
         .eq("id", input.clientId)
@@ -110,8 +111,11 @@ export const checkinRouter = router({
         .is("deleted_at", null)
         .single();
 
+      if (clientError) {
+        throwDiscriminated(clientError, "Cliente non trovato.", "router/checkin.sendCheckin");
+      }
       if (!client) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "Cliente non trovato." });
+        throwDiscriminated(null, "Cliente non trovato.", "router/checkin.sendCheckin");
       }
 
       if (!client.email) {
@@ -135,10 +139,16 @@ export const checkinRouter = router({
         .select("id, token")
         .single();
 
-      if (error || !checkin) {
+      if (error) {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: error?.message ?? "Errore nella creazione del check-in.",
+          message: error.message ?? "Errore nella creazione del check-in.",
+        });
+      }
+      if (!checkin) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Errore nella creazione del check-in.",
         });
       }
 
@@ -433,8 +443,11 @@ export const checkinRouter = router({
         .eq("partner_id", ctx.partnerId)
         .single();
 
-      if (error || !checkin) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "Check-in non trovato." });
+      if (error) {
+        throwDiscriminated(error, "Check-in non trovato.", "router/checkin.getById");
+      }
+      if (!checkin) {
+        throwDiscriminated(null, "Check-in non trovato.", "router/checkin.getById");
       }
 
       return checkin;

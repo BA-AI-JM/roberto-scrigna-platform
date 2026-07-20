@@ -192,10 +192,16 @@ export const guidanceRouter = router({
         .select("id")
         .single();
 
-      if (error || !data) {
+      if (error) {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: error?.message ?? "Errore nella creazione del blocco.",
+          message: error.message ?? "Errore nella creazione del blocco.",
+        });
+      }
+      if (!data) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Errore nella creazione del blocco.",
         });
       }
 

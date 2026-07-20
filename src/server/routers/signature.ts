@@ -27,6 +27,7 @@ import { getSignatureProvider, activeSignatureProviderName } from "../esign/fact
 import { renderSignedEngagementLetterPdf } from "../signature-document";
 import { fillEngagementLetter } from "../legal-letter";
 import type { SignatureProviderDeps } from "../esign/types";
+import { throwDiscriminated } from "../db-errors";
 
 const OPEN_STATUSES = ["pending", "sent", "viewed"] as const;
 
@@ -69,8 +70,19 @@ export const signatureRouter = router({
         .eq("partner_id", ctx.partnerId)
         .is("deleted_at", null)
         .single();
-      if (clientErr || !client) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "Cliente non trovato." });
+      if (clientErr) {
+        throwDiscriminated(
+          clientErr,
+          "Cliente non trovato.",
+          "router/signature.createSignatureRequest"
+        );
+      }
+      if (!client) {
+        throwDiscriminated(
+          null,
+          "Cliente non trovato.",
+          "router/signature.createSignatureRequest"
+        );
       }
 
       const { data: doc } = await db
@@ -156,8 +168,19 @@ export const signatureRouter = router({
         .eq("id", input.requestId)
         .eq("client_id", ctx.clientId)
         .single();
-      if (error || !data) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "Richiesta non trovata." });
+      if (error) {
+        throwDiscriminated(
+          error,
+          "Richiesta non trovata.",
+          "router/signature.getSignatureRequest"
+        );
+      }
+      if (!data) {
+        throwDiscriminated(
+          null,
+          "Richiesta non trovata.",
+          "router/signature.getSignatureRequest"
+        );
       }
       return data;
     }),
@@ -183,8 +206,19 @@ export const signatureRouter = router({
         .eq("id", input.requestId)
         .eq("client_id", ctx.clientId)
         .single();
-      if (reqErr || !req) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "Richiesta non trovata." });
+      if (reqErr) {
+        throwDiscriminated(
+          reqErr,
+          "Richiesta non trovata.",
+          "router/signature.getSignatureDocument"
+        );
+      }
+      if (!req) {
+        throwDiscriminated(
+          null,
+          "Richiesta non trovata.",
+          "router/signature.getSignatureDocument"
+        );
       }
 
       const { data: version, error: verErr } = await db
@@ -194,8 +228,19 @@ export const signatureRouter = router({
         )
         .eq("id", req.document_version_id)
         .single();
-      if (verErr || !version) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "Documento non trovato." });
+      if (verErr) {
+        throwDiscriminated(
+          verErr,
+          "Documento non trovato.",
+          "router/signature.getSignatureDocument:version"
+        );
+      }
+      if (!version) {
+        throwDiscriminated(
+          null,
+          "Documento non trovato.",
+          "router/signature.getSignatureDocument:version"
+        );
       }
 
       const { data: docRow } = await db
@@ -270,8 +315,19 @@ export const signatureRouter = router({
         .eq("id", input.requestId)
         .eq("client_id", ctx.clientId)
         .single();
-      if (reqErr || !req) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "Richiesta non trovata." });
+      if (reqErr) {
+        throwDiscriminated(
+          reqErr,
+          "Richiesta non trovata.",
+          "router/signature.acceptSignature"
+        );
+      }
+      if (!req) {
+        throwDiscriminated(
+          null,
+          "Richiesta non trovata.",
+          "router/signature.acceptSignature"
+        );
       }
       if (req.status === "signed") {
         throw new TRPCError({
@@ -320,14 +376,17 @@ export const signatureRouter = router({
     .input(z.object({ requestId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       const deps = buildDeps();
-      const { data: own } = await deps.db
+      const { data: own, error: ownError } = await deps.db
         .from("signature_request")
         .select("id")
         .eq("id", input.requestId)
         .eq("client_id", ctx.clientId)
         .maybeSingle();
+      if (ownError) {
+        throwDiscriminated(ownError, "Richiesta non trovata.", "router/signature.getStatus");
+      }
       if (!own?.id) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "Richiesta non trovata." });
+        throwDiscriminated(null, "Richiesta non trovata.", "router/signature.getStatus");
       }
       return getSignatureProvider(deps).getStatus(input.requestId);
     }),
@@ -337,14 +396,17 @@ export const signatureRouter = router({
     .input(z.object({ requestId: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       const deps = buildDeps();
-      const { data: own } = await deps.db
+      const { data: own, error: ownError } = await deps.db
         .from("signature_request")
         .select("id, status")
         .eq("id", input.requestId)
         .eq("client_id", ctx.clientId)
         .maybeSingle();
+      if (ownError) {
+        throwDiscriminated(ownError, "Richiesta non trovata.", "router/signature.downloadSigned");
+      }
       if (!own?.id) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "Richiesta non trovata." });
+        throwDiscriminated(null, "Richiesta non trovata.", "router/signature.downloadSigned");
       }
       if (own.status !== "signed") {
         throw new TRPCError({
@@ -370,15 +432,18 @@ export const signatureRouter = router({
       const db = createSupabaseServiceRole();
 
       // Partner-scope: the client must belong to this partner (mirrors createSignatureRequest).
-      const { data: client } = await db
+      const { data: client, error: clientError } = await db
         .from("client")
         .select("id")
         .eq("id", input.clientId)
         .eq("partner_id", ctx.partnerId)
         .is("deleted_at", null)
         .maybeSingle();
+      if (clientError) {
+        throwDiscriminated(clientError, "Cliente non trovato.", "router/signature.listForClient");
+      }
       if (!client?.id) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "Cliente non trovato." });
+        throwDiscriminated(null, "Cliente non trovato.", "router/signature.listForClient");
       }
 
       // Latest request for this client (any status).
@@ -430,14 +495,25 @@ export const signatureRouter = router({
     .input(z.object({ requestId: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       const deps = buildDeps();
-      const { data: req } = await deps.db
+      const { data: req, error: reqError } = await deps.db
         .from("signature_request")
         .select("id, status")
         .eq("id", input.requestId)
         .eq("partner_id", ctx.partnerId)
         .maybeSingle();
+      if (reqError) {
+        throwDiscriminated(
+          reqError,
+          "Richiesta non trovata.",
+          "router/signature.downloadSignedForClient"
+        );
+      }
       if (!req?.id) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "Richiesta non trovata." });
+        throwDiscriminated(
+          null,
+          "Richiesta non trovata.",
+          "router/signature.downloadSignedForClient"
+        );
       }
       if (req.status !== "signed") {
         throw new TRPCError({

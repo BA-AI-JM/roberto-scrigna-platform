@@ -12,6 +12,7 @@
 import { z } from "zod/v4";
 import { router, protectedProcedure } from "../trpc";
 import { TRPCError } from "@trpc/server";
+import { throwDiscriminated } from "../db-errors";
 
 // ── Schemas ──────────────────────────────────────────────────────────────────
 
@@ -100,8 +101,11 @@ export const documentRouter = router({
         .is("deleted_at", null)
         .single();
 
-      if (error || !data) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "Documento non trovato." });
+      if (error) {
+        throwDiscriminated(error, "Documento non trovato.", "router/document.getById");
+      }
+      if (!data) {
+        throwDiscriminated(null, "Documento non trovato.", "router/document.getById");
       }
 
       return data;
@@ -116,7 +120,7 @@ export const documentRouter = router({
     .mutation(async ({ ctx, input }) => {
       // If clientId is provided, verify it belongs to this partner
       if (input.clientId) {
-        const { data: client } = await ctx.supabase
+        const { data: client, error: clientError } = await ctx.supabase
           .from("client")
           .select("id")
           .eq("id", input.clientId)
@@ -124,8 +128,11 @@ export const documentRouter = router({
           .is("deleted_at", null)
           .single();
 
+        if (clientError) {
+          throwDiscriminated(clientError, "Cliente non trovato.", "router/document.create:client");
+        }
         if (!client) {
-          throw new TRPCError({ code: "NOT_FOUND", message: "Cliente non trovato." });
+          throwDiscriminated(null, "Cliente non trovato.", "router/document.create:client");
         }
       }
 
@@ -133,7 +140,7 @@ export const documentRouter = router({
       // Without this check, a malicious partner could link documents to
       // another partner's plan (cross-tenant data association).
       if (input.planId) {
-        const { data: plan } = await ctx.supabase
+        const { data: plan, error: planError } = await ctx.supabase
           .from("plan")
           .select("id")
           .eq("id", input.planId)
@@ -141,8 +148,11 @@ export const documentRouter = router({
           .is("deleted_at", null)
           .single();
 
+        if (planError) {
+          throwDiscriminated(planError, "Piano non trovato.", "router/document.create:plan");
+        }
         if (!plan) {
-          throw new TRPCError({ code: "NOT_FOUND", message: "Piano non trovato." });
+          throwDiscriminated(null, "Piano non trovato.", "router/document.create:plan");
         }
       }
 
@@ -161,7 +171,14 @@ export const documentRouter = router({
         .select("id")
         .single();
 
-      if (error || !data) {
+      if (error) {
+        console.error("[router/document.create]", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Errore nella creazione del documento.",
+        });
+      }
+      if (!data) {
         console.error("[router/document.create]", error);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
@@ -222,10 +239,16 @@ export const documentRouter = router({
         .from("documents")
         .createSignedUploadUrl(path);
 
-      if (error || !data) {
+      if (error) {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: error?.message ?? "Errore nella generazione dell'URL di upload.",
+          message: error.message ?? "Errore nella generazione dell'URL di upload.",
+        });
+      }
+      if (!data) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Errore nella generazione dell'URL di upload.",
         });
       }
 

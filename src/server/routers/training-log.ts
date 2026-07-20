@@ -17,6 +17,7 @@ import { getAnthropic } from "../../lib/anthropic/client";
 import { createSupabaseServiceRole } from "../../lib/supabase/service";
 import { runSCP } from "../../engine/sport-correction/index";
 import { findSportEntry } from "../../engine/sport-taxonomy";
+import { throwDiscriminated } from "../db-errors";
 
 // ── Schemas ──────────────────────────────────────────────────────────────────
 
@@ -220,7 +221,11 @@ async function resolveScreenshotUrl(pathOrUrl: string): Promise<string | null> {
   const { data, error } = await admin.storage
     .from("client-media")
     .createSignedUrl(pathOrUrl, 300);
-  if (error || !data?.signedUrl) {
+  if (error) {
+    console.error("[training-log.ocr] signed URL error:", error);
+    return null;
+  }
+  if (!data?.signedUrl) {
     console.error("[training-log.ocr] signed URL error:", error);
     return null;
   }
@@ -318,7 +323,7 @@ export const trainingLogRouter = router({
     .input(createTrainingLogSchema)
     .mutation(async ({ ctx, input }) => {
       // Verify client ownership
-      const { data: client } = await ctx.supabase
+      const { data: client, error: clientError } = await ctx.supabase
         .from("client")
         .select("id")
         .eq("id", input.clientId)
@@ -326,8 +331,11 @@ export const trainingLogRouter = router({
         .is("deleted_at", null)
         .single();
 
+      if (clientError) {
+        throwDiscriminated(clientError, "Cliente non trovato.", "router/trainingLog.create");
+      }
       if (!client) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "Cliente non trovato." });
+        throwDiscriminated(null, "Cliente non trovato.", "router/trainingLog.create");
       }
 
       // Process screenshots for OCR if provided and no manual exercises given.
@@ -437,10 +445,16 @@ export const trainingLogRouter = router({
         .select("id")
         .single();
 
-      if (error || !data) {
+      if (error) {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: error?.message ?? "Errore nella creazione del log.",
+          message: error.message ?? "Errore nella creazione del log.",
+        });
+      }
+      if (!data) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Errore nella creazione del log.",
         });
       }
 
@@ -508,8 +522,11 @@ export const trainingLogRouter = router({
         .is("deleted_at", null)
         .single();
 
-      if (error || !data) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "Log non trovato." });
+      if (error) {
+        throwDiscriminated(error, "Log non trovato.", "router/trainingLog.getById");
+      }
+      if (!data) {
+        throwDiscriminated(null, "Log non trovato.", "router/trainingLog.getById");
       }
 
       return {
@@ -544,8 +561,11 @@ export const trainingLogRouter = router({
         .select("id, kcal_override, kcal_estimated, kcal_calculated")
         .single();
 
-      if (error || !data) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "Sessione non trovata." });
+      if (error) {
+        throwDiscriminated(error, "Sessione non trovata.", "router/trainingLog.getKcal");
+      }
+      if (!data) {
+        throwDiscriminated(null, "Sessione non trovata.", "router/trainingLog.getKcal");
       }
       return data;
     }),

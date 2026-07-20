@@ -22,6 +22,7 @@ import { buildEngineSnapshot, intakeTrainingSessions } from "./plan";
 import { buildTrainingSessionFromIntake } from "../../services/training-modality";
 import { calculateTdee } from "../../engine";
 import type { DayType } from "../../engine/types";
+import { throwDiscriminated } from "../db-errors";
 
 /** Client status filter values */
 const clientStatusSchema = z.enum(["active", "paused", "archived"]);
@@ -227,11 +228,11 @@ export const clientRouter = router({
         .is("deleted_at", null)
         .single();
 
-      if (error || !client) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Cliente non trovato.",
-        });
+      if (error) {
+        throwDiscriminated(error, "Cliente non trovato.", "router/client.getById");
+      }
+      if (!client) {
+        throwDiscriminated(null, "Cliente non trovato.", "router/client.getById");
       }
 
       // Get latest snapshot
@@ -257,15 +258,18 @@ export const clientRouter = router({
   estimateTdee: protectedProcedure
     .input(z.object({ clientId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
-      const { data: client } = await ctx.supabase
+      const { data: client, error: clientError } = await ctx.supabase
         .from("client")
         .select("sex")
         .eq("id", input.clientId)
         .eq("partner_id", ctx.partnerId)
         .is("deleted_at", null)
         .single();
+      if (clientError) {
+        throwDiscriminated(clientError, "Cliente non trovato.", "router/client.estimateTdee");
+      }
       if (!client) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "Cliente non trovato." });
+        throwDiscriminated(null, "Cliente non trovato.", "router/client.estimateTdee");
       }
 
       const { data: snapshotRow } = await ctx.supabase
@@ -375,11 +379,11 @@ export const clientRouter = router({
         .is("deleted_at", null)
         .single();
 
-      if (checkError || !clientCheck) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Cliente non trovato.",
-        });
+      if (checkError) {
+        throwDiscriminated(checkError, "Cliente non trovato.", "router/client.createSnapshot");
+      }
+      if (!clientCheck) {
+        throwDiscriminated(null, "Cliente non trovato.", "router/client.createSnapshot");
       }
 
       // Calculate age from date_of_birth if available
@@ -584,8 +588,19 @@ export const clientRouter = router({
         .eq("id", input.snapshotId)
         .single();
 
-      if (fetchError || !existing) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "Rilevazione non trovata." });
+      if (fetchError) {
+        throwDiscriminated(
+          fetchError,
+          "Rilevazione non trovata.",
+          "router/client.editSnapshot:findSnapshot"
+        );
+      }
+      if (!existing) {
+        throwDiscriminated(
+          null,
+          "Rilevazione non trovata.",
+          "router/client.editSnapshot:findSnapshot"
+        );
       }
 
       // 2. Explicit partner-scope gate: the snapshot's client must belong to this
@@ -598,8 +613,19 @@ export const clientRouter = router({
         .is("deleted_at", null)
         .single();
 
-      if (clientError || !clientRow) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "Rilevazione non trovata." });
+      if (clientError) {
+        throwDiscriminated(
+          clientError,
+          "Rilevazione non trovata.",
+          "router/client.editSnapshot:findClient"
+        );
+      }
+      if (!clientRow) {
+        throwDiscriminated(
+          null,
+          "Rilevazione non trovata.",
+          "router/client.editSnapshot:findClient"
+        );
       }
 
       // 3. Merge the provided fields over the snapshot's existing intake, so a
@@ -757,11 +783,11 @@ export const clientRouter = router({
         .is("deleted_at", null)
         .single();
 
-      if (clientError || !clientCheck) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Cliente non trovato.",
-        });
+      if (clientError) {
+        throwDiscriminated(clientError, "Cliente non trovato.", "router/client.listSnapshots");
+      }
+      if (!clientCheck) {
+        throwDiscriminated(null, "Cliente non trovato.", "router/client.listSnapshots");
       }
 
       const { data, error } = await ctx.supabase
@@ -799,7 +825,7 @@ export const clientRouter = router({
     .input(z.object({ clientId: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       // 1. Verify ownership and gather what we need
-      const { data: client } = await ctx.supabase
+      const { data: client, error: clientError } = await ctx.supabase
         .from("client")
         .select("id, full_name, email, status, auth_user_id")
         .eq("id", input.clientId)
@@ -807,8 +833,11 @@ export const clientRouter = router({
         .is("deleted_at", null)
         .single();
 
+      if (clientError) {
+        throwDiscriminated(clientError, "Cliente non trovato.", "router/client.resendInvite");
+      }
       if (!client) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "Cliente non trovato." });
+        throwDiscriminated(null, "Cliente non trovato.", "router/client.resendInvite");
       }
       if (!client.email) {
         throw new TRPCError({
@@ -1031,7 +1060,14 @@ export const clientRouter = router({
         | { client_id: string | null; snapshot_id: string | null; was_replay: boolean; invalid_reason: string | null }
         | undefined;
 
-      if (error || !result) {
+      if (error) {
+        console.error("[router/client.submitIntakeForm] txn:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Errore nel salvataggio. Riprova tra poco.",
+        });
+      }
+      if (!result) {
         console.error("[router/client.submitIntakeForm] txn:", error);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",

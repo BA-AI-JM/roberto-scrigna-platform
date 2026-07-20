@@ -28,6 +28,7 @@ import { z } from "zod/v4";
 import { router, protectedProcedure } from "../trpc";
 import { TRPCError } from "@trpc/server";
 import { resolveReminderSettings } from "../reminder-due";
+import { throwDiscriminated } from "../db-errors";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -225,15 +226,18 @@ export const notificationRouter = router({
     .input(z.object({ clientId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       // Partner-scope: the client must belong to this partner.
-      const { data: client } = await ctx.supabase
+      const { data: client, error: clientError } = await ctx.supabase
         .from("client")
         .select("id")
         .eq("id", input.clientId)
         .eq("partner_id", ctx.partnerId)
         .is("deleted_at", null)
         .maybeSingle();
+      if (clientError) {
+        throwDiscriminated(clientError, "Cliente non trovato.", "router/notification.getReminders");
+      }
       if (!client) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "Cliente non trovato." });
+        throwDiscriminated(null, "Cliente non trovato.", "router/notification.getReminders");
       }
 
       const { data: row } = await ctx.supabase
@@ -265,15 +269,18 @@ export const notificationRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const { data: client } = await ctx.supabase
+      const { data: client, error: clientError } = await ctx.supabase
         .from("client")
         .select("id")
         .eq("id", input.clientId)
         .eq("partner_id", ctx.partnerId)
         .is("deleted_at", null)
         .maybeSingle();
+      if (clientError) {
+        throwDiscriminated(clientError, "Cliente non trovato.", "router/notification.updateReminders");
+      }
       if (!client) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "Cliente non trovato." });
+        throwDiscriminated(null, "Cliente non trovato.", "router/notification.updateReminders");
       }
 
       const { error } = await ctx.supabase
@@ -332,10 +339,16 @@ export const notificationRouter = router({
         .select("id")
         .single();
 
-      if (error || !data) {
+      if (error) {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: error?.message ?? "Errore nella creazione della notifica.",
+          message: error.message ?? "Errore nella creazione della notifica.",
+        });
+      }
+      if (!data) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Errore nella creazione della notifica.",
         });
       }
 

@@ -15,6 +15,7 @@ import { z } from "zod/v4";
 import { router, protectedProcedure } from "../trpc";
 import { TRPCError } from "@trpc/server";
 import { inngest } from "../../lib/inngest/client";
+import { throwDiscriminated } from "../db-errors";
 
 // ── Schemas ──────────────────────────────────────────────────────────────────
 
@@ -180,11 +181,11 @@ export const invoiceRouter = router({
         .is("deleted_at", null)
         .single();
 
-      if (error || !data) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Fattura non trovata.",
-        });
+      if (error) {
+        throwDiscriminated(error, "Fattura non trovata.", "router/invoice.getById");
+      }
+      if (!data) {
+        throwDiscriminated(null, "Fattura non trovata.", "router/invoice.getById");
       }
 
       return data;
@@ -206,11 +207,11 @@ export const invoiceRouter = router({
         .is("deleted_at", null)
         .single();
 
-      if (clientError || !client) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Cliente non trovato.",
-        });
+      if (clientError) {
+        throwDiscriminated(clientError, "Cliente non trovato.", "router/invoice.create");
+      }
+      if (!client) {
+        throwDiscriminated(null, "Cliente non trovato.", "router/invoice.create");
       }
 
       const taxPct = input.taxPct ?? 0;
@@ -285,8 +286,11 @@ export const invoiceRouter = router({
         .is("deleted_at", null)
         .single();
 
-      if (fetchError || !existing) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "Fattura non trovata." });
+      if (fetchError) {
+        throwDiscriminated(fetchError, "Fattura non trovata.", "router/invoice.update");
+      }
+      if (!existing) {
+        throwDiscriminated(null, "Fattura non trovata.", "router/invoice.update");
       }
 
       if (existing.status !== "draft") {
@@ -339,8 +343,11 @@ export const invoiceRouter = router({
         .is("deleted_at", null)
         .single();
 
-      if (fetchError || !existing) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "Fattura non trovata." });
+      if (fetchError) {
+        throwDiscriminated(fetchError, "Fattura non trovata.", "router/invoice.updateStatus");
+      }
+      if (!existing) {
+        throwDiscriminated(null, "Fattura non trovata.", "router/invoice.updateStatus");
       }
 
       // Validate transition
