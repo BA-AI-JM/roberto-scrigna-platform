@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<title>Concept v2 — Scrigna, due temi</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400;1,9..144,500&family=IBM+Plex+Sans:ital,wght@0,400;0,450;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+/* ═ SEMANTIC TOKENS — one system, two themes (DIRECTION theme ruling) ═ */
+.t-light{
+  --surface:#F8F7F4; --panel:#FFFFFF; --panel-2:#F1EFEA;
+  --ink:#191B19; --ink-2:#575C57; --ink-3:#8B908A;
+  --line:#E7E5DF; --line-2:#EFEDE8;
+  --accent:#159A6E; --accent-ink:#0C6B4D; --accent-wash:#E5F3EC; --accent-line:#BFE0D2;
+  --red:#B23B2E; --red-wash:#F9ECE9; --amber:#A05B10; --amber-wash:#F8F0E1;
+  --viz-kcal:#B07018; --viz-p:#3B6FB5; --viz-c:#7A5CB8; --viz-f:#3E8E5A;
+  --atmo:radial-gradient(120% 90% at 20% 0%, #22453A 0%, #17332B 45%, #10241E 100%);
+  --shadow:0 1px 2px rgba(20,24,20,.05),0 12px 32px rgba(20,24,20,.06);
+}
+.t-dark{
+  --surface:#151714; --panel:#1D201C; --panel-2:#232722;
+  --ink:#F1F0EA; --ink-2:#A9AEA5; --ink-3:#6F746C;
+  --line:#2B2F29; --line-2:#242822;
+  --accent:#2FB585; --accent-ink:#7FD6B4; --accent-wash:#12352A; --accent-line:#1E4B3B;
+  --red:#E0705F; --red-wash:#39201B; --amber:#D89A4A; --amber-wash:#33270F;
+  --viz-kcal:#D89A4A; --viz-p:#7FA6DD; --viz-c:#A98FDD; --viz-f:#6FBE8C;
+  --atmo:radial-gradient(120% 90% at 20% 0%, #24473B 0%, #142B23 55%, #0D1B16 100%);
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 14px 36px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box;margin:0}
+body{background:#0B0C0B;font:450 15px/1.6 "IBM Plex Sans",sans-serif;-webkit-font-smoothing:antialiased;padding:40px 0 80px}
+.themeblock{padding:28px 0;background:var(--surface);color:var(--ink)}
+.blabel{max-width:1240px;margin:0 auto 10px;padding:0 32px;font:500 11.5px/1 "IBM Plex Sans";letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3)}
+.wrap{max-width:1240px;margin:0 auto 26px;padding:0 32px}
+.frame{background:var(--panel);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);overflow:hidden}
+h1,h2,h3,.serif{font-family:"Fraunces",serif;font-weight:500;line-height:1.15}
+.num{font-variant-numeric:tabular-nums lining-nums;white-space:nowrap}
+.eyebrow{font:500 11.5px/1 "IBM Plex Sans";letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3)}
+.nota{display:flex;gap:14px;padding:16px 22px;border-top:1px solid var(--line-2)}
+.nota::before{content:"";width:3px;border-radius:2px;background:var(--accent);flex:none}
+.nota p{font:italic 500 15px/1.55 "Fraunces";color:var(--ink-2);max-width:64ch}
+.btn{font:500 14px/1 "IBM Plex Sans";border-radius:999px;padding:12px 20px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.t-dark .btn.primary{color:#0C1F18}
+.kbd{font:500 11px/1 "IBM Plex Sans";border:1px solid var(--line);border-bottom-width:2px;border-radius:6px;padding:3px 6px;color:var(--ink-3);background:var(--panel-2)}
+.chip{white-space:nowrap;font:500 12px/1 "IBM Plex Sans";padding:5px 11px;border-radius:999px;background:var(--accent-wash);color:var(--accent-ink);border:1px solid var(--accent-line)}
+svg{display:block}
+.ic{stroke:currentColor;stroke-width:1.75;fill:none;stroke-linecap:round;stroke-linejoin:round}
+
+/* 1 · DASHBOARD */
+.dash{display:grid;grid-template-columns:216px minmax(0,1fr) 324px;min-height:680px}
+.side{border-right:1px solid var(--line-2);padding:24px 16px;background:var(--panel-2)}
+.brand{padding:4px 10px 26px}.brand b{font:600 18px "Fraunces";display:block}.brand span{font-size:12px;color:var(--ink-3)}
+.navi a{display:flex;align-items:center;gap:11px;padding:9px 12px;border-radius:10px;color:var(--ink-2);text-decoration:none;font-size:14px}
+.navi a.on{background:var(--panel);color:var(--ink);border:1px solid var(--line);font-weight:500}
+.navi .ic{width:17px;height:17px}
+.main{padding:34px 38px}
+.hd{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:26px}
+.hd h1{font-size:40px;letter-spacing:-.01em}
+.hd .sub{color:var(--ink-3);font-size:14px;margin-top:6px}
+.strip{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:26px}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px}
+.stat .k{font-size:12.5px;color:var(--ink-3)}
+.stat .v{font:500 30px/1.1 "IBM Plex Sans";margin-top:4px}
+.stat .v small{font-size:14px;color:var(--ink-3);font-weight:450}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.ph{display:flex;justify-content:space-between;align-items:center;padding:15px 22px;border-bottom:1px solid var(--line-2)}
+.ph h3{font-size:16px}.ph a{font-size:13px;color:var(--accent-ink);text-decoration:none}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{font:500 11.5px/1 "IBM Plex Sans";letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);text-align:left;padding:11px 22px;border-bottom:1px solid var(--line-2);white-space:nowrap}
+td{padding:14px 22px;border-bottom:1px solid var(--line-2)}
+tr:last-child td{border-bottom:0}
+.who{font-weight:500;white-space:nowrap}.subq{color:var(--ink-3);font-size:12.5px}
+.spark{color:var(--accent)}
+.rail{border-left:1px solid var(--line-2);padding:30px 24px;min-width:0;background:var(--surface)}
+.rail .eyebrow{margin-bottom:14px}
+.todo{border:1px solid var(--line);border-radius:13px;background:var(--panel);padding:14px 16px;margin-bottom:11px}
+.todo.red{background:var(--red-wash);border-color:transparent}
+.todo.amber{background:var(--amber-wash);border-color:transparent}
+.todo .t{display:flex;justify-content:space-between;gap:8px;font-size:13.5px;font-weight:500}
+.todo time{white-space:nowrap}
+.todo time{font-weight:450;color:var(--ink-3);font-size:12px}
+.todo p{font-size:13px;color:var(--ink-2);margin:3px 0 9px}
+.todo .act{font-size:13px;font-weight:500;text-decoration:none;color:var(--accent-ink)}
+.todo.red .act{color:var(--red)}.todo.amber .act{color:var(--amber)}
+
+/* 2 · WIZARD */
+.wiz{display:grid;grid-template-columns:240px 1fr;min-height:540px}
+.steps{border-right:1px solid var(--line-2);padding:32px 24px;background:var(--panel-2)}
+.steps h2{font-size:21px;margin-bottom:20px}
+.step{display:flex;gap:12px;padding:10px 0;color:var(--ink-3);font-size:14px;align-items:center}
+.dot{width:22px;height:22px;border-radius:50%;border:1.5px solid var(--line);display:grid;place-items:center;font-size:11px;background:var(--panel)}
+.step.done{color:var(--ink-2)}.step.done .dot{background:var(--accent-wash);border-color:var(--accent-line);color:var(--accent-ink)}
+.step.on{color:var(--ink);font-weight:500}.step.on .dot{background:var(--accent);border-color:var(--accent);color:#fff}
+.t-dark .step.on .dot{color:#0C1F18}
+.wbody{padding:36px 42px}
+.wbody h1{font-size:34px;margin:8px 0 6px}
+.lead{color:var(--ink-2);font-size:14.5px;margin-bottom:24px}
+.facts{display:flex;gap:34px;margin-bottom:18px}
+.facts .k{font-size:12px;color:var(--ink-3)}.facts .v{font:500 22px "IBM Plex Sans"}
+.readout{background:var(--accent-wash);border:1px solid var(--accent-line);border-radius:14px;padding:18px 20px;color:var(--accent-ink)}
+.readout .big{font:500 22px/1.3 "Fraunces"}
+.readout .band{display:inline-block;margin-left:10px;padding:4px 11px;border-radius:999px;background:var(--panel);font-size:12px;font-weight:500;vertical-align:middle}
+.readout .safe{font-size:13px;margin-top:6px;opacity:.85}
+.auto{margin-top:16px;border:1px dashed var(--line);border-radius:13px;padding:13px 18px;display:flex;justify-content:space-between;align-items:center;color:var(--ink-2);font-size:13.5px}
+.wfoot{display:flex;justify-content:space-between;align-items:center;margin-top:26px}
+.wfoot .hint{font-size:13px;color:var(--ink-3);display:flex;gap:8px;align-items:center}
+
+/* 3 · REVIEW */
+.rev{padding:32px 38px}
+.rev .top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px}
+.rev h1{font-size:32px;margin-top:6px}
+.checks{display:flex;gap:12px;margin:20px 0}
+.check{flex:1;border:1px solid var(--line);border-radius:13px;padding:14px 16px;background:var(--panel);font-size:13.5px}
+.check b{display:flex;gap:8px;font-weight:500}
+.ok b{color:var(--accent-ink)}.warn{background:var(--amber-wash);border-color:transparent}.warn b{color:var(--amber)}
+.check .s{color:var(--ink-3);font-size:12.5px;margin-top:3px}
+.days{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.day{border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--panel)}
+.dh{padding:13px 18px;border-bottom:1px solid var(--line-2);display:flex;justify-content:space-between;font-weight:500;font-size:14.5px}
+.dh span{color:var(--ink-3);font-weight:450;font-size:13px}
+.mrow{display:flex;justify-content:space-between;padding:10px 18px;font-size:14px;border-bottom:1px solid var(--line-2)}
+.mrow:last-child{border-bottom:0}
+.mrow .lab{color:var(--ink-2)}.mrow .val{font-weight:500}
+.kcal .val{color:var(--viz-kcal)}.pp .val{color:var(--viz-p)}.cc .val{color:var(--viz-c)}.ff .val{color:var(--viz-f)}
+
+/* 4 · OGGI */
+.phone{width:390px;margin:0 auto;background:var(--surface);border:1px solid var(--line);border-radius:36px;overflow:hidden;box-shadow:var(--shadow)}
+.phead{background:var(--atmo);color:#EDF5F0;padding:30px 24px 24px}
+.phead .eyebrow{color:#9DBBAD}
+.phead h1{font-size:38px;margin-top:6px}
+.phead .meta{font-size:13px;color:#BCD3C7;margin-top:6px}
+.pbody{padding:20px 22px 8px}
+.meal{border:1px solid var(--line);border-radius:15px;padding:15px;margin-bottom:12px;background:var(--panel)}
+.meal.next{border-color:var(--accent-line);background:var(--accent-wash)}
+.mh{display:flex;justify-content:space-between;font-size:12.5px;color:var(--ink-3)}
+.mh b{color:var(--ink);font-weight:500;font-size:15px}
+.ing{margin-top:9px;font-size:14px}
+.ing div{display:flex;justify-content:space-between;padding:3.5px 0}
+.ing span{color:var(--ink-2)}
+.later{color:var(--ink-3);font-size:13px;margin-top:5px}
+.pnav{display:flex;border-top:1px solid var(--line);background:var(--panel)}
+.pnav a{flex:1;text-align:center;padding:12px 0 16px;font-size:11px;color:var(--ink-3);text-decoration:none}
+.pnav a.on{color:var(--accent-ink);font-weight:500}
+.pnav .ic{width:20px;height:20px;margin:0 auto 3px}
+
+/* 5 · LOGIN */
+.login{display:grid;grid-template-columns:1.1fr 1fr;min-height:560px}
+.lleft{background:var(--atmo);color:#EDF5F0;padding:48px;display:flex;flex-direction:column;justify-content:space-between;position:relative}
+.lleft .grain{position:absolute;inset:0;opacity:.25;background-image:radial-gradient(rgba(255,255,255,.05) 1px, transparent 1px);background-size:3px 3px}
+.lleft .mark{font:600 21px "Fraunces";position:relative}
+.lleft blockquote{font:italic 500 34px/1.35 "Fraunces";max-width:420px;position:relative}
+.lleft .who{font-size:13px;opacity:.7;position:relative}
+.photo-slot{position:absolute;right:26px;bottom:26px;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#9DBBAD;border:1px dashed rgba(157,187,173,.4);border-radius:8px;padding:6px 10px}
+.lright{padding:56px;display:flex;flex-direction:column;justify-content:center;background:var(--panel)}
+.lright h1{font-size:34px;margin-bottom:6px}
+.lright .sub{color:var(--ink-3);font-size:14px;margin-bottom:28px}
+.field label{display:block;font-size:13px;font-weight:500;margin:15px 0 7px}
+.field input{width:100%;padding:13px 15px;border:1px solid var(--line);border-radius:12px;font:450 15px "IBM Plex Sans";background:var(--panel);color:var(--ink)}
+.lright .btn.primary{width:100%;margin-top:24px;padding:14px}
+</style>
+</head>
+<body>
+
+<!-- ═ master surfaces (cloned into both themes by the loader) ═ -->
+<template id="surfaces">
+
+<div class="wrap" data-name="1-dashboard"><div class="frame dash">
+  <aside class="side">
+    <div class="brand"><b>Scrigna</b><span>Nutrizione Sportiva</span></div>
+    <nav class="navi">
+      <a class="on" href="#"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>Oggi</a>
+      <a href="#"><svg class="ic" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 20c.6-3.4 2.9-5 5.5-5s4.9 1.6 5.5 5"/><circle cx="17" cy="9" r="2.4"/><path d="M14.5 20c.4-2.4 1.6-3.7 3.5-3.9"/></svg>Atleti</a>
+      <a href="#"><svg class="ic" viewBox="0 0 24 24"><path d="M7 3h8l4 4v14H7z"/><path d="M15 3v4h4"/><path d="M10 12h6M10 16h6"/></svg>Piani</a>
+      <a href="#"><svg class="ic" viewBox="0 0 24 24"><path d="M3 17l5-6 4 3 6-8 3 4"/></svg>Monitoraggio</a>
+      <a href="#"><svg class="ic" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 10h8M8 14h5"/></svg>Fatture</a>
+    </nav>
+  </aside>
+  <div class="main">
+    <div class="hd">
+      <div><div class="eyebrow">Lunedì 20 luglio</div><h1>Buongiorno, Roberto</h1><div class="sub">Due atleti attivi · un check-in atteso oggi</div></div>
+      <button class="btn primary">Nuovo piano</button>
+    </div>
+    <div class="strip">
+      <div class="stat"><div class="k">Atleti attivi</div><div class="v num">2</div></div>
+      <div class="stat"><div class="k">Aderenza media · 30 gg</div><div class="v num">86<small>%</small></div></div>
+      <div class="stat"><div class="k">Fatturato luglio</div><div class="v num">€ 640</div></div>
+    </div>
+    <div class="panel">
+      <div class="ph"><h3>Atleti</h3><a href="#">Tutti →</a></div>
+      <table>
+        <tr><th>Atleta</th><th>Peso</th><th>Trend 8 sett.</th><th>Aderenza</th><th>Piano</th></tr>
+        <tr>
+          <td><div class="who">Niccolò Ambrosi</div><div class="subq">Ciclismo · definizione</div></td>
+          <td class="num">91,5 kg</td>
+          <td><svg class="spark" width="92" height="26" viewBox="0 0 92 26" fill="none"><path d="M2 6 L15 9 L28 8 L41 12 L54 14 L67 15 L80 18 L90 20" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></td>
+          <td class="num">88%</td>
+          <td><span class="chip">Attivo · sett. 3</span></td>
+        </tr>
+        <tr>
+          <td><div class="who">Raphael Federico</div><div class="subq">MMA · −66 kg</div></td>
+          <td class="num">68,2 kg</td>
+          <td><svg class="spark" width="92" height="26" viewBox="0 0 92 26" fill="none"><path d="M2 8 L15 10 L28 13 L41 12 L54 15 L67 17 L80 17 L90 19" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></td>
+          <td class="num">79%</td>
+          <td><span class="chip" style="background:var(--amber-wash);color:var(--amber);border-color:transparent">Rinnovo · 9 gg</span></td>
+        </tr>
+      </table>
+      <div class="nota"><p>Niccolò è in linea col deficit; il calo di Raphael rallenta da due settimane — valuta un refeed prima del taglio peso.</p></div>
+    </div>
+  </div>
+  <aside class="rail">
+    <div class="eyebrow">Da gestire · 2</div>
+    <div class="todo red"><div class="t">Segnalazione infortunio <time>2 gg</time></div><p>Raphael — dolore al ginocchio negli squat.</p><a class="act" href="#">Vedi segnalazione →</a></div>
+    <div class="todo amber"><div class="t">Check-in in ritardo <time>4 gg</time></div><p>Niccolò — cadenza ogni 21 giorni.</p><a class="act" href="#">Invia promemoria →</a></div>
+  </aside>
+</div></div>
+
+<div class="wrap" data-name="2-wizard"><div class="frame wiz">
+  <aside class="steps">
+    <h2>Nuovo piano<br>· Niccolò</h2>
+    <div class="step done"><span class="dot">✓</span> Dati di partenza</div>
+    <div class="step on"><span class="dot">2</span> Obiettivo e deficit</div>
+    <div class="step"><span class="dot">3</span> Struttura settimana</div>
+    <div class="step"><span class="dot">4</span> Rivedi e genera</div>
+  </aside>
+  <div class="wbody">
+    <div class="eyebrow">Passo 2 di 4</div>
+    <h1>Obiettivo e deficit</h1>
+    <p class="lead">Il motore parte dall'ultima misurazione. Cambia solo ciò che serve.</p>
+    <div class="facts">
+      <div><div class="k">Peso attuale</div><div class="v num">91,5 kg</div></div>
+      <div><div class="k">Massa magra</div><div class="v num">83,1 kg</div></div>
+      <div><div class="k">TDEE medio</div><div class="v num">2 925 kcal</div></div>
+      <div><div class="k">Target</div><div class="v num">86,0 kg</div></div>
+    </div>
+    <div class="readout">
+      <div class="big num">−0,45 kg a settimana <span class="band">Moderato</span></div>
+      <div class="safe num">Deficit ≈ 490 kcal/giorno · 12 settimane · soglia di sicurezza a 1 830 kcal — sotto quella il piano si blocca da solo.</div>
+    </div>
+    <div class="auto"><span>Macro e periodizzazione: <b>calcolate dal motore</b> — apri solo se vuoi forzarle.</span><span class="kbd">A</span></div>
+    <div class="wfoot">
+      <button class="btn">← Indietro</button>
+      <div class="hint"><span class="kbd">⌘</span><span class="kbd">↵</span> continua</div>
+      <button class="btn primary">Continua → Struttura</button>
+    </div>
+  </div>
+</div></div>
+
+<div class="wrap" data-name="3-review"><div class="frame rev">
+  <div class="top">
+    <div><div class="eyebrow">Piano nutrizionale · bozza</div><h1>Niccolò — Definizione</h1></div>
+    <div style="display:flex;gap:10px"><button class="btn">Scarica PDF</button><button class="btn primary">Approva e consegna</button></div>
+  </div>
+  <div class="checks">
+    <div class="check ok"><b>✓ Proteine</b><div class="s num">209 g vs 208 (+0,6%)</div></div>
+    <div class="check ok"><b>✓ Energia</b><div class="s num">3 103 kcal vs 3 170 (−2,1%)</div></div>
+    <div class="check warn"><b>△ Grassi sotto target</b><div class="s num">66,6 g vs 82 (−18,8%)</div></div>
+    <div class="check ok"><b>✓ Sicurezza</b><div class="s">Sopra il floor energetico</div></div>
+  </div>
+  <div class="days">
+    <div class="day">
+      <div class="dh">Allenamento <span class="num">target 3 170 kcal</span></div>
+      <div class="mrow kcal"><span class="lab">Energia</span><span class="val num">3 103 kcal</span></div>
+      <div class="mrow pp"><span class="lab">Proteine</span><span class="val num">209 g</span></div>
+      <div class="mrow cc"><span class="lab">Carboidrati</span><span class="val num">418 g</span></div>
+      <div class="mrow ff"><span class="lab">Grassi</span><span class="val num">67 g</span></div>
+    </div>
+    <div class="day">
+      <div class="dh">Riposo <span class="num">target 2 748 kcal</span></div>
+      <div class="mrow kcal"><span class="lab">Energia</span><span class="val num">2 660 kcal</span></div>
+      <div class="mrow pp"><span class="lab">Proteine</span><span class="val num">183 g</span></div>
+      <div class="mrow cc"><span class="lab">Carboidrati</span><span class="val num">327 g</span></div>
+      <div class="mrow ff"><span class="lab">Grassi</span><span class="val num">70 g</span></div>
+    </div>
+  </div>
+  <div class="nota"><p>Un solo punto da guardare: i grassi restano sotto target in entrambe le giornate. Aggiusta l'olio EVO a cena o approva così.</p></div>
+</div></div>
+
+<div class="wrap" data-name="4-oggi"><div class="phone">
+  <div class="phead">
+    <div class="eyebrow">Ciao Niccolò · lunedì</div>
+    <h1>Oggi</h1>
+    <div class="meta num">Allenamento · 3 170 kcal · P 208 g</div>
+  </div>
+  <div class="pbody">
+    <div class="meal next">
+      <div class="mh"><b>Pranzo · adesso</b><span class="num">967 kcal</span></div>
+      <div class="ing">
+        <div>Pasta integrale <span class="num">165 g</span></div>
+        <div>Petto di pollo <span class="num">135 g</span></div>
+        <div>Pesto alla genovese <span class="num">35 g</span></div>
+      </div>
+    </div>
+    <div class="meal"><div class="mh"><b>Spuntino · 16:30</b><span class="num">457 kcal</span></div><div class="later">Frullato: whey, banana, avena</div></div>
+    <div class="meal"><div class="mh"><b>Cena · post-sessione</b><span class="num">907 kcal</span></div><div class="later">Manzo, quinoa e verdure</div></div>
+    <div class="nota" style="border-top:0;padding:12px 2px 6px"><p>Sessione alle 18: carboidrati pieni a pranzo, proteine subito dopo. — Roberto</p></div>
+  </div>
+  <nav class="pnav">
+    <a class="on" href="#"><svg class="ic" viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v9a1 1 0 0 1-1 1h-5v-6h-4v6H5a1 1 0 0 1-1-1z"/></svg>Oggi</a>
+    <a href="#"><svg class="ic" viewBox="0 0 24 24"><path d="M7 3h8l4 4v14H7z"/><path d="M15 3v4h4"/></svg>Piano</a>
+    <a href="#"><svg class="ic" viewBox="0 0 24 24"><path d="M3 17l5-6 4 3 6-8 3 4"/></svg>Progressi</a>
+    <a href="#"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.4"/><path d="M5 20c.8-3.7 3.4-5.5 7-5.5s6.2 1.8 7 5.5"/></svg>Profilo</a>
+  </nav>
+</div></div>
+
+<div class="wrap" data-name="5-login"><div class="frame login">
+  <div class="lleft">
+    <div class="grain"></div>
+    <div class="mark">Scrigna</div>
+    <blockquote>«Ogni numero che vedi qui dentro è passato dal mio giudizio.»<div class="who" style="margin-top:16px">Roberto Scrigna — Nutrizione Sportiva</div></blockquote>
+    <div class="who">Bologna · dal 2019</div>
+    <div class="photo-slot">slot fotografia · studio light</div>
+  </div>
+  <div class="lright">
+    <h1>Bentornato</h1>
+    <div class="sub">Area professionista</div>
+    <div class="field"><label>Email</label><input value="roberto@scrignanutrition.app"></div>
+    <div class="field"><label>Password</label><input type="password" value="············"></div>
+    <button class="btn primary">Accedi</button>
+  </div>
+</div></div>
+
+</template>
+
+<script>
+  const tpl = document.getElementById("surfaces");
+  for (const theme of ["light", "dark"]) {
+    const block = document.createElement("div");
+    block.className = "themeblock t-" + theme;
+    const clone = tpl.content.cloneNode(true);
+    clone.querySelectorAll(".wrap").forEach((w) => {
+      const label = document.createElement("div");
+      label.className = "blabel";
+      label.textContent = w.dataset.name.replace("-", " · ") + " — tema " + (theme === "light" ? "chiaro" : "scuro");
+      w.dataset.theme = theme;
+      w.parentNode ? null : null;
+      block.appendChild(label);
+      block.appendChild(w);
+    });
+    document.body.appendChild(block);
+  }
+</script>
+</body>
+</html>
