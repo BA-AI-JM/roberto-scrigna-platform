@@ -42,21 +42,21 @@ describe("plan_bundle seam (T1.8/G11)", () => {
     const { version, bundle } = parsePlanBundle(JSON.parse(JSON.stringify(serialized)));
     expect(version).toBe(2);
     expect(bundle.waterLoading).toEqual({ protocolDays: 5, litersByDay: [7, 6, 5, 3, 1] });
-    const mp = (bundle.mealPlans as Record<string, { targetMacros: Record<string, number>; actualMacros: Record<string, number>; deviation: Record<string, number> }>)["training"]!;
+    const mp = (bundle.mealPlans as unknown as Record<string, { targetMacros: Record<string, number>; actualMacros: Record<string, number>; deviation: Record<string, number> }>)["training"]!;
     expect(mp.targetMacros).toEqual({ proteinG: 208, fatG: 82, carbG: 400, totalKcal: 3170 });
     expect(mp.actualMacros).toEqual({ proteinG: 209.3, fatG: 66.6, carbsG: 418, kcal: 3103 });
     expect(mp.deviation).toEqual({ proteinG: 1.3, fatG: -15.4, carbsG: 18, kcal: -67 });
-    expect((bundle.bodyComposition as Record<string, number>).leanMassKg).toBe(83.1);
+    expect((bundle.bodyComposition as unknown as Record<string, number>).leanMassKg).toBe(83.1);
   });
 
   it("v1 legacy row (no version, no waterLoading) parses as version 1 with numbers intact", () => {
-    const serialized = serializePlanResult(realisticResult()) as Record<string, unknown>;
+    const serialized = serializePlanResult(realisticResult()) as unknown as Record<string, unknown>;
     delete serialized.schemaVersion;
     delete serialized.waterLoading;
     const { version, bundle } = parsePlanBundle(JSON.parse(JSON.stringify(serialized)));
     expect(version).toBe(1);
     expect(bundle.waterLoading).toBeUndefined();
-    const mp = (bundle.mealPlans as Record<string, { actualMacros: Record<string, number> }>)["training"]!;
+    const mp = (bundle.mealPlans as unknown as Record<string, { actualMacros: Record<string, number> }>)["training"]!;
     expect(mp.actualMacros.proteinG).toBe(209.3);
   });
 

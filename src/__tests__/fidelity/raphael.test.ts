@@ -18,6 +18,7 @@ import {
   calculateHydration,
   type ClientSnapshot,
 } from "../../engine/index";
+import { computeGoalRate } from "../../engine/goal-rate";
 
 // ── Fixture ─────────────────────────────────────────────────────────────────
 
@@ -209,5 +210,57 @@ describe("Raphael — Cross-Day Validation", () => {
     // Rest: lower protein/kg, higher fat/kg
     expect(off.proteinG).toBeLessThan(on1.proteinG);
     expect(off.fatG).toBeGreaterThan(on1.fatG);
+  });
+});
+
+// ── May Features Fidelity Pins ──────────────────────────────────────────────
+
+describe("Raphael — Goal Rate", () => {
+  test("84kg target in 16 weeks pins rate and safety floor", () => {
+    const goalRate = computeGoalRate({
+      currentKg: raphael.weightKg,
+      targetKg: 84,
+      weeks: 16,
+      tdeeKcal: 2450,
+      leanMassKg: estimateBodyFat(raphael).bodyComposition.leanMassKg,
+    });
+
+    // (pinned from engine @ HEAD 2026-07-20)
+    expect({
+      requiredKgPerWeek: goalRate.requiredKgPerWeek,
+      dailyDeficitKcal: goalRate.dailyDeficitKcal,
+      band: goalRate.band,
+      kcalFloor: goalRate.kcalFloor,
+      withinSafetyFloor: !goalRate.belowFloor,
+    }).toEqual({
+      requiredKgPerWeek: 0.38,
+      dailyDeficitKcal: 413,
+      band: "comfortable",
+      kcalFloor: 1624,
+      withinSafetyFloor: true,
+    });
+  });
+});
+
+describe("Raphael — Absolute Macro Overrides", () => {
+  test("protein fixed at 195g pins OFF, ON1, and ON2 macro lines", () => {
+    const bodyComposition = estimateBodyFat(raphael).bodyComposition;
+    const macroOptions = {
+      absoluteOverrides: {
+        training: { proteinG: 195 },
+        rest: { proteinG: 195 },
+      },
+    };
+
+    // (pinned from engine @ HEAD 2026-07-20)
+    expect([
+      calculateMacros(2300, bodyComposition, raphael.weightKg, "rest", macroOptions),
+      calculateMacros(2650, bodyComposition, raphael.weightKg, "training", macroOptions),
+      calculateMacros(3200, bodyComposition, raphael.weightKg, "training", macroOptions),
+    ]).toEqual([
+      { proteinG: 195, fatG: 90, carbG: 178, totalKcal: 2302, dayType: "rest" },
+      { proteinG: 195, fatG: 81, carbG: 285, totalKcal: 2649, dayType: "training" },
+      { proteinG: 195, fatG: 81, carbG: 423, totalKcal: 3201, dayType: "training" },
+    ]);
   });
 });

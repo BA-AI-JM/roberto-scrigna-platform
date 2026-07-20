@@ -22,6 +22,7 @@ import {
   generateWeeklyPlan,
   type ClientSnapshot,
 } from "../../engine/index";
+import { computeGoalRate } from "../../engine/goal-rate";
 
 // ── Fixture ─────────────────────────────────────────────────────────────────
 
@@ -266,5 +267,55 @@ describe("Marco Bellini — Full Plan", () => {
     // 3 training × 172 + 4 rest × 152 = 516 + 608 = 1124 / 7 = 160.57... ≈ 161
     const expectedAvgProtein = Math.round((3 * 172 + 4 * 152) / 7);
     expect(weekly.weeklyAverageProteinG).toBe(expectedAvgProtein);
+  });
+});
+
+// ── May Features Fidelity Pins ──────────────────────────────────────────────
+
+describe("Marco Bellini — Goal Rate", () => {
+  test("78kg target in 12 weeks pins rate and safety floor", () => {
+    const goalRate = computeGoalRate({
+      currentKg: marco.weightKg,
+      targetKg: 78,
+      weeks: 12,
+      tdeeKcal: 2481,
+      leanMassKg: estimateBodyFat(marco).bodyComposition.leanMassKg,
+    });
+
+    // (pinned from engine @ HEAD 2026-07-20)
+    expect({
+      requiredKgPerWeek: goalRate.requiredKgPerWeek,
+      dailyDeficitKcal: goalRate.dailyDeficitKcal,
+      band: goalRate.band,
+      kcalFloor: goalRate.kcalFloor,
+      withinSafetyFloor: !goalRate.belowFloor,
+    }).toEqual({
+      requiredKgPerWeek: 0.33,
+      dailyDeficitKcal: 367,
+      band: "comfortable",
+      kcalFloor: 1515,
+      withinSafetyFloor: true,
+    });
+  });
+});
+
+describe("Marco Bellini — Absolute Macro Overrides", () => {
+  test("protein fixed at 180g pins the full macro line per day type", () => {
+    const bodyComposition = estimateBodyFat(marco).bodyComposition;
+    const macroOptions = {
+      absoluteOverrides: {
+        training: { proteinG: 180 },
+        rest: { proteinG: 180 },
+      },
+    };
+
+    // (pinned from engine @ HEAD 2026-07-20)
+    expect([
+      calculateMacros(2627, bodyComposition, marco.weightKg, "training", macroOptions),
+      calculateMacros(2372, bodyComposition, marco.weightKg, "rest", macroOptions),
+    ]).toEqual([
+      { proteinG: 180, fatG: 74, carbG: 310, totalKcal: 2626, dayType: "training" },
+      { proteinG: 180, fatG: 82, carbG: 229, totalKcal: 2374, dayType: "rest" },
+    ]);
   });
 });

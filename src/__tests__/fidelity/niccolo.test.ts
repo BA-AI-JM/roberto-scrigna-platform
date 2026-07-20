@@ -19,6 +19,7 @@ import {
   calculateHydration,
   type ClientSnapshot,
 } from "../../engine/index";
+import { computeGoalRate } from "../../engine/goal-rate";
 
 // ── Fixture ─────────────────────────────────────────────────────────────────
 
@@ -208,5 +209,59 @@ describe("Niccolo — Cross-Day Validation", () => {
     const lr = calculateMacros(3700, bf.bodyComposition, 75, "training");
     expect(bike.carbG).toBeGreaterThan(rt.carbG);
     expect(lr.carbG).toBeGreaterThan(bike.carbG);
+  });
+});
+
+// ── May Features Fidelity Pins ──────────────────────────────────────────────
+
+describe("Niccolo — Goal Rate", () => {
+  test("72kg target in 12 weeks pins rate and safety floor", () => {
+    const goalRate = computeGoalRate({
+      currentKg: niccolo.weightKg,
+      targetKg: 72,
+      weeks: 12,
+      tdeeKcal: 2514,
+      leanMassKg: estimateBodyFat(niccolo).bodyComposition.leanMassKg,
+    });
+
+    // (pinned from engine @ HEAD 2026-07-20)
+    expect({
+      requiredKgPerWeek: goalRate.requiredKgPerWeek,
+      dailyDeficitKcal: goalRate.dailyDeficitKcal,
+      band: goalRate.band,
+      kcalFloor: goalRate.kcalFloor,
+      withinSafetyFloor: !goalRate.belowFloor,
+    }).toEqual({
+      requiredKgPerWeek: 0.25,
+      dailyDeficitKcal: 275,
+      band: "comfortable",
+      kcalFloor: 1419,
+      withinSafetyFloor: true,
+    });
+  });
+});
+
+describe("Niccolo — Absolute Macro Overrides", () => {
+  test("protein fixed at 170g pins OFF, RT, BIKE, and LONG_RUN macro lines", () => {
+    const bodyComposition = estimateBodyFat(niccolo).bodyComposition;
+    const macroOptions = {
+      absoluteOverrides: {
+        training: { proteinG: 170 },
+        rest: { proteinG: 170 },
+      },
+    };
+
+    // (pinned from engine @ HEAD 2026-07-20)
+    expect([
+      calculateMacros(2400, bodyComposition, niccolo.weightKg, "rest", macroOptions),
+      calculateMacros(2600, bodyComposition, niccolo.weightKg, "training", macroOptions),
+      calculateMacros(2750, bodyComposition, niccolo.weightKg, "training", macroOptions),
+      calculateMacros(3700, bodyComposition, niccolo.weightKg, "training", macroOptions),
+    ]).toEqual([
+      { proteinG: 170, fatG: 75, carbG: 261, totalKcal: 2399, dayType: "rest" },
+      { proteinG: 170, fatG: 68, carbG: 327, totalKcal: 2600, dayType: "training" },
+      { proteinG: 170, fatG: 68, carbG: 365, totalKcal: 2752, dayType: "training" },
+      { proteinG: 170, fatG: 68, carbG: 602, totalKcal: 3700, dayType: "training" },
+    ]);
   });
 });
