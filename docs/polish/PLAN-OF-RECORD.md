@@ -35,9 +35,9 @@ Three unmerged branches contain a stalled June-30→July-02 design workstream:
 | Q | Scope (register IDs) | Effort | Oracle |
 |---|---|---|---|
 | T1.0 | **Harness skeleton (eng-risk amendment — fixes the T1→T2 oracle inversion)**: minimal RLS-enabled disposable DB + one authed-render fixture, just enough to run T1.1/T1.3 oracles; T2.1 industrializes it later | S | the two T1 oracles actually executable |
-| T1.1 | Check-in journey resurrection: SECURITY DEFINER token-consumption RPC (validate+expiry+one-shot atomically), wire expiry, rotate-on-resend (G1+G6). **+ Item-1 code fix (product-lens): `shareWithClient` provisions/links the client auth user so the emailed plan link can ever log in (CORRECTIONS-TRIAGE root-cause #3)** | M | anon integration test vs RLS-enabled DB + live token curl 200 + share→login e2e |
+| T1.1 | ✅ **SHIPPED 2026-07-20** (commit 4c06eae): migration 017 SECURITY DEFINER validate+consume RPCs, 7-day expiry wired at send, previous-weight context un-nulled; live spec RED→GREEN. Provisioning sub-piece: **ALREADY SHIPPED at HEAD** (solved-already pass #2: `shareWithClient` step 2b calls `ensurePortalAuthUser`, plan.ts:1993-2005) — Item-1 is now config(A1✅)+code(✅)+deploy(A2 pending) | M | ✅ e2e-live spec green · suite 1102 green |
 | T1.2 | Migration governance: applied-ledger table, single runner replacing phantom `exec_sql`, runbook 001–016 rewrite, from-zero DB in CI (G3+G32) | M | CI job: zero→HEAD schema + smoke |
-| T1.3 | Portal crash + never-rendered-portal: status-filter server-side, null-honest types, authenticated portal render tests with pending check-in fixture (G22+G27) | S | regression test red→green on pre-fix code |
+| T1.3 | ✅ **SHIPPED 2026-07-20** (commit 1979df7): status=completed + non-null-date server filter, null-honest types, belt guards; DB-level exclusion verified live. Residual: authenticated render regression test (G27 tier) lands with T1.0/T2.1 harness | S | DB filter verified · render test queued |
 | T1.4 | Env schema: zod boot module, fail-fast, mode-aware optional groups, visible degradation (G4) | S | boot-without-env test fails loudly |
 | T1.5 | Error-class discrimination sweep: `error||!data→NOT_FOUND` pattern audited repo-wide (16 routers); PGRST116 vs real errors split (G31). Eng-risk note: the observed trigger was local schema drift and evaporates post-T0.1 — the masking PATTERN is the durable defect; slides to T2 if schedule presses | **M** (relabeled) | grep count → 0 unhandled conflations + probe test |
 | T1.6 | **approve() transaction quantum (eng-risk: absorbs former T1.9 — outbox row AND archive-prior-active update are ONE transaction in the same 40 lines of plan.ts:1220-1256)**: delivery outbox + reconciler + one-active-plan partial unique index + fix dead `delivered` branch with real `first_viewed_at` (G8+G9+G12) | M+ | Inngest handler tests + concurrent-approve test in one suite |
@@ -106,7 +106,7 @@ Evidence tiers: BUILT-VERIFIED = seen working this session (capture/test) · BUI
 | 15 | Eggs as whole units / mL | BUILT-VERIFIED (portal shows "≈ 1 uovo (60 g)", this session's capture) |
 | 16 | Clearer daily macros screen | BUILD → T3.4/T3.5 redesign |
 | 17 | EE overestimated / RPE inert | RULING → EF5 (his calibration numbers) then S engine adjustment under his sign-off |
-| 18 | Rest-day protein shake | BUILT-CLAIMED (whey de-hardcoded, phase0) → T2.3 verify |
+| 18 | Rest-day protein shake | **BUILT-VERIFIED, label corrected (terminal-2)**: the fix was a supplement-timing rename + rest-day exclusion revert, not a "whey de-hardcode" — feature behavior correct, prior description wrong |
 | 19 | Periodization modes | BUILT-VERIFIED (4-mode card in wizard, this session's capture) |
 | 20 | Intraday timing / pre-intra-post | BUILT-VERIFIED (timing card in portal plan, this session's capture) |
 | 21 | **Macro inconsistency 262g vs 170g (CRITICAL)** | BUILD → **T1.13** + EF4 tolerance ruling |

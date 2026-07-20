@@ -236,6 +236,7 @@ function WeightHistorySection({ data, planStartDate, loading, snapshots }: {
           .map((s) => ({ date: s.taken_at as string, value: s.weight_kg as number }));
         const weightByDay = new Map<string, { date: string; value: number; t: number }>();
         for (const p of [...checkinWeightPts, ...snapshotWeightPts]) {
+          if (!p.date) continue; // belt: new Date(null)=epoch passes the NaN guard (G22 true crash site)
           const t = new Date(p.date).getTime();
           if (Number.isNaN(t)) continue;
           const day = p.date.slice(0, 10);
