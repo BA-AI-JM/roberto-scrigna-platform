@@ -129,8 +129,8 @@ export function FeedbackCard({ checkin }: { checkin: FeedbackCheckin | null }) {
                   }`
                 : "—"
             )}
-            {metric("Energia", checkin.energy_level != null ? `${checkin.energy_level}/5` : "—")}
-            {metric("Sonno", checkin.sleep_quality != null ? `${checkin.sleep_quality}/5` : "—")}
+            {metric("Energia", checkin.energy_level != null ? `${checkin.energy_level}/10` : "—")}
+            {metric("Sonno", checkin.sleep_quality != null ? `${checkin.sleep_quality}/10` : "—")}
             {metric(
               "Aderenza",
               checkin.adherence_pct != null ? `${checkin.adherence_pct}%` : "—"

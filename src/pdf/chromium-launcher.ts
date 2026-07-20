@@ -90,8 +90,12 @@ function delay(ms: number): Promise<void> {
 
 async function launchAttempt(): Promise<Browser> {
   const executablePath = await resolveExecutablePath();
+  // chromium.args is tuned for the Lambda/Vercel sandbox (--single-process et
+  // al.); on a local desktop Chrome those flags wedge the renderer and every
+  // page.setContent times out. Only pass them where the sparticuz binary runs.
+  const args = process.env.VERCEL ? chromium.args : [];
   return puppeteerCore.launch({
-    args: chromium.args,
+    args,
     defaultViewport: { width: 1280, height: 800 },
     executablePath,
     headless: true,
