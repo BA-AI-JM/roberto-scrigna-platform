@@ -91,3 +91,8 @@ Review-page persistence (saveEdits/createVersion) · charts built (TrendChart+Ch
 
 ## Sequencing rule (binding, from brief §7)
 G1–G3 + G8/G9 (delivery correctness) gate the WS-B seal: **no UI polish ships around a dead core journey.** P4 order: G1+G6 → G3 → G4 → G8+G9 → G10–G13 → G14 → S3 batch, with G2 at operator's hand any time.
+
+## Closure batch — 2026-07-20 (tranches 1–3 + terminal-2 lanes; each verified by main-lane execution)
+CLOSED: G1 (T1.1a, live spec green) · G3+G32 (T1.2+watermark+from-zero build proven) · G4 (T1.4) · G7 (T1.12) · G8+G9+G12 (T1.6a/b, live-proven by T2-G: outbox row + prior-archived + 409) · G10 (T1.7) · G11 (T1.8 + waterLoading restored) · G13 (T1.10) · G19+G24 (T2-E: first CI + real README + scripts) · G22 (T1.3 + belt + browser render lock) · G23 (T2-H guard-order proven) · G26-partial (docs consolidated into governed set) · G27 (T2-F: authenticated browser tier exists, 4 live specs) · G28-partial (reconciler + handler paths under live proof) · G29 (dark-routers 23 tests) · G30 (fidelity matrix) · G31 (T1.5, 0 conflations) · G33→EF4 (quantified, awaiting Roberto).
+OPEN: G5/T1.11 (panel-deferred post-deploy) · G14-remainder (live tier grows via self-provisioning helpers) · G15 (T3.1) · G16 (T3.4a) · G17/G20/G21/G25 (T2.4-hygiene residue → T3/T4 docs pass) · G34=T1.13-fix (EF4-gated).
+Suite arc: 1044→1149 unit + 9 live · tsc 0 · CI born · branch 22 commits.
