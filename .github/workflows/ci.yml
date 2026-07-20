@@ -1,0 +1,89 @@
+name: CI
+
+# Verification gate (register G24: "Zero CI — no gate executes anywhere").
+# The three default jobs run with NO external services — typecheck and unit rely on the
+# env schema's NODE_ENV=test defaults (src/env.ts), and build is fed placeholder env.
+# The live tier is a separate, opt-in job (see `live` below) because it needs a real
+# Supabase + dev server that hosted runners don't provide by default.
+
+on:
+  push:
+    branches: [main, "polish/**"]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      run_live:
+        description: "Also run the live e2e tier (needs Supabase + dev server on the runner)"
+        type: boolean
+        default: false
+
+jobs:
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.11"
+      - run: bun install --frozen-lockfile
+      - run: bun run typecheck
+
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.11"
+      - run: bun install --frozen-lockfile
+      # vitest sets NODE_ENV=test → src/env.ts fills placeholder Supabase env; no secrets needed.
+      - run: bun run test
+
+  build:
+    runs-on: ubuntu-latest
+    # `next build` runs with NODE_ENV=production, so src/env.ts requires the full env set.
+    # These are non-secret PLACEHOLDERS — enough to satisfy presence/shape, never used to
+    # reach a real service in CI. Swap for repo secrets if a build-time integration is added.
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key-0000000000
+      SUPABASE_SERVICE_ROLE_KEY: placeholder-service-role-key
+      NEXT_PUBLIC_APP_URL: https://placeholder.example.com
+      RESEND_API_KEY: placeholder
+      RESEND_FROM_EMAIL: noreply@placeholder.example.com
+      INNGEST_EVENT_KEY: placeholder
+      INNGEST_SIGNING_KEY: placeholder
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.11"
+      - run: bun install --frozen-lockfile
+      - run: bun run build
+
+  # ── Live tier (opt-in) ──────────────────────────────────────────────────────
+  # NOT on by default. The e2e-live/ specs drive a REAL stack: Supabase local (:54321)
+  # + Next dev server (:3001) + a seeded portal-capable client. Hosted CI has none of
+  # that out of the box, and the specs deliberately skip when the dev server is down —
+  # so running them here without the stack would be a green no-op (worse than absent).
+  # Enable via "Run workflow" → run_live=true on a runner where `supabase start` works
+  # (docker is present on ubuntu-latest), or point at a self-hosted runner with the stack.
+  live:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_live }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.11"
+      - run: bun install --frozen-lockfile
+      - name: Start Supabase (local stack via docker)
+        run: bunx supabase start
+      - name: Apply migrations + seed
+        run: bunx supabase db reset --no-seed=false
+      - name: Boot dev server on :3001
+        run: |
+          (bun run dev --port 3001 &)
+          npx --yes wait-on http://localhost:3001/login --timeout 120000
+      - name: Live e2e tier
+        run: bun run test:live

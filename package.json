@@ -6,7 +6,12 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "db:migrate": "bun run supabase/migrate.ts"
+    "db:migrate": "bun run supabase/migrate.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:live": "bun test e2e-live/",
+    "verify": "bun run typecheck && bun run test"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.96.0",
