@@ -12,7 +12,7 @@
  *   6. Stile di Vita (Lifestyle)
  *   7. Obiettivo (Goal)
  *
- * On submit, calls client.create then client.createSnapshot via tRPC,
+ * On submit, creates the client and initial snapshot transactionally via tRPC,
  * then redirects to /plans.
  */
 
@@ -803,10 +803,10 @@ export default function IntakeForm() {
   const [form, setForm] = useState<FormData>(initialForm);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  const createClient = trpc.client.create.useMutation();
-  const createSnapshot = trpc.client.createSnapshot.useMutation();
+  const [idempotencyKey] = useState(() => crypto.randomUUID());
+  const submitIntakeForm = trpc.client.submitIntakeForm.useMutation();
 
-  const isSubmitting = createClient.isPending || createSnapshot.isPending;
+  const isSubmitting = submitIntakeForm.isPending;
 
   /** Generic single-field setter */
   const setField = useCallback(
@@ -855,8 +855,7 @@ export default function IntakeForm() {
     setSubmitError(null);
 
     try {
-      // Step 1: Create client
-      const client = await createClient.mutateAsync({
+      const client = {
         fullName: form.full_name.trim(),
         dateOfBirth: form.date_of_birth || undefined,
         sex: form.sex || undefined,
@@ -864,7 +863,7 @@ export default function IntakeForm() {
         phone: form.phone.trim() || undefined,
         codiceFiscale: form.codice_fiscale.trim() || undefined,
         heightCm: parseNum(form.height_cm),
-      });
+      };
 
       // Step 2: Build circumferences object (only defined fields)
       const circumferences = {
@@ -918,9 +917,7 @@ export default function IntakeForm() {
         }
       }
 
-      // Step 6: Create snapshot
-      await createSnapshot.mutateAsync({
-        clientId: client.id,
+      const snapshot = {
         weightKg: parseNum(form.weight_kg),
         heightCm: parseNum(form.height_cm),
         circumferences: hasCircumferences ? circumferences : undefined,
@@ -944,7 +941,9 @@ export default function IntakeForm() {
               target_event_date: form.target_event_date || undefined,
             }
           : undefined,
-      });
+      };
+
+      await submitIntakeForm.mutateAsync({ idempotencyKey, client, snapshot });
 
       // Success — redirect to clients/plans list
       router.push("/plans");

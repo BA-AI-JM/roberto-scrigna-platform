@@ -152,110 +152,11 @@ const updateClientSchema = createClientSchema.partial().extend({
   status: clientStatusSchema.optional(),
 });
 
-/** Schema for the 7-page intake form */
+/** Atomic input for the 7-page intake form. */
 const intakeFormSchema = z.object({
-  // Page 1: Dati Anagrafici (Personal Data)
-  fullName: z.string().min(2).max(200),
-  email: z.email().optional(),
-  phone: z.string().max(30).optional(),
-  dateOfBirth: z.string(), // ISO date
-  sex: z.enum(["male", "female"]),
-
-  // Page 2: Misurazioni (Measurements)
-  weightKg: z.number().min(30).max(300),
-  heightCm: z.number().min(100).max(250),
-  dailySteps: z.number().min(0).max(100000),
-  occupationalLevel: z.enum([
-    "sedentary",
-    "light",
-    "moderate",
-    "heavy",
-    "very_heavy",
-  ]),
-
-  // Page 3: Plicometria (Skinfold)
-  skinfoldData: z
-    .object({
-      method: z.enum(["7site", "3site", "override"]),
-      chest: z.number().optional(),
-      midaxillary: z.number().optional(),
-      tricep: z.number().optional(),
-      subscapular: z.number().optional(),
-      abdominal: z.number().optional(),
-      suprailiac: z.number().optional(),
-      thigh: z.number().optional(),
-      bodyFatPctOverride: z.number().min(3).max(60).optional(),
-    })
-    .optional(),
-
-  // Page 4: Anamnesi (Medical History)
-  medicalHistory: z
-    .object({
-      conditions: z.array(z.string()).optional(),
-      medications: z.array(z.string()).optional(),
-      allergies: z.array(z.string()).optional(),
-      intolerances: z.array(z.string()).optional(),
-      familyHistory: z.string().optional(),
-    })
-    .optional(),
-
-  // Page 5: Allenamento (Training)
-  trainingInfo: z
-    .object({
-      weekSchedule: z.array(
-        z.enum(["training", "rest", "refeed", "deload"])
-      ).length(7),
-      trainingType: z.string().optional(),
-      trainingFrequency: z.number().min(0).max(7).optional(),
-      trainingDuration: z.number().min(0).max(300).optional(),
-      exerciseMethod: z
-        .enum([
-          "heart_rate",
-          "met_value",
-          "session_estimate",
-          "default_estimate",
-        ])
-        .optional(),
-      avgHeartRate: z.number().optional(),
-      metValue: z.number().optional(),
-      kcalEstimate: z.number().optional(),
-    })
-    .optional(),
-
-  // Page 6: Stile di Vita (Lifestyle)
-  lifestyle: z
-    .object({
-      sleepHours: z.number().min(3).max(14).optional(),
-      stressLevel: z.number().min(1).max(10).optional(),
-      waterIntakeMl: z.number().min(0).max(10000).optional(),
-      alcoholFrequency: z
-        .enum(["never", "rare", "weekly", "daily"])
-        .optional(),
-      mealPreferences: z.array(z.string()).optional(),
-      cookingAbility: z
-        .enum(["none", "basic", "intermediate", "advanced"])
-        .optional(),
-    })
-    .optional(),
-
-  // Page 7: Obiettivo (Goal)
-  goal: z
-    .object({
-      primaryGoal: z
-        .enum([
-          "weight_loss",
-          "muscle_gain",
-          "recomposition",
-          "maintenance",
-          "performance",
-        ])
-        .optional(),
-      targetWeightKg: z.number().optional(),
-      timeline: z.string().optional(),
-      motivation: z.string().max(2000).optional(),
-      previousDiets: z.string().max(2000).optional(),
-    })
-    .optional(),
+  idempotencyKey: z.string().uuid(),
+  client: createClientSchema,
+  snapshot: createSnapshotSchema.omit({ clientId: true }),
 });
 
 export const clientRouter = router({
@@ -1016,132 +917,134 @@ export const clientRouter = router({
   submitIntakeForm: protectedProcedure
     .input(intakeFormSchema)
     .mutation(async ({ ctx, input }) => {
-      // 1. Create the client record
-      const { data: client, error: clientError } = await ctx.supabase
-        .from("client")
-        .insert({
-          partner_id: ctx.partnerId,
-          full_name: input.fullName,
-          email: input.email,
-          phone: input.phone,
-          date_of_birth: input.dateOfBirth,
-          sex: input.sex,
-          notes: [
-            input.medicalHistory
-              ? `Anamnesi: ${JSON.stringify(input.medicalHistory)}`
-              : null,
-            input.lifestyle
-              ? `Stile di vita: ${JSON.stringify(input.lifestyle)}`
-              : null,
-            input.goal
-              ? `Obiettivo: ${JSON.stringify(input.goal)}`
-              : null,
-          ]
-            .filter(Boolean)
-            .join("\n\n"),
-        })
-        .select("id")
-        .single();
+      const noteParts: string[] = [];
+      if (input.client.codiceFiscale) {
+        noteParts.push(`Codice Fiscale: ${input.client.codiceFiscale}`);
+      }
+      if (input.client.notes) noteParts.push(input.client.notes);
 
-      if (clientError || !client) {
-        console.error("[router/client.submitIntakeForm] client insert:", clientError);
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Errore nella creazione del cliente.",
-        });
+      let ageYears: number | null = null;
+      if (input.client.dateOfBirth) {
+        const birth = new Date(input.client.dateOfBirth);
+        ageYears = Math.floor((Date.now() - birth.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
       }
 
-      // 2. Create the initial snapshot
-      const birthDate = new Date(input.dateOfBirth);
-      const ageYears = Math.floor(
-        (Date.now() - birthDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000)
-      );
+      const weekSchedule: string[] = Array(7).fill("rest");
+      if (input.snapshot.trainingSessions) {
+        for (let i = 0; i < 7; i++) {
+          if (input.snapshot.trainingSessions[String(i)]?.length) weekSchedule[i] = "training";
+        }
+      }
 
-      // Compute body composition for the initial snapshot (#6) — same defensive
-      // rule as createSnapshot (only with a real skinfold set or override).
-      const sd = input.skinfoldData;
-      const sd7 =
-        sd != null &&
-        sd.method === "7site" &&
-        sd.chest != null &&
-        sd.midaxillary != null &&
-        sd.tricep != null &&
-        sd.subscapular != null &&
-        sd.abdominal != null &&
-        sd.suprailiac != null &&
-        sd.thigh != null;
-      const sdMaleTrio =
-        sd != null && sd.chest != null && sd.abdominal != null && sd.thigh != null;
-      const sdFemaleTrio =
-        sd != null && sd.tricep != null && sd.suprailiac != null && sd.thigh != null;
-
-      const intakeBodyComp = computeSnapshotBodyComp({
-        sex: input.sex,
+      const sf = input.snapshot.skinfolds;
+      const filledSites = sf ? Object.values(sf).filter((value) => value != null && value > 0).length : 0;
+      const bodyFatMethod = filledSites >= 7 ? "7site" : filledSites >= 3 ? "3site" : null;
+      const engineSkinfoldData =
+        bodyFatMethod === "7site" && sf
+          ? { method: "7site", chest: sf.chest, midaxillary: sf.midaxillary, tricep: sf.triceps,
+              subscapular: sf.subscapular, abdominal: sf.abdomen, suprailiac: sf.suprailiac, thigh: sf.thigh }
+          : bodyFatMethod === "3site" && sf
+          ? { method: "3site", chest: sf.chest, abdominal: sf.abdomen, thigh: sf.thigh,
+              tricep: sf.triceps, suprailiac: sf.suprailiac }
+          : null;
+      const has7 = sf != null && sf.chest != null && sf.midaxillary != null && sf.triceps != null &&
+        sf.subscapular != null && sf.abdomen != null && sf.suprailiac != null && sf.thigh != null;
+      const hasMaleTrio = sf != null && sf.chest != null && sf.abdomen != null && sf.thigh != null;
+      const hasFemaleTrio = sf != null && sf.triceps != null && sf.suprailiac != null && sf.thigh != null;
+      const clientSex = input.client.sex ?? null;
+      const bodyComp = computeSnapshotBodyComp({
+        sex: clientSex,
         ageYears,
-        weightKg: input.weightKg,
-        heightCm: input.heightCm,
+        weightKg: input.snapshot.weightKg,
+        heightCm: input.snapshot.heightCm,
         skinfold7:
-          sd7 && sd
-            ? {
-                chest: sd.chest!,
-                midaxillary: sd.midaxillary!,
-                tricep: sd.tricep!,
-                subscapular: sd.subscapular!,
-                abdominal: sd.abdominal!,
-                suprailiac: sd.suprailiac!,
-                thigh: sd.thigh!,
-              }
+          has7 && sf
+            ? { chest: sf.chest!, midaxillary: sf.midaxillary!, tricep: sf.triceps!,
+                subscapular: sf.subscapular!, abdominal: sf.abdomen!, suprailiac: sf.suprailiac!, thigh: sf.thigh! }
             : undefined,
         skinfold3:
-          sd == null || sd.method !== "3site"
+          has7 || sf == null
             ? undefined
-            : input.sex === "male" && sdMaleTrio
-            ? { chest: sd.chest!, abdominal: sd.abdominal!, thigh: sd.thigh! }
-            : input.sex === "female" && sdFemaleTrio
-            ? { tricep: sd.tricep!, suprailiac: sd.suprailiac!, thigh: sd.thigh! }
+            : clientSex === "male" && hasMaleTrio
+            ? { chest: sf.chest!, abdominal: sf.abdomen!, thigh: sf.thigh! }
+            : clientSex === "female" && hasFemaleTrio
+            ? { tricep: sf.triceps!, suprailiac: sf.suprailiac!, thigh: sf.thigh! }
             : undefined,
-        bodyFatPctOverride:
-          sd != null && sd.method === "override" ? sd.bodyFatPctOverride : undefined,
       });
 
-      const { data: snapshot, error: snapshotError } = await ctx.supabase
-        .from("client_snapshot")
-        .insert({
-          client_id: client.id,
-          weight_kg: input.weightKg,
-          height_cm: input.heightCm,
-          age_years: ageYears,
-          daily_steps: input.dailySteps,
-          occupational_level: input.occupationalLevel,
-          body_fat_method: input.skinfoldData?.method ?? null,
-          body_fat_pct: intakeBodyComp?.body_fat_pct ?? null,
-          lean_mass_kg: intakeBodyComp?.lean_mass_kg ?? null,
-          fat_mass_kg: intakeBodyComp?.fat_mass_kg ?? null,
-          bmr_kcal: intakeBodyComp?.bmr_kcal ?? null,
-          skinfold_data: input.skinfoldData
-            ? JSON.stringify(input.skinfoldData)
-            : null,
-          week_schedule: input.trainingInfo?.weekSchedule ?? [
-            "training",
-            "rest",
-            "training",
-            "rest",
-            "training",
-            "rest",
-            "rest",
-          ],
-        })
-        .select("id")
-        .single();
+      const skinfoldDataPayload = {
+        ...(engineSkinfoldData ?? {}),
+        _intake: {
+          circumferences: input.snapshot.circumferences ?? null,
+          skinfolds: input.snapshot.skinfolds ?? null,
+          medical_history: input.snapshot.medicalHistory ?? null,
+          training_sessions: input.snapshot.trainingSessions ?? null,
+          lifestyle: input.snapshot.lifestyle ?? null,
+          goal: input.snapshot.goal ?? null,
+        },
+      };
+      const noteLines: string[] = [];
+      if (input.snapshot.medicalHistory?.pathologies) {
+        noteLines.push(`Patologie: ${input.snapshot.medicalHistory.pathologies}`);
+      }
+      if (input.snapshot.goal?.goal) {
+        const goalLabels: Record<string, string> = {
+          fat_loss: "Dimagrimento", muscle_gain: "Aumento Massa",
+          maintenance: "Mantenimento", performance: "Performance",
+        };
+        noteLines.push(`Obiettivo: ${goalLabels[input.snapshot.goal.goal] ?? input.snapshot.goal.goal}`);
+      }
+      if (input.snapshot.goal?.target_weight_kg) {
+        noteLines.push(`Peso target: ${input.snapshot.goal.target_weight_kg} kg`);
+      }
 
-      if (snapshotError) {
-        console.error("[router/client.submitIntakeForm]", snapshotError);
+      const serviceDb = createSupabaseServiceRole();
+      const { data: rows, error } = await serviceDb.rpc("intake_create_client_with_snapshot", {
+        p_partner_id: ctx.partnerId,
+        p_idempotency_key: input.idempotencyKey,
+        p_client: {
+          full_name: input.client.fullName,
+          email: input.client.email ?? null,
+          phone: input.client.phone ?? null,
+          date_of_birth: input.client.dateOfBirth ?? null,
+          sex: input.client.sex ?? null,
+          notes: noteParts.length > 0 ? noteParts.join("\n") : null,
+          tags: input.client.tags ?? [],
+        },
+        p_snapshot: {
+          weight_kg: input.snapshot.weightKg ?? null,
+          height_cm: input.snapshot.heightCm ?? null,
+          age_years: ageYears,
+          daily_steps: input.snapshot.lifestyle?.daily_steps ?? null,
+          occupational_level: input.snapshot.occupationalLevel ?? null,
+          week_schedule: weekSchedule,
+          skinfold_data: skinfoldDataPayload,
+          body_fat_method: bodyFatMethod,
+          body_fat_pct: bodyComp?.body_fat_pct ?? null,
+          lean_mass_kg: bodyComp?.lean_mass_kg ?? null,
+          fat_mass_kg: bodyComp?.fat_mass_kg ?? null,
+          bmr_kcal: bodyComp?.bmr_kcal ?? null,
+          notes: noteLines.length > 0 ? noteLines.join("\n") : null,
+        },
+      });
+      const result = (Array.isArray(rows) ? rows[0] : rows) as
+        | { client_id: string | null; snapshot_id: string | null; was_replay: boolean; invalid_reason: string | null }
+        | undefined;
+
+      if (error || !result) {
+        console.error("[router/client.submitIntakeForm] txn:", error);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Errore nel salvataggio. Riprova tra poco.",
         });
       }
+      if (result.invalid_reason || !result.client_id || !result.snapshot_id) {
+        const code = result.invalid_reason === "idempotency_conflict" ? "CONFLICT"
+          : result.invalid_reason === "invalid_idempotency_key" ? "BAD_REQUEST"
+          : "INTERNAL_SERVER_ERROR";
+        throw new TRPCError({ code, message: "Errore nel salvataggio. Riprova tra poco." });
+      }
 
-      return { clientId: client.id, snapshotId: snapshot?.id };
+      return { clientId: result.client_id, snapshotId: result.snapshot_id, wasReplay: result.was_replay };
     }),
 });
