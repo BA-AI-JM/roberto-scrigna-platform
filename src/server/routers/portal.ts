@@ -281,6 +281,10 @@ export const portalRouter = router({
         .from("check_in")
         .select("check_in_date, weight_kg, nutrition_adherence, training_adherence")
         .eq("client_id", ctx.clientId)
+        // T1.3 (G22): pending rows have NULL check_in_date and crashed the page's
+        // date math (new Date(null)=epoch defeats the NaN guard). Trend = completed only.
+        .eq("status", "completed")
+        .not("check_in_date", "is", null)
         .order("check_in_date", { ascending: true })
         .limit(16),
 

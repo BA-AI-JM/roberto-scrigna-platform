@@ -60,7 +60,7 @@ function Skeleton({ width, height }: { width?: string; height?: string }) {
 type CheckInStatus = {
   latestCheckIn: {
     id: string;
-    check_in_date: string;
+    check_in_date: string | null; // null while pending — DB truth (G22)
     weight_kg: number | null;
     nutrition_adherence: number | null;
     training_adherence: number | null;
@@ -139,7 +139,7 @@ function CheckInSection({ data, loading }: { data: CheckInStatus | undefined; lo
       {latest && (
         <div>
           <p style={{ fontSize: "13px", fontWeight: 600, color: "#6b7280", marginBottom: "10px" }}>
-            Ultimo check-in — {formatDate(latest.check_in_date)}
+            Ultimo check-in — {latest.check_in_date ? formatDate(latest.check_in_date) : "—"}
           </p>
           <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
             {latest.weight_kg != null && (
@@ -171,7 +171,7 @@ function CheckInSection({ data, loading }: { data: CheckInStatus | undefined; lo
 
 type DashboardData = {
   weightTrend: Array<{
-    check_in_date: string;
+    check_in_date: string | null; // null while pending — DB truth (G22)
     weight_kg: number | null;
     nutrition_adherence: number | null;
     training_adherence: number | null;
@@ -199,7 +199,9 @@ function WeightHistorySection({ data, planStartDate, loading, snapshots }: {
   }
 
   const trend = data?.weightTrend ?? [];
-  const withWeight = trend.filter((e) => e.weight_kg != null);
+  // Belt over the server filter: a null date must never reach the date math
+  // (new Date(null) is epoch, not NaN — the old guard let it through, G22).
+  const withWeight = trend.filter((e) => e.weight_kg != null && e.check_in_date != null);
   const recent = withWeight.slice(-5);
 
   if (recent.length === 0) {
@@ -228,7 +230,7 @@ function WeightHistorySection({ data, planStartDate, loading, snapshots }: {
       </div>
 
       {(() => {
-        const checkinWeightPts = withWeight.map((e) => ({ date: e.check_in_date, value: e.weight_kg as number }));
+        const checkinWeightPts = withWeight.map((e) => ({ date: e.check_in_date as string, value: e.weight_kg as number })); // non-null by withWeight filter (G22)
         const snapshotWeightPts = (snapshots ?? [])
           .filter((s) => s.weight_kg != null && s.taken_at != null)
           .map((s) => ({ date: s.taken_at as string, value: s.weight_kg as number }));
