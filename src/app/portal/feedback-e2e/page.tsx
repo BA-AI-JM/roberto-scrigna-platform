@@ -10,6 +10,9 @@ import { notFound } from "next/navigation";
 import { UrgentFeedbackScreen } from "@/components/portal/urgent-feedback-form";
 
 export default function FeedbackE2EPage() {
+  // G23 hard wall: a stray NEXT_PUBLIC_E2E_* in a prod build must NEVER expose this
+  // unauthenticated bypass. The production guard runs FIRST, before the flag check.
+  if (process.env.NODE_ENV === "production") notFound();
   if (process.env.NEXT_PUBLIC_E2E_FEEDBACK !== "1") notFound();
   return (
     <div className="mx-auto w-full max-w-[640px] px-4 py-6 sm:px-6">

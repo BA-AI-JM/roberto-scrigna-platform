@@ -10,6 +10,9 @@ import { notFound } from "next/navigation";
 import { ReminderSettingsCard } from "@/components/client/reminder-settings-card";
 
 export default async function ReminderE2EPage({ params }: { params: Promise<{ clientId: string }> }) {
+  // G23 hard wall: a stray NEXT_PUBLIC_E2E_* in a prod build must NEVER expose this
+  // unauthenticated bypass. The production guard runs FIRST, before the flag check.
+  if (process.env.NODE_ENV === "production") notFound();
   if (process.env.NEXT_PUBLIC_E2E_REMINDER !== "1") notFound();
   const { clientId } = await params;
   return (
