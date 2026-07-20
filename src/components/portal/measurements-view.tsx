@@ -54,7 +54,18 @@ const cardStyle: React.CSSProperties = {
   marginBottom: "16px",
 };
 
-export function MeasurementsView({ snapshots, loading }: { snapshots: MeasurementSnapshot[] | undefined; loading: boolean }) {
+export function MeasurementsView({
+  snapshots,
+  loading,
+  checkinWeightPoints,
+}: {
+  snapshots: MeasurementSnapshot[] | undefined;
+  loading: boolean;
+  /** Completed check-in weights, merged into the Peso trend (same source the
+   *  portal dashboard chart uses) — snapshots alone collapse the trend to a
+   *  single point for clients who weigh in via check-in. */
+  checkinWeightPoints?: { date: string; value: number }[];
+}) {
   if (loading) {
     return <div style={{ ...cardStyle, color: "#6b7280", fontSize: "14px" }}>Caricamento misurazioni…</div>;
   }
@@ -96,9 +107,24 @@ export function MeasurementsView({ snapshots, loading }: { snapshots: Measuremen
 
       {/* Per-metric trends */}
       {METRICS.map((metric) => {
-        const points = asc
+        const base = asc
           .filter((s) => typeof s[metric.key] === "number" && s.taken_at)
           .map((s) => ({ date: s.taken_at as string, value: s[metric.key] as number }));
+        // Peso merges check-in weights too — dedupe by day, latest timestamp
+        // wins (snapshot beats check-in on ties), matching the dashboard chart.
+        let points = base;
+        if (metric.key === "weight_kg" && checkinWeightPoints?.length) {
+          const byDay = new Map<string, { date: string; value: number; t: number }>();
+          for (const p of [...checkinWeightPoints, ...base]) {
+            if (!p.date) continue;
+            const t = new Date(p.date).getTime();
+            if (Number.isNaN(t)) continue;
+            const day = p.date.slice(0, 10);
+            const existing = byDay.get(day);
+            if (!existing || t >= existing.t) byDay.set(day, { ...p, t });
+          }
+          points = [...byDay.values()].sort((a, b) => a.t - b.t).map(({ date, value }) => ({ date, value }));
+        }
         const series: TrendSeries[] = [{ key: String(metric.key), label: metric.label, color: metric.color, unit: metric.unit, points }];
         if (totalDataPoints(series) < 2) return null;
         return (

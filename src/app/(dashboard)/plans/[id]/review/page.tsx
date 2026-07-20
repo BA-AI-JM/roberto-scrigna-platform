@@ -180,6 +180,17 @@ export default function PlanReviewPage({
 
   // Share modal state
   const [showShareModal, setShowShareModal] = useState(false);
+
+  // Escape closes the share modal (it previously trapped all pointer events
+  // behind the backdrop with no keyboard exit — cost the video take 1).
+  useEffect(() => {
+    if (!showShareModal) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setShowShareModal(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [showShareModal]);
   const [shareEmail, setShareEmail] = useState<string>("");
   const [shareSuccess, setShareSuccess] = useState(false);
   const [shareError, setShareError] = useState<string>("");

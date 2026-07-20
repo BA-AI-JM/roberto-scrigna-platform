@@ -21,6 +21,8 @@ import {
 
 export default function PortalProgressPage() {
   const snapshotsQuery = trpc.portal.getSnapshots.useQuery({});
+  // Same source as the dashboard's weight chart: completed check-in weights.
+  const dashboardQuery = trpc.portal.getDashboardData.useQuery();
   const documentsQuery = trpc.portal.getDocuments.useQuery();
   const profileQuery = trpc.portal.getMyProfile.useQuery();
   const addSnapshot = trpc.portal.addSnapshot.useMutation();
@@ -47,6 +49,9 @@ export default function PortalProgressPage() {
       <MeasurementsView
         snapshots={snapshotsQuery.data as MeasurementSnapshot[] | undefined}
         loading={snapshotsQuery.isLoading}
+        checkinWeightPoints={((dashboardQuery.data?.weightTrend ?? []) as Array<{ check_in_date: string | null; weight_kg: number | null }>)
+          .filter((e) => e.weight_kg != null && e.check_in_date != null)
+          .map((e) => ({ date: e.check_in_date as string, value: e.weight_kg as number }))}
       />
 
       {/* Progress photos — DISPLAY from getSnapshots (PR #33) + UPLOAD to the

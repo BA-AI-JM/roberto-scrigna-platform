@@ -16,6 +16,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { trpc } from "@/lib/trpc/client";
+import { humanizeTrpcError } from "@/lib/human-error";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -163,7 +164,7 @@ export default function InvoiceDetailPage() {
       setStatusError(null);
     },
     onError: (err) => {
-      setStatusError(err.message);
+      setStatusError(humanizeTrpcError(err.message));
     },
   });
 
@@ -173,7 +174,7 @@ export default function InvoiceDetailPage() {
       router.push("/invoices");
     },
     onError: (err) => {
-      setStatusError(err.message);
+      setStatusError(humanizeTrpcError(err.message));
     },
   });
 

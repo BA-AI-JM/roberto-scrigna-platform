@@ -11,6 +11,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter, useParams } from "next/navigation";
 import { trpc } from "@/lib/trpc/client";
+import { humanizeTrpcError } from "@/lib/human-error";
 import {
   WeekSessionsEditor,
   type WeekSessions,
@@ -388,7 +389,7 @@ export default function ClientEditPage() {
       router.push(`/clients/${clientId}`);
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : "Errore nel salvataggio. Riprova.";
+        err instanceof Error ? humanizeTrpcError(err.message) : "Errore nel salvataggio. Riprova.";
       setSaveError(message);
       setSaving(false);
     }

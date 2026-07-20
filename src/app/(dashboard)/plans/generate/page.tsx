@@ -13,6 +13,7 @@
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { trpc } from "../../../../lib/trpc/client";
+import { humanizeTrpcError } from "../../../../lib/human-error";
 import type { Allergen, MealTag } from "../../../../engine/meal-plan/types";
 import { isTrainingLikeDayType, type DayType } from "../../../../engine/types";
 import { SourceSwapCard } from "../../../../components/plan/source-swap-card";
@@ -404,7 +405,7 @@ export default function GeneratePlanPage() {
       router.push(`/plans/${result.planId}/review`);
     },
     onError: (err) => {
-      setError(err.message);
+      setError(humanizeTrpcError(err.message));
     },
   });
 
@@ -434,6 +435,13 @@ export default function GeneratePlanPage() {
     if (belowFloor) {
       setError(
         "L'apporto pianificato è sotto la soglia minima di sicurezza. Estendi la data target o riduci il deficit."
+      );
+      return;
+    }
+    const mk = form.maintenanceKcalEstimate;
+    if (mk !== "" && (!Number.isFinite(Number(mk)) || Number(mk) <= 0)) {
+      setError(
+        "Stima kcal mantenimento: inserisci un numero positivo (es. 2500) oppure lascia il campo vuoto per il calcolo automatico."
       );
       return;
     }

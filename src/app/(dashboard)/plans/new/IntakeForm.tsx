@@ -19,6 +19,7 @@
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { trpc } from "@/lib/trpc/client";
+import { humanizeTrpcError } from "@/lib/human-error";
 import { groupedSportOptions } from "@/engine/sport-taxonomy";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -950,7 +951,7 @@ export default function IntakeForm() {
     } catch (err) {
       setSubmitError(
         err instanceof Error
-          ? err.message
+          ? humanizeTrpcError(err.message)
           : "Errore durante il salvataggio. Riprova."
       );
     }

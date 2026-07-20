@@ -395,6 +395,12 @@ Do not set `CHROMIUM_PATH` on Vercel. The generator in `src/pdf/generator.ts` ch
 for `process.env.VERCEL` and calls `chromium.executablePath()` automatically. Setting
 `CHROMIUM_PATH` on Vercel would override this and likely point to a non-existent path.
 
+**Local development note (2026-07-20):** puppeteer-core 24.42.0 speaks CDP for Chrome ≤147;
+a system Chrome 148+ fails with "Requesting main frame too early!". Install a pinned Chrome
+for Testing (`bunx puppeteer browsers install chrome@147`) and point `CHROMIUM_PATH` at it.
+The Lambda launch args are only applied when `VERCEL` is set (`src/pdf/chromium-launcher.ts`) —
+on a local desktop Chrome they wedge the renderer.
+
 ### 5.4 Deploy
 
 1. Click **Deploy** in Vercel (or push to the `main` branch if continuous deployment
@@ -520,7 +526,7 @@ steps or assume something works because the build passed.
 | `RESEND_FROM_EMAIL` | Required | Your verified Resend domain | `noreply@robertoscrigna.com` |
 | `NEXT_PUBLIC_APP_URL` | Required | Your Vercel deployment URL | `https://roberto-scrigna.vercel.app` |
 | `CHROMIUM_PACK_URL` | Recommended | Immutable URL for the mirrored Chromium 147.0.2 pack | `https://artifacts.example.com/chromium/chromium-v147.0.2-pack.x64.tar` |
-| `CHROMIUM_PATH` | Optional | Leave empty on Vercel; set to local Chrome path for development only | `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome` |
+| `CHROMIUM_PATH` | Optional | Leave empty on Vercel; for local development point it at a CDP-compatible Chrome (**≤147** — see note below) | `~/.cache/puppeteer/chrome/mac_arm-147.0.7727.57/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing` |
 
 Notes:
 

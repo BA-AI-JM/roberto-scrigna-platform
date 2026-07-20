@@ -15,6 +15,7 @@ import { useRouter, useParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { getQueryKey } from "@trpc/react-query";
 import { trpc } from "@/lib/trpc/client";
+import { humanizeTrpcError } from "@/lib/human-error";
 import { ChartControls } from "@/components/charts/ChartControls";
 import { totalDataPoints, type TrendSeries } from "@/components/charts/TrendChart";
 import { ClientPhotoGallery } from "@/components/client-photo-gallery";
@@ -1140,7 +1141,7 @@ export default function ClientDetailPage() {
       setInviteMsg({ ok: true, text: `Invito inviato a ${res.sentTo}.` });
     },
     onError: (err) => {
-      setInviteMsg({ ok: false, text: err.message ?? "Errore nell'invio dell'invito." });
+      setInviteMsg({ ok: false, text: humanizeTrpcError(err.message, "Errore nell'invio dell'invito.") });
     },
   });
 
