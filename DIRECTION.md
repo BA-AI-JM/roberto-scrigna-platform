@@ -46,3 +46,11 @@ Eight field references captured to `docs/polish/concepts/references/` (Whoop, Tr
 4. **Micro-refinement layer** (Attio, Linear): kbd hints on coach surfaces, pill CTAs, 2–3% ambient gradients, purposeful eyebrow labels — the distance between clean and expensive.
 5. **Emptier defaults** (operator instinct + Attio): fewer, larger elements; dashboard stat strip drops to three; more air between panels. Calm, pushed further.
 Imported: conviction, atmosphere, refinement. NOT imported: their darkness, their English-consumer tone, their gamified edges.
+
+---
+## Theme ruling (2026-07-20, operator: "Levels × Everfit, light and dark, really clean")
+Supersedes the launch dark-mode ban (operator ruling at the token-compile moment — the cheapest it will ever be).
+- **One semantic token system, two themes, simultaneous.** Light = coach default (clinical daytime, print-adjacent). Dark = first-class, offered by default on the athlete portal (evening/gym context); both available everywhere.
+- **Canvas evolution:** light shifts ivory → barely-warm greige/white (the Levels/Everfit clean-neutral read); dark = warm charcoal, never pure #000. Teal remains the single accent in both themes; severity + data-viz roles re-tuned per theme at AA.
+- **Warmth relocates** from canvas color to the three theme-invariant carriers: Fraunces at conviction scale, neutral-studio athletic/practice photography (Everfit/Levels grammar, our subjects, both-theme-safe), and la nota. Anti-sterile guard holds by these, not by cream.
+- **FD-2 consequence:** contrast recompute now runs against BOTH bases; every semantic pair ships with light+dark values or ships not at all.
