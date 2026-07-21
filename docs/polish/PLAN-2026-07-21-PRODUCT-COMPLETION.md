@@ -11,20 +11,26 @@ F–H are the new feature builds. I–K thread through and close.
 
 ## A. Correctness first — active bugs (#5 #8 #10-math #14 #15)
 A1 [M] (#5) Training-edit "invalid" repro+fix; RPE→kcal live recalc.
-A2 [M][EF-verify] (#8) Tolerance-delta math audit with fixture from Roberto's example.
+A2 [M][EF-verify] (#8) Tolerance-delta math audit. Golden fixtures (Roberto 2026-07-21):
+    (1) shown −86 vs hand −81.5 (~5% — hypothesis: food-label kcal vs 4/4/9 Atwater, legit
+    → label the UI "Δ da valori alimenti"); (2) shown +15 vs hand +31.7 (>2× — suspected
+    REAL seam bug). Trace both through engine→bundle→render; fix (2); document (1).
 A3 [M][EF-verify] (#10) Swap gram-equivalence audit (whey→kefir case) vs Model 1 tiers.
 A4 [M] (#14) Plan-email → login → plan deep-link (returnTo through magic-link flow).
 A5 [S] (#15) New-invoice client dropdown wiring.
-A6 [S] (#1) Practice identity constants: order n° AA_077690, P.IVA, C.F., address
-    (⚠ Don Luigi vs Luigi — confirm), rendered in lettera/invoice/PDF footer.
+A6 [S] (#1) Practice identity constants: Biologo Nutrizionista n° AA_077690, P.IVA
+    10175580967, C.F. SCRRRT90S03F205Z, Via Don Luigi Guanella 44 20128 Milano
+    (CONFIRMED), rendered in lettera/invoice/PDF footer.
 
 ## B. The clinical model wired (#9 #10) + plan-builder UX (#6 #7 #11)
 B1 [L][EF] (#10) Slot-class substitution wiring from Model 1 §1: class membership per
    meal slot (Colazione/Spuntino/Pranzo-Cena), tiered equivalence; DB = macro truth.
 B2 [S][R][EF] (#9) Carbs>fats-on-training-days rule: Roberto defines the precise rule,
    engine encodes, golden fixtures.
-B3 [M][R] (#6) Remove presets; periodization = weekly average | 2/3/4-day intensity
-   split; per-day edit visibility.
+B3 [M] (#6) Remove presets; periodization modes (FINAL, Roberto 2026-07-21):
+   ① Media settimanale ② OFF + ON (ON = average caloric expenditure of training days)
+   ③ OFF–Leggero–Medio ④ OFF–Leggero–Medio–Intenso (③/④ when per-day delta justifies
+   a personalised day). Per-day edit affordances visible.
 B4 [M] (#7) Two sessions per day (schema perDaySessions[] already array? verify) + UI.
 B5 [M] (#11) Merge Panoramica+Macro review tabs.
 
@@ -47,14 +53,36 @@ D3 [L][EF] Q3 "day checker": client-side meal-structure changes/swaps validated
    against assigned daily targets using B1 classes; shows resulting macro state.
 D4 [M] Portal polish: dark theme pass (T3.5), emoji→icons, a11y basics.
 
-## E. Fight-week module (Q4) [XL][R][EF]
-E1 Template model from Model 1 §3: per-day water L, salt g, kcal/macros, weight
-   target, notes; phases −7→weigh-in→refeed→fight day.
-E2 Per-athlete instantiation anchored to fight date; coach edits all values (app
-   never invents cut numbers — template values are Roberto's).
-E3 Portal daily fight-week view (today's water/salt/targets/instructions).
-E4 Post-weigh-in refuel/rehydration checklist rendering.
-E5 PDF export of the full fight-week protocol.
+## E. Fight-week module (Q4) [XL][R][EF] — template model CONFIRMED-PENDING (presented 2026-07-21)
+Reference: docs/reference/fight-week/ (two real protocols; variance notes in its README).
+Principle: the app NEVER computes a cut — only arithmetic (countdowns, rehydration
+totals from entered cut at editable 150%/70% coefficients, ÷3 refuel helper).
+E1 Data model — FightWeekProtocol: athlete, weighInDate (+early/late flag), optional
+   fightDate/time, weight-class target, notes; instantiated from coach-owned template
+   library (seeded from both reference docs).
+E2 DayRow (−7…−1, weigh-in): water (value or min–max mL) · salt g · training label
+   (free text) · kcal/P/F/C · optional fibre cap · constraint flags (NO_SALT,
+   LOW_FIBRE, NO_WHOLEGRAIN, NO_VEG, FRESH_FOOD_ONLY) · free-text meal template ·
+   conditional notes · optional target weight kg + morning-weight actual log.
+E3 Weigh-in block: fasted flag, day-before options, cutting-work cycles (15–30'
+   active/passive), orthostatic-hypotension safety line (always rendered).
+E4 RehydrationPlan: total = editable % of cut (default 150), prepared-in-bottles %
+   (default 70), timed bolus schedule rows, drink recipe (½-dose electrolyte +
+   40–60 g/L carbs), ÷3 INS helper (deficit → 2/3 liquid + 1/3 dense food).
+E5 RefuelTimeline: phases 0–1h (liquids-only-if-dehydrated) / 1–2h / 2–3h / 3h+
+   (1.2 g/kg/h), each with content, examples, macro ranges; per-24h targets
+   (e.g. P 120–150 / F 50–70 / C 650–800 / fibre <20); per-meal ritual (creatine
+   4–6g + enzymes + ~2g salt shot); fluids ≥1L/h first 4–6h.
+E6 MatchDayPlan: meal templates with early/late-match variants; final-60' stack;
+   final-5' honey/ginger item.
+E7 Attached protocol blocks (F): fight-week supplements, cramps/TRPA1 + mouth rinse,
+   fight-week plant foods, shopping/pharmacy/equipment — referenced, not duplicated.
+E8 Surfaces: coach grid editor + countdown; portal daily fight-week card (water with
+   bolus rhythm, salt, training, macros, meals, badges, notes, weight log) flipping
+   to rehydration/refuel checklist post-weigh-in; full-protocol PDF export.
+E9 NOT in v1: no auto-generated cut numbers, no sweat-rate models, no wearables.
+E10 Build gate: golden render fixtures — BOTH reference docs reproduced through the
+   template model without loss before UI work starts.
 
 ## F. Protocol blocks (Q5) [L]
 F1 Reusable content blocks (cold, heat, supplements, refeed, cutting kit — seeded
