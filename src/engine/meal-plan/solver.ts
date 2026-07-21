@@ -452,6 +452,18 @@ export interface SwappedIngredient {
   foodId: string;
   name: string;
   grams: number;
+  /**
+   * A3 (#10-math): present when the realism cap prevented the swap from
+   * reproducing the held macro (>2% short) — e.g. whey → plain kefir, where
+   * no sane portion of kefir carries a shake's protein. The swap is HONEST
+   * about the loss instead of silently presenting capped grams as equivalent;
+   * callers surface it (and the slot/day verdicts still catch the effect).
+   */
+  heldShortfall?: {
+    held: keyof FullMacros;
+    targetContribution: number;
+    achievedContribution: number;
+  };
 }
 
 /**
@@ -506,7 +518,22 @@ export function recomputeSwappedIngredient(
   const [lo, hi] = ingredientGramBounds(newFoodId, grams, newCat);
   grams = Math.max(1, roundGrams(clamp(grams, lo, hi)));
 
-  return { foodId: newFoodId, name: FOOD_MAP[newFoodId]!.v3 ?? newFoodId, grams };
+  const out: SwappedIngredient = {
+    foodId: newFoodId,
+    name: FOOD_MAP[newFoodId]!.v3 ?? newFoodId,
+    grams,
+  };
+  // Parity report: did the realism clamp break the held-macro equivalence?
+  const achieved = newPer100 > 0 ? (newPer100 * grams) / 100 : (newFood.kcal * grams) / 100;
+  const target = newPer100 > 0 ? oldContribution : (oldFood.kcal * oldIngredient.grams) / 100;
+  if (target > 0 && Math.abs(achieved - target) / target > 0.02) {
+    out.heldShortfall = {
+      held,
+      targetContribution: Math.round(target * 10) / 10,
+      achievedContribution: Math.round(achieved * 10) / 10,
+    };
+  }
+  return out;
 }
 
 // ── #21 portion adjust (relative bumps) ──────────────────────────────────────

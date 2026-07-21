@@ -120,3 +120,32 @@ describe("item-local swap holds the day (#20)", () => {
     expect(swapped.grams).toBeGreaterThan(0);
   });
 });
+
+describe("A3 (#10-math) — extreme-density swap honesty (Roberto's whey→kefir case)", () => {
+  test("whey → kefir-density swap reports the held-protein shortfall instead of silently capping", () => {
+    // whey-protein: 79 g/100 g protein; latte-scremato maps to plain kefir (4 g/100 g).
+    const oldIng: MealIngredient = { foodId: "whey-protein", name: "Whey", grams: 40 };
+    const targetP = heldContribution("whey-protein", 40, "proteinG"); // ~31.6 g
+    const swapped = recomputeSwappedIngredient(oldIng, "latte-scremato");
+    const achieved = heldContribution("latte-scremato", swapped.grams, "proteinG");
+    // Parity needs ~790 g of kefir — the realism cap must bind…
+    expect(achieved).toBeLessThan(targetP);
+    // …and the engine must SAY so (no silent fake equivalence):
+    expect(swapped.heldShortfall).toBeDefined();
+    expect(swapped.heldShortfall!.held).toBe("proteinG");
+    expect(swapped.heldShortfall!.targetContribution).toBeCloseTo(Math.round(targetP * 10) / 10, 1);
+    expect(swapped.heldShortfall!.achievedContribution).toBeCloseTo(Math.round(achieved * 10) / 10, 1);
+  });
+
+  test("a parity-achievable swap carries NO shortfall report", () => {
+    const oldIng: MealIngredient = { foodId: PROTEIN_A, name: "Chicken", grams: 150 };
+    const swapped = recomputeSwappedIngredient(oldIng, PROTEIN_B);
+    const targetP = heldContribution(PROTEIN_A, 150, "proteinG");
+    const achieved = heldContribution(PROTEIN_B, swapped.grams, "proteinG");
+    if (Math.abs(achieved - targetP) / targetP <= 0.02) {
+      expect(swapped.heldShortfall).toBeUndefined();
+    } else {
+      expect(swapped.heldShortfall).toBeDefined();
+    }
+  });
+});

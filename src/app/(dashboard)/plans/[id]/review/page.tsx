@@ -1275,7 +1275,7 @@ function MealsTab({
                   "Entro tolleranza"
                 ) : (
                   <span
-                    title={`Deviazione: ${plan.mealPlan.deviation.kcal > 0 ? '+' : ''}${plan.mealPlan.deviation.kcal} kcal, P ${plan.mealPlan.deviation.proteinG > 0 ? '+' : ''}${plan.mealPlan.deviation.proteinG}g, C ${plan.mealPlan.deviation.carbsG > 0 ? '+' : ''}${plan.mealPlan.deviation.carbsG}g, F ${plan.mealPlan.deviation.fatG > 0 ? '+' : ''}${plan.mealPlan.deviation.fatG}g`}
+                    title={`Deviazione: ${atwaterKcalDelta(plan.mealPlan.deviation) > 0 ? '+' : ''}${atwaterKcalDelta(plan.mealPlan.deviation)} kcal (4/4/9 dei macro), P ${plan.mealPlan.deviation.proteinG > 0 ? '+' : ''}${plan.mealPlan.deviation.proteinG}g, C ${plan.mealPlan.deviation.carbsG > 0 ? '+' : ''}${plan.mealPlan.deviation.carbsG}g, F ${plan.mealPlan.deviation.fatG > 0 ? '+' : ''}${plan.mealPlan.deviation.fatG}g`}
                   >
                     Fuori tolleranza
                   </span>
@@ -1351,7 +1351,7 @@ function MealsTab({
                   {MEAL_LABELS[slot.slot] ?? slot.slot.replace(/_/g, " ")}
                   {slotOOT && (
                     <span
-                      title={`Deviazione vs target: ${dev.kcal > 0 ? "+" : ""}${dev.kcal} kcal · P ${
+                      title={`Deviazione vs target: ${atwaterKcalDelta(dev) > 0 ? "+" : ""}${atwaterKcalDelta(dev)} kcal (4/4/9 dei macro) · P ${
                         dev.proteinG > 0 ? "+" : ""
                       }${dev.proteinG}g · C ${dev.carbsG > 0 ? "+" : ""}${
                         dev.carbsG
@@ -1921,6 +1921,14 @@ function MacroValueCell({
 }
 
 
+// A2 (#8): kcal deltas DISPLAYED next to gram deltas are derived from those
+// same grams (4/4/9), so a coach's hand math always reconciles. The engine's
+// own deviation.kcal (different basis: slot kcal fractions / target rounding)
+// keeps driving withinTolerance and thresholds — display only, per NORTHSTAR.
+function atwaterKcalDelta(dev: { proteinG: number; carbsG: number; fatG: number }): number {
+  return Math.round(dev.proteinG * 4 + dev.carbsG * 4 + dev.fatG * 9);
+}
+
 // ── Verifica del motore (Wave A) — verdicts come ONLY from the engine's own
 // ±5% tolerance rule carried in the bundle; deltas shown neutrally (NORTHSTAR:
 // no engineering-invented clinical thresholds — bounds are Roberto's EF4 call).
@@ -1957,7 +1965,7 @@ function VerdictStrip({ days }: { days: VerdictDay[] }) {
             {r.ok ? "✓" : "△"} {r.label} — {r.ok ? "entro tolleranza (regola motore ±5%)" : "fuori tolleranza"}
           </div>
           <div className="tnum mt-1 text-[12.5px] text-muted-foreground">
-            Δ {fmt(r.dev.kcal, " kcal")} · P {fmt(r.dev.proteinG, " g", 1)} · C {fmt(r.dev.carbsG, " g", 1)} · F {fmt(r.dev.fatG, " g", 1)}
+            Δ {fmt(atwaterKcalDelta(r.dev), " kcal")} · P {fmt(r.dev.proteinG, " g", 1)} · C {fmt(r.dev.carbsG, " g", 1)} · F {fmt(r.dev.fatG, " g", 1)}
           </div>
         </div>
       ))}
