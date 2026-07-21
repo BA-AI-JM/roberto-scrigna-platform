@@ -153,6 +153,25 @@ export function WeekStructureCard({
         <label style={labelStyle}>Attività per giorno (solo giorni ON)</label>
         <div style={{ overflowX: "auto" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: "6px", minWidth: "440px" }}>
+          {/* D1a (R13): column headers for the session rows */}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "60px 1fr 100px 80px 30px",
+              gap: "8px",
+              fontSize: "10.5px",
+              fontWeight: 600,
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
+              color: "#9ca3af",
+            }}
+          >
+            <span>Giorno</span>
+            <span>Attività</span>
+            <span>Durata (min)</span>
+            <span>RPE</span>
+            <span />
+          </div>
           {weekSchedule.map((dt, i) => {
             if (!isTrainingLikeDayType(dt)) return null;
             const sessions = perDaySessions[i] ?? [];

@@ -65,6 +65,13 @@ export function SupplementsEditor({
   const [macro, setMacro] = useState<string>("all");
   const [search, setSearch] = useState("");
 
+  // D1b (R16): names already assigned — an assigned item is disabled in the
+  // picker so a double click can never assign it twice.
+  const assignedNames = useMemo(
+    () => new Set(supplements.map((s) => s.name.trim().toLowerCase())),
+    [supplements]
+  );
+
   const interactions = checkSupplementInteractions(supplements);
 
   const groups = useMemo(() => {
@@ -193,12 +200,18 @@ export function SupplementsEditor({
                                 {item.italianNotes}
                               </span>
                             </div>
-                            <Button
-                              size="sm"
-                              onClick={() => onAddEntries([libraryItemToEntry(item)])}
-                            >
-                              Aggiungi
-                            </Button>
+                            {assignedNames.has(item.name.trim().toLowerCase()) ? (
+                              <Button size="sm" variant="ghost" disabled>
+                                Assegnato ✓
+                              </Button>
+                            ) : (
+                              <Button
+                                size="sm"
+                                onClick={() => onAddEntries([libraryItemToEntry(item)])}
+                              >
+                                Aggiungi
+                              </Button>
+                            )}
                           </div>
                         ))}
                       </div>

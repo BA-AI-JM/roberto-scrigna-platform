@@ -1248,6 +1248,28 @@ function MealsTab({
       )}
       {plansWithMeals.map((plan) => (
         <div key={plan.dayType} style={cardStyle}>
+          {/* D1c (R7): daily macro recap above the meals; D1d (R6): + fibre. */}
+          {plan.mealPlan && (
+            <div
+              className="tnum"
+              style={{
+                fontSize: "13px",
+                fontWeight: 600,
+                color: "var(--ink-2)",
+                backgroundColor: "var(--secondary)",
+                borderRadius: "10px",
+                padding: "8px 12px",
+                marginBottom: "12px",
+              }}
+            >
+              Totale giornata: {Math.round(plan.mealPlan.actualMacros.kcal)} kcal · P{" "}
+              {Math.round(plan.mealPlan.actualMacros.proteinG)} g · C{" "}
+              {Math.round(plan.mealPlan.actualMacros.carbsG)} g · F{" "}
+              {Math.round(plan.mealPlan.actualMacros.fatG)} g
+              {plan.mealPlan.actualMacros.fibreG != null &&
+                ` · Fibre ${Math.round(plan.mealPlan.actualMacros.fibreG)} g`}
+            </div>
+          )}
           <div
             style={{
               display: "flex",
@@ -1377,6 +1399,8 @@ function MealsTab({
                   {Math.round(slot.primary.actualMacros.proteinG)}g &middot; C{" "}
                   {Math.round(slot.primary.actualMacros.carbsG)}g &middot; F{" "}
                   {Math.round(slot.primary.actualMacros.fatG)}g
+                  {slot.primary.actualMacros.fibreG != null &&
+                    ` · Fibre ${Math.round(slot.primary.actualMacros.fibreG)}g`}
                 </span>
               </div>
               <p
