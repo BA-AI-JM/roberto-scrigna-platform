@@ -120,7 +120,9 @@ I1 Import path for last-year clients: minimal fields (anagrafica) via assisted
 
 ## J. Hardening & release (arc backlog)
 J1 Wave B hex→token sweep (remaining coach pages) + theme toggle UI.
-J2 T3.3 async-state primitives; T3.9 a11y (labels, role=tab); charts polish.
+J2 T3.3 async-state primitives; T3.9 a11y (labels, role=tab); charts polish;
+   C3 follow-up: read-only 'Frequenza check-in' pointer on Monitoraggio linking
+   to the client card (single-writer preserved).
 J3 T1.11 rate limiter; T1.13-fix (pending EF4 from pack).
 J4 Release seal: design re-score, full-suite + live e2e, prod deploy checklist,
    real-device pass, updated DEMO-SCRIPT.
