@@ -82,6 +82,14 @@ export async function GET(
     );
   }
 
+  // C5: practice identity for the courtesy footer (renderer degrades
+  // gracefully when the profile row is absent).
+  const { data: practiceProfile } = await supabase
+    .from("partner_practice_profile")
+    .select("professione, albo_ordine, albo_number, partita_iva, codice_fiscale, studio_address")
+    .eq("partner_id", partner.id)
+    .maybeSingle();
+
   // Render HTML
   const html = renderInvoiceHtml({
     invoiceNumber: invoice.invoice_number,
@@ -103,6 +111,7 @@ export async function GET(
     } | null,
     partnerName: partner.full_name,
     partnerEmail: partner.email,
+    practiceProfile,
   });
 
   // Generate PDF via the shared serverless-Chromium launcher (chromium-min).
