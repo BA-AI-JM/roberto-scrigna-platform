@@ -205,4 +205,6 @@ export interface WeeklyPlan {
   days: [DailyPlan, DailyPlan, DailyPlan, DailyPlan, DailyPlan, DailyPlan, DailyPlan];
   weeklyAverageKcal: number;
   weeklyAverageProteinG: number;
+  /** B2 (#9): carb-led tier-rule adjustments (visible signal; [] = no-op). */
+  carbLedAdjustments?: import("./carb-led-tiers").CarbLedAdjustment[];
 }

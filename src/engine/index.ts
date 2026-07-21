@@ -74,6 +74,7 @@ import type {
 import { isTrainingLikeDayType } from "./types";
 import { calculateTdee, type TdeeOptions } from "./tdee";
 import { calculateMacros, type MacroOptions } from "./macros";
+import { applyCarbLedTierRule, type CarbLedAdjustment } from "./carb-led-tiers";
 import { calculateHydration } from "./hydration";
 
 export interface PlanOptions extends TdeeOptions {
@@ -141,6 +142,14 @@ export function generateWeeklyPlan(
     return generateDailyPlan(snapshot, dayType, options);
   }) as WeeklyPlan["days"];
 
+  // B2 (#9): Roberto's carb-led tier rule — the kcal surplus of higher
+  // training days is allocated as cereal-composition food; adjustments are
+  // the visible signal (ride the bundle → assumptions). Overrides bypass.
+  const carbLedAdjustments = applyCarbLedTierRule(
+    days,
+    options.macroOptions?.absoluteOverrides
+  );
+
   const weeklyAverageKcal = Math.round(
     days.reduce((sum, d) => sum + d.macros.totalKcal, 0) / 7
   );
@@ -148,5 +157,5 @@ export function generateWeeklyPlan(
     days.reduce((sum, d) => sum + d.macros.proteinG, 0) / 7
   );
 
-  return { days, weeklyAverageKcal, weeklyAverageProteinG };
+  return { days, weeklyAverageKcal, weeklyAverageProteinG, carbLedAdjustments };
 }

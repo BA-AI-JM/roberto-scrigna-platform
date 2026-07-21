@@ -18,6 +18,7 @@ import type {
   WeeklyPlan,
 } from "../engine/types";
 import { generateWeeklyPlan, estimateBodyFat, waterLoadingSchedule } from "../engine";
+import { carbLedAssumptionLines } from "../engine/carb-led-tiers";
 import type { PlanOptions, WaterLoadingSchedule } from "../engine";
 import { createMealPlan } from "../engine/meal-plan";
 import {
@@ -404,6 +405,9 @@ export function generatePlan(
 
   // ── Step 6: Assumptions ────────────────────────────────────────────────
   const assumptions = collectAssumptions(input);
+  // B2 (#9): the carb-led tier rule's visible signal (Roberto N4: engine
+  // applies, coach sees what changed, overrides bypass).
+  assumptions.push(...carbLedAssumptionLines(weeklyPlan.carbLedAdjustments ?? []));
 
   // #FIX3: surface the carb-floor clamp — when protein+fat kcal alone exceed a
   // day's target, carbs floor to 0 and the achieved kcal overshoots the target

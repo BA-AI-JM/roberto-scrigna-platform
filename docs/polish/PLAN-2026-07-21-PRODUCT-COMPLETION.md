@@ -25,8 +25,10 @@ A6 [S] (#1) Practice identity constants: Biologo Nutrizionista n° AA_077690, P.
 ## B. The clinical model wired (#9 #10) + plan-builder UX (#6 #7 #11)
 B1 [L][EF] (#10) Slot-class substitution wiring from Model 1 §1: class membership per
    meal slot (Colazione/Spuntino/Pranzo-Cena), tiered equivalence; DB = macro truth.
-B2 [S][R][EF] (#9) Carbs>fats-on-training-days rule: Roberto defines the precise rule,
-   engine encodes, golden fixtures.
+B2 [DONE 2026-07-21][EF] (#9) Carb-led tier rule encoded from Roberto's answers:
+   tier kcal deltas allocated as cereal composition (+12.5P/+1.5F per 350 kcal,
+   carbs absorb remainder exactly); engine applies + signals via assumptions;
+   absolute overrides bypass. src/engine/carb-led-tiers.ts, 6 goldens.
 B3 [M] (#6) Remove presets; periodization modes (FINAL, Roberto 2026-07-21):
    ① Media settimanale ② OFF + ON (ON = average caloric expenditure of training days)
    ③ OFF–Leggero–Medio ④ OFF–Leggero–Medio–Intenso (③/④ when per-day delta justifies
