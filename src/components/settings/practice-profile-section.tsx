@@ -3,7 +3,7 @@
 /**
  * #29 — Practice-profile settings. Roberto enters his practice details ONCE here
  * ("Dati professionali / Studio" on /settings) and every engagement letter
- * auto-fills them. 19 fields in 6 labelled groups, loaded via getPracticeProfile
+ * auto-fills them. 20 fields in 6 labelled groups, loaded via getPracticeProfile
  * and saved via updatePracticeProfile (through the practice-profile data seam —
  * one-line swap once PR #72 merges). Matches the existing /settings section UX.
  */

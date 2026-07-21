@@ -45,6 +45,7 @@ export const MERGE_TOKENS = [
   "albo_ordine",
   "albo_number",
   "partita_iva",
+  "codice_fiscale",
   "studio_address",
   "delivery_mode",
   "plan_delivery_days",
@@ -79,6 +80,7 @@ export const MERGE_TOKEN_LABELS: Record<MergeToken, string> = {
   albo_ordine: "Albo/Ordine di iscrizione",
   albo_number: "Numero di iscrizione all'Albo",
   partita_iva: "Partita IVA",
+  codice_fiscale: "Codice Fiscale professionista",
   studio_address: "Indirizzo dello studio",
   delivery_mode: "Modalità di svolgimento (studio / da remoto / piattaforma)",
   plan_delivery_days: "Giorni per la consegna del piano",
@@ -107,7 +109,7 @@ export const ENGAGEMENT_LETTER_IT = {
 
 **Tra**
 
-**{{professional_name}}**, {{professione}}, iscritto/a all'Albo/Ordine {{albo_ordine}} n. {{albo_number}}, P.IVA {{partita_iva}}, con studio in {{studio_address}} (di seguito il "**Professionista**")
+**{{professional_name}}**, {{professione}}, iscritto/a all'Albo/Ordine {{albo_ordine}} n. {{albo_number}}, P.IVA {{partita_iva}}, C.F. {{codice_fiscale}}, con studio in {{studio_address}} (di seguito il "**Professionista**")
 
 **e**
 

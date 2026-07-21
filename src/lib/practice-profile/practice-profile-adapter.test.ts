@@ -11,12 +11,12 @@ function mockFetch(impl: () => Partial<Response> | Promise<Partial<Response>>) {
 }
 
 describe("contract shape", () => {
-  it("has exactly 19 fields, all covered by the 6 groups", () => {
-    expect(PRACTICE_FIELDS).toHaveLength(19);
+  it("has exactly 20 fields, all covered by the 6 groups", () => {
+    expect(PRACTICE_FIELDS).toHaveLength(20);
     const grouped = PRACTICE_GROUPS.flatMap((g) => g.fields.map((f) => f.key));
     expect(new Set(grouped)).toEqual(new Set(PRACTICE_FIELDS));
     expect(PRACTICE_GROUPS).toHaveLength(6);
-    expect(Object.keys(EMPTY_PRACTICE_PROFILE)).toHaveLength(19);
+    expect(Object.keys(EMPTY_PRACTICE_PROFILE)).toHaveLength(20);
   });
 });
 
@@ -38,13 +38,13 @@ describe("fetchPracticeProfile (graceful seam)", () => {
     mockFetch(() => { throw new Error("net"); });
     expect(await fetchPracticeProfile()).toEqual(EMPTY_PRACTICE_PROFILE);
   });
-  it("normalises a partial payload to the full 19-field shape (missing → null, blank → null)", async () => {
+  it("normalises a partial payload to the full 20-field shape (missing → null, blank → null)", async () => {
     mockFetch(() => ({ ok: true, status: 200, json: async () => ({ result: { data: { json: { professione: "Biologo", partita_iva: "" } } } }) }));
     const p = await fetchPracticeProfile();
     expect(p.professione).toBe("Biologo");
     expect(p.partita_iva).toBeNull(); // blank → null
     expect(p.foro).toBeNull(); // missing → null
-    expect(Object.keys(p)).toHaveLength(19);
+    expect(Object.keys(p)).toHaveLength(20);
   });
 });
 

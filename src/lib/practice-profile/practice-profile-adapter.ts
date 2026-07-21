@@ -19,6 +19,7 @@ export interface PracticeProfile {
   albo_ordine: string | null;
   albo_number: string | null;
   partita_iva: string | null;
+  codice_fiscale: string | null;
   studio_address: string | null;
   delivery_mode: string | null;
   plan_delivery_days: string | null;
@@ -39,7 +40,7 @@ export interface PracticeProfile {
 export type PracticeField = keyof PracticeProfile;
 
 export const PRACTICE_FIELDS: PracticeField[] = [
-  "professione", "albo_ordine", "albo_number", "partita_iva", "studio_address", "delivery_mode",
+  "professione", "albo_ordine", "albo_number", "partita_iva", "codice_fiscale", "studio_address", "delivery_mode",
   "plan_delivery_days", "cadenza",
   "fee_importo", "cassa_iva", "fee_articolazione", "payment_metodo", "payment_termine",
   "durata", "cancellation_notice_hours", "penale",
@@ -63,6 +64,7 @@ export const PRACTICE_GROUPS: {
       { key: "albo_ordine", label: "Albo / Ordine", placeholder: "es. Ordine Nazionale dei Biologi" },
       { key: "albo_number", label: "Numero iscrizione albo" },
       { key: "partita_iva", label: "Partita IVA" },
+      { key: "codice_fiscale", label: "Codice fiscale" },
       { key: "studio_address", label: "Indirizzo dello studio", placeholder: "Via, città, CAP", wide: true },
       { key: "delivery_mode", label: "Modalità di erogazione", placeholder: "es. In studio e online" },
     ],

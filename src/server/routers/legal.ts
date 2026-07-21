@@ -317,7 +317,7 @@ export const legalRouter = router({
       // Client (scoped to the partner — cross-tenant guard via partner_id).
       const { data: client, error: clientErr } = await db
         .from("client")
-        .select("id, full_name")
+        .select("id, full_name, codice_fiscale")
         .eq("id", input.clientId)
         .eq("partner_id", ctx.partnerId)
         .is("deleted_at", null)
@@ -375,7 +375,7 @@ export const legalRouter = router({
       const { data: profile } = await db
         .from("partner_practice_profile")
         .select(
-          "professione, albo_ordine, albo_number, partita_iva, studio_address, delivery_mode, plan_delivery_days, cadenza, fee_importo, cassa_iva, fee_articolazione, payment_metodo, payment_termine, durata, cancellation_notice_hours, penale, numero_polizza, assicuratore, foro"
+          "professione, albo_ordine, albo_number, partita_iva, codice_fiscale, studio_address, delivery_mode, plan_delivery_days, cadenza, fee_importo, cassa_iva, fee_articolazione, payment_metodo, payment_termine, durata, cancellation_notice_hours, penale, numero_polizza, assicuratore, foro"
         )
         .eq("partner_id", ctx.partnerId)
         .maybeSingle();
@@ -401,6 +401,8 @@ export const legalRouter = router({
       try {
         filled = fillEngagementLetter(activeVersion.body_md as string, {
           client_full_name: client.full_name as string,
+          // Post-021: the client CF column exists — fill the token when present.
+          client_codice_fiscale: (client.codice_fiscale as string | null) ?? undefined,
           professional_name: (partner?.full_name as string | undefined) ?? "Roberto Scrigna",
           generated_date: generatedDate,
           // Practitioner details from the practice profile (empty/absent → gaps).
