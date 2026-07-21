@@ -141,8 +141,8 @@ export function ReminderSettingsForm({
     <div className="reminder-card" style={card}>
       <style>{css}</style>
       <div style={header}>
-        <h3 style={titleStyle}>Promemoria</h3>
-        <p style={subStyle}>Cadenza dei promemoria di check-in e composizione corporea per questo cliente.</p>
+        <h3 style={titleStyle}>Frequenza check-in</h3>
+        <p style={subStyle}>Ogni quanti giorni per check-in e composizione corporea · promemoria automatici per questo cliente.</p>
       </div>
       <div style={body}>
         {/* Enable / disable */}
@@ -263,7 +263,7 @@ export function ReminderSettingsCard({ clientId }: { clientId: string }) {
     return (
       <div className="reminder-card" style={card}>
         <div style={header}>
-          <h3 style={titleStyle}>Promemoria</h3>
+          <h3 style={titleStyle}>Frequenza check-in</h3>
         </div>
         <div style={body}>
           <div style={{ height: "26px", width: "40%", background: "#eef2f6", borderRadius: "6px", marginBottom: "16px" }} />
@@ -278,7 +278,7 @@ export function ReminderSettingsCard({ clientId }: { clientId: string }) {
     return (
       <div className="reminder-card" style={card}>
         <div style={header}>
-          <h3 style={titleStyle}>Promemoria</h3>
+          <h3 style={titleStyle}>Frequenza check-in</h3>
         </div>
         <div style={body}>
           <p role="alert" style={{ fontSize: "13px", color: "#b4453b", margin: 0 }}>

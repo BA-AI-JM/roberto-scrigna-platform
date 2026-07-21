@@ -1314,6 +1314,24 @@ export default function ClientDetailPage() {
           >
             Segnalazioni
           </Link>
+          {/* C4 (#16) — create an invoice pre-scoped to this client. Prefill of
+              /invoices/new from the clientId query param is owned by another
+              surface; this action only links there. */}
+          <Link
+            href={`/invoices/new?clientId=${clientId}`}
+            style={{
+              padding: "9px 18px",
+              backgroundColor: "#ffffff",
+              color: "#1a1a2e",
+              border: "1px solid #e2e8f0",
+              borderRadius: "8px",
+              textDecoration: "none",
+              fontSize: "14px",
+              fontWeight: 600,
+            }}
+          >
+            Nuova fattura
+          </Link>
           {client.status !== "archived" && (
             <button
               onClick={handleInvite}
