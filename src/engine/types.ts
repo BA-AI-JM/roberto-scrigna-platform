@@ -138,6 +138,8 @@ export interface TdeeOverride {
 export interface BmrResult {
   bmrKcal: number;
   bodyComposition: BodyComposition;
+  /** D4 (R1): which formula produced bmrKcal. */
+  formula?: "katch-mcardle" | "harris-benedict";
 }
 
 export interface NeatResult {

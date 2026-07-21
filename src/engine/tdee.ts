@@ -96,7 +96,7 @@ export function calculateTdee(
   if (override) {
     // Still calculate components for informational purposes
     const bodyFatResult = estimateBodyFat(snapshot);
-    const bmr = calculateBmr(bodyFatResult);
+    const bmr = calculateBmr(bodyFatResult, { weightKg: snapshot.weightKg, heightCm: snapshot.heightCm, ageYears: snapshot.ageYears, sex: snapshot.sex });
     const neat = calculateNeat(neatSteps, snapshot.weightKg, snapshot.occupationalLevel);
     const exercise = restDayExercise();
     const tef = calculateTef(bmr.bmrKcal, options.dietEmphasis);
@@ -113,7 +113,7 @@ export function calculateTdee(
 
   // 1. Body composition & BMR
   const bodyFatResult = estimateBodyFat(snapshot);
-  const bmr = calculateBmr(bodyFatResult);
+  const bmr = calculateBmr(bodyFatResult, { weightKg: snapshot.weightKg, heightCm: snapshot.heightCm, ageYears: snapshot.ageYears, sex: snapshot.sex });
 
   // 2. NEAT (neatSteps = reducedActivitySteps when set, else snapshot.dailySteps)
   const neat = calculateNeat(

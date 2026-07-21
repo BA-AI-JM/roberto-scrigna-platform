@@ -176,6 +176,8 @@ export default function ClientEditPage() {
   // C2 (#4) — anamnesis, fully editable post-intake (Roberto 2026-07-21).
   // Hydrated from the latest snapshot's _intake.medical_history; saved as a
   // FULL REPLACE with the new snapshot (clearing a field really clears it).
+  // D4 (R1): manual BF% (used only when no skinfolds entered this snapshot).
+  const [manualBf, setManualBf] = useState("");
   const [medForm, setMedForm] = useState({
     pathologies: "",
     family_history: "",
@@ -421,6 +423,8 @@ export default function ClientEditPage() {
           heightCm,
           circumferences: hasCirc ? circ : undefined,
           skinfolds: skinfoldsPayload,
+          manualBodyFatPct:
+            manualBf !== "" && !skinfoldsPayload ? Number(manualBf) : undefined,
           medicalHistory: (() => {
             // C2: full replace from the editable form (empty fields omitted).
             const entries = Object.entries(medForm).filter(([, v]) => v.trim() !== "");
@@ -911,6 +915,22 @@ export default function ClientEditPage() {
                       </option>
                     ))}
                   </select>
+                </FormField>
+              </div>
+
+              {/* ── D4 (R1) Grasso corporeo manuale ─────────────────── */}
+              <div style={{ marginBottom: "16px" }}>
+                <FormField label="Grasso corporeo % — manuale (se niente pliche)">
+                  <input
+                    type="number"
+                    min={3}
+                    max={60}
+                    step={0.1}
+                    value={manualBf}
+                    onChange={(e) => setManualBf(e.target.value)}
+                    style={inputStyle}
+                    placeholder="es. 15 — senza pliche né questo valore: BMR Harris-Benedict"
+                  />
                 </FormField>
               </div>
 

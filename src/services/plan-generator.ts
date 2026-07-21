@@ -213,7 +213,7 @@ function collectAssumptions(input: PlanGenerationInput): string[] {
     );
   } else {
     assumptions.push(
-      "Grasso corporeo stimato con formula euristica basata su BMI — precisione limitata. Si consiglia una plicometria per maggiore accuratezza."
+      "Nessun dato di composizione corporea: metabolismo basale calcolato con Harris-Benedict (peso/altezza/età/sesso). Inserisci la % di grasso manualmente o una plicometria per il calcolo su massa magra (Katch-McArdle)."
     );
   }
 

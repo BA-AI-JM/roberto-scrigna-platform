@@ -66,6 +66,8 @@ interface FormData {
   pl_subscapular: string;
   pl_thigh: string;
   pl_midaxillary: string;
+  /** D4 (R1): manual BF% when no skinfolds are measured. */
+  manualBodyFatPct: string;
 
   // Page 4 – Anamnesi Medica
   pathologies: string;
@@ -346,6 +348,27 @@ function Page3({ form, set }: { form: FormData; set: (k: keyof FormData, v: stri
             />
           </FieldGroup>
         ))}
+      </div>
+
+      {/* D4 (R1): manual BF% when the coach has no measurements — used only
+          if NO skinfolds are entered (method "override" → Katch-McArdle on
+          the stated composition; nothing at all → Harris-Benedict). */}
+      <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
+        <FieldGroup label="Grasso corporeo % — inserimento manuale (se niente pliche)">
+          <input
+            type="number"
+            className={s.input}
+            value={form.manualBodyFatPct}
+            onChange={(e) => set("manualBodyFatPct", e.target.value)}
+            placeholder="es. 15"
+            min={3}
+            max={60}
+            step={0.1}
+          />
+        </FieldGroup>
+        <p className="mt-1 text-xs text-zinc-500">
+          Senza pliche e senza questo valore, il metabolismo basale usa Harris-Benedict (nessuna composizione corporea richiesta).
+        </p>
       </div>
     </div>
   );
@@ -770,6 +793,7 @@ const initialForm: FormData = {
   pl_suprailiac: "",
   pl_subscapular: "",
   pl_thigh: "",
+  manualBodyFatPct: "",
   pl_midaxillary: "",
 
   pathologies: "",
@@ -923,6 +947,10 @@ export default function IntakeForm() {
         heightCm: parseNum(form.height_cm),
         circumferences: hasCircumferences ? circumferences : undefined,
         skinfolds: hasSkinfolds ? skinfolds : undefined,
+        // D4 (R1): manual BF% when the coach has no measurements.
+        manualBodyFatPct: form.manualBodyFatPct !== "" && !hasSkinfolds
+          ? Number(form.manualBodyFatPct)
+          : undefined,
         medicalHistory: hasMedHistory ? medHistory : undefined,
         trainingSessions:
           Object.keys(trainingSessions).length > 0 ? trainingSessions : undefined,

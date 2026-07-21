@@ -104,6 +104,12 @@ const createSnapshotSchema = z.object({
     })
     .optional(),
 
+  /**
+   * D4 (R1, Roberto 2026-07-21): manual body-fat % when no measurements —
+   * engine method "override" (highest priority in estimateBodyFat).
+   */
+  manualBodyFatPct: z.number().min(3).max(60).nullish(),
+
   // Medical history (page 4)
   medicalHistory: z
     .object({
@@ -436,7 +442,14 @@ export const clientRouter = router({
       let bodyFatMethod: string | null = null;
       let engineSkinfoldData: Record<string, unknown> | null = null;
 
-      if (input.skinfolds) {
+      // D4 (R1): coach-entered BF% takes engine priority (method "override").
+      if (input.manualBodyFatPct != null) {
+        bodyFatMethod = "override";
+        engineSkinfoldData = {
+          method: "override",
+          bodyFatPctOverride: input.manualBodyFatPct,
+        };
+      } else if (input.skinfolds) {
         const filledSites = Object.values(input.skinfolds).filter(
           (v) => v != null && v > 0
         ).length;
