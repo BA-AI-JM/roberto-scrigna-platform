@@ -9,7 +9,7 @@
 
 "use client";
 
-import { useState, useRef, type ReactNode } from "react";
+import { Fragment, useState, useRef, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter, useParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
@@ -800,6 +800,9 @@ function CheckinTab({ clientId }: { clientId: string }) {
   });
 
   // markReviewed — coach clears the review queue on a completed check-in.
+  // D2 (R3+R4): expandable full-detail review + coach reply.
+  const [expandedCheckin, setExpandedCheckin] = useState<string | null>(null);
+  const [replyDraft, setReplyDraft] = useState("");
   const markReviewedMutation = trpc.checkin.markReviewed.useMutation({
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: getQueryKey(trpc.checkin.list) }),
   });
@@ -1029,11 +1032,19 @@ function CheckinTab({ clientId }: { clientId: string }) {
         <tbody>
           {checkins.map((ci, idx) => {
             const checkinData = ci as Record<string, unknown>;
+            const cid = String(checkinData.id);
+            const isExpanded = expandedCheckin === cid;
             return (
+              <Fragment key={cid}>
               <tr
-                key={String(checkinData.id)}
+                onClick={() => {
+                  setExpandedCheckin(isExpanded ? null : cid);
+                  setReplyDraft((checkinData.review_notes as string) ?? "");
+                }}
                 style={{
                   borderBottom: idx < checkins.length - 1 ? "1px solid #f1f5f9" : "none",
+                  cursor: "pointer",
+                  background: isExpanded ? "#f8fafc" : undefined,
                 }}
               >
                 <td style={{ padding: "14px 16px", fontSize: "14px", color: "#6b7280" }}>
@@ -1082,6 +1093,66 @@ function CheckinTab({ clientId }: { clientId: string }) {
                   )}
                 </td>
               </tr>
+              {isExpanded && (
+                <tr>
+                  <td colSpan={6} style={{ padding: "0 16px 16px", background: "#f8fafc" }}>
+                    {/* D2b (R4): EVERY answer, not the 4-field summary. */}
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: "10px", padding: "12px 0" }} className="tnum">
+                      {(
+                        [
+                          ["Stress", checkinData.stress_level, "/10"],
+                          ["Fame", checkinData.hunger_level, "/10"],
+                          ["Digestione", checkinData.digestive_health, "/10"],
+                          ["Aderenza dieta", checkinData.nutrition_adherence, "%"],
+                          ["Aderenza allenamento", checkinData.training_adherence, "%"],
+                          ["Aderenza integratori", checkinData.supplement_adherence, "%"],
+                          ["Δ peso", checkinData.weight_deviation_kg, " kg"],
+                        ] as const
+                      ).map(([label, v, unit]) => (
+                        <div key={label}>
+                          <div style={{ fontSize: "11px", color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.05em" }}>{label}</div>
+                          <div style={{ fontSize: "14px", fontWeight: 600, color: "#1a1a2e" }}>
+                            {v != null ? `${v}${unit}` : "—"}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    {typeof checkinData.notes === "string" && checkinData.notes.trim() !== "" && (
+                      <div style={{ marginBottom: "10px" }}>
+                        <div style={{ fontSize: "11px", color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "2px" }}>Note del cliente</div>
+                        <div style={{ fontSize: "13.5px", color: "#374151", whiteSpace: "pre-wrap" }}>{checkinData.notes}</div>
+                      </div>
+                    )}
+                    {/* D2a (R3): coach reply — saved via markReviewed(reviewNotes). */}
+                    <div style={{ fontSize: "11px", color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "4px" }}>
+                      Risposta del coach (visibile al cliente nel portale)
+                    </div>
+                    <textarea
+                      value={replyDraft}
+                      onChange={(e) => setReplyDraft(e.target.value)}
+                      onClick={(e) => e.stopPropagation()}
+                      rows={3}
+                      placeholder="Impressioni, suggerimenti, commento sul percorso…"
+                      style={{ width: "100%", border: "1px solid #d1d5db", borderRadius: "8px", padding: "8px 10px", fontSize: "13.5px", fontFamily: "inherit", resize: "vertical", background: "#ffffff" }}
+                    />
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        markReviewedMutation.mutate({ id: cid, reviewNotes: replyDraft.trim() || undefined });
+                      }}
+                      disabled={markReviewedMutation.isPending}
+                      style={{ marginTop: "8px", padding: "7px 16px", backgroundColor: "#0f6e56", color: "#ffffff", border: "none", borderRadius: "8px", fontSize: "13px", fontWeight: 600, cursor: "pointer" }}
+                    >
+                      {markReviewedMutation.isPending
+                        ? "Salvataggio…"
+                        : checkinData.status === "reviewed"
+                          ? "Aggiorna risposta"
+                          : "Salva risposta e segna rivisto"}
+                    </button>
+                  </td>
+                </tr>
+              )}
+              </Fragment>
             );
           })}
         </tbody>

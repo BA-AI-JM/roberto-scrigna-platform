@@ -315,11 +315,13 @@ export const portalRouter = router({
       // Weight trend from last 16 check-ins
       db
         .from("check_in")
-        .select("check_in_date, weight_kg, nutrition_adherence, training_adherence")
+        .select("check_in_date, weight_kg, nutrition_adherence, training_adherence, review_notes")
         .eq("client_id", ctx.clientId)
         // T1.3 (G22): pending rows have NULL check_in_date and crashed the page's
         // date math (new Date(null)=epoch defeats the NaN guard). Trend = completed only.
-        .eq("status", "completed")
+        // D2: reviewed check-ins stay visible (reviewed ⊃ completed) — the
+        // completed-only filter silently dropped rows once the coach reviewed.
+        .in("status", ["completed", "reviewed"])
         .not("check_in_date", "is", null)
         .order("check_in_date", { ascending: true })
         .limit(16),

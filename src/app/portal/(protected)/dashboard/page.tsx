@@ -175,6 +175,7 @@ type DashboardData = {
     weight_kg: number | null;
     nutrition_adherence: number | null;
     training_adherence: number | null;
+    review_notes?: string | null;
   }>;
   trainingLogs: unknown[];
   diaryEntries: unknown[];
@@ -228,6 +229,29 @@ function WeightHistorySection({ data, planStartDate, loading, snapshots }: {
         {daysOnPlan > 0 && <StatPill label="Giorni sul piano" value={String(daysOnPlan)} />}
         {avgAdherence != null && <StatPill label="Aderenza media" value={`${avgAdherence}%`} />}
       </div>
+
+      {/* D2a (R3): the coach's reply to the latest reviewed check-in. */}
+      {(() => {
+        const lastReplied = [...recent].reverse().find((e) => (e as { review_notes?: string | null }).review_notes);
+        const reply = (lastReplied as { review_notes?: string | null } | undefined)?.review_notes;
+        if (!reply) return null;
+        return (
+          <div
+            style={{
+              marginBottom: "20px",
+              padding: "12px 14px",
+              borderRadius: "12px",
+              background: "#f0f7f4",
+              border: "1px solid #cde5da",
+            }}
+          >
+            <div style={{ fontSize: "12px", fontWeight: 700, color: "#0c6b4d", marginBottom: "4px" }}>
+              Risposta del coach · {lastReplied?.check_in_date ?? ""}
+            </div>
+            <div style={{ fontSize: "13.5px", color: "#1f2d27", whiteSpace: "pre-wrap", lineHeight: 1.5 }}>{reply}</div>
+          </div>
+        );
+      })()}
 
       {(() => {
         const checkinWeightPts = withWeight.map((e) => ({ date: e.check_in_date as string, value: e.weight_kg as number })); // non-null by withWeight filter (G22)

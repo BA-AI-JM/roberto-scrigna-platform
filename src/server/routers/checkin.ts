@@ -374,8 +374,10 @@ export const checkinRouter = router({
         .from("check_in")
         .select(
           `id, status, weight_kg, weight_deviation_kg, weight_flagged,
-           energy_level, sleep_quality, adherence_pct, ai_summary,
-           due_date, completed_at, created_at,
+           energy_level, sleep_quality, stress_level, hunger_level,
+           digestive_health, adherence_pct, nutrition_adherence,
+           training_adherence, supplement_adherence, notes, review_notes,
+           check_in_date, ai_summary, due_date, completed_at, created_at,
            client:client_id (id, full_name)`,
           { count: "exact" }
         )
