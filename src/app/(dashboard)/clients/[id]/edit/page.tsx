@@ -172,6 +172,22 @@ export default function ClientEditPage() {
 
   const [goalForm, setGoalForm] = useState<GoalForm>(EMPTY_GOAL);
   const [weekSessions, setWeekSessions] = useState<WeekSessions>({});
+
+  // C2 (#4) — anamnesis, fully editable post-intake (Roberto 2026-07-21).
+  // Hydrated from the latest snapshot's _intake.medical_history; saved as a
+  // FULL REPLACE with the new snapshot (clearing a field really clears it).
+  const [medForm, setMedForm] = useState({
+    pathologies: "",
+    family_history: "",
+    allergies: "",
+    intolerances: "",
+    medications: "",
+    supplements: "",
+    surgeries: "",
+    injuries: "",
+    digestion_issues: "",
+    intestine_issues: "",
+  });
   const [skinfolds, setSkinfolds] = useState<SkinfoldsValue>(EMPTY_SKINFOLDS);
 
   const [addSnapshot, setAddSnapshot] = useState(false);
@@ -228,6 +244,20 @@ export default function ClientEditPage() {
           targetEventDate: goal.target_event_date ?? "",
         });
       }
+
+      const mh = (intake.medical_history as Record<string, string> | undefined) ?? {};
+      setMedForm({
+        pathologies: mh.pathologies ?? "",
+        family_history: mh.family_history ?? "",
+        allergies: mh.allergies ?? "",
+        intolerances: mh.intolerances ?? "",
+        medications: mh.medications ?? "",
+        supplements: mh.supplements ?? "",
+        surgeries: mh.surgeries ?? "",
+        injuries: mh.injuries ?? "",
+        digestion_issues: mh.digestion_issues ?? "",
+        intestine_issues: mh.intestine_issues ?? "",
+      });
 
       const sessions = intake.training_sessions as
         | Record<string, unknown[]>
@@ -298,8 +328,7 @@ export default function ClientEditPage() {
         const prevCirc =
           (prevIntake.circumferences as Record<string, number | undefined> | undefined) ??
           undefined;
-        const prevMedHistory =
-          (prevIntake.medical_history as Record<string, unknown> | undefined) ?? undefined;
+
 
         // Circumferences: form values override prev values per-field; if neither
         // is set, the field is undefined.
@@ -392,9 +421,11 @@ export default function ClientEditPage() {
           heightCm,
           circumferences: hasCirc ? circ : undefined,
           skinfolds: skinfoldsPayload,
-          medicalHistory: prevMedHistory as Parameters<
-            typeof createSnapshotMutation.mutateAsync
-          >[0]["medicalHistory"],
+          medicalHistory: (() => {
+            // C2: full replace from the editable form (empty fields omitted).
+            const entries = Object.entries(medForm).filter(([, v]) => v.trim() !== "");
+            return entries.length > 0 ? Object.fromEntries(entries) : undefined;
+          })(),
           trainingSessions: hasTraining ? trainingSessions : undefined,
           occupationalLevel: occupationalLevel || undefined,
           lifestyle: {
@@ -881,6 +912,49 @@ export default function ClientEditPage() {
                     ))}
                   </select>
                 </FormField>
+              </div>
+
+              {/* ── C2 (#4) Anamnesi — editable post-intake ──────────── */}
+              <div
+                style={{
+                  fontSize: "13px",
+                  fontWeight: 600,
+                  color: "#374151",
+                  marginTop: "8px",
+                  marginBottom: "4px",
+                  borderTop: "1px solid #f1f5f9",
+                  paddingTop: "16px",
+                }}
+              >
+                Anamnesi
+              </div>
+              <p style={{ fontSize: "12px", color: "#6b7280", marginTop: 0, marginBottom: "12px" }}>
+                Precompilata dall'ultima scheda — modifica liberamente; svuotare un campo lo rimuove.
+              </p>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "12px" }}>
+                {(
+                  [
+                    ["allergies", "Allergie"],
+                    ["intolerances", "Intolleranze"],
+                    ["pathologies", "Patologie"],
+                    ["family_history", "Familiarità"],
+                    ["medications", "Farmaci (tipo, dosaggio, variazioni)"],
+                    ["supplements", "Integratori in uso"],
+                    ["surgeries", "Interventi chirurgici"],
+                    ["injuries", "Infortuni"],
+                    ["digestion_issues", "Digestione"],
+                    ["intestine_issues", "Salute intestinale"],
+                  ] as const
+                ).map(([key, label]) => (
+                  <FormField key={key} label={label}>
+                    <textarea
+                      value={medForm[key]}
+                      onChange={(e) => setMedForm((f) => ({ ...f, [key]: e.target.value }))}
+                      rows={2}
+                      style={{ ...inputStyle, resize: "vertical", minHeight: "52px" }}
+                    />
+                  </FormField>
+                ))}
               </div>
 
               {/* ── Scheda allenamento settimanale ───────────────────── */}
