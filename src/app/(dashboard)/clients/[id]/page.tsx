@@ -276,6 +276,9 @@ function buildMedicalRows(m: Record<string, unknown> | undefined): InfoRow[] {
   push("Intolleranze", m.intolerances);
   push("Farmaci", m.medications);
   push("Integratori", m.supplements);
+  // C2 (#4): the two new anamnesis fields
+  push("Interventi chirurgici", m.surgeries);
+  push("Infortuni", m.injuries);
   push("Digestione", m.digestion_issues);
   push("Intestino", m.intestine_issues);
   push("Sonno", m.sleep);

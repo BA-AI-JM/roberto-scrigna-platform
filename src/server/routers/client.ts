@@ -113,6 +113,10 @@ const createSnapshotSchema = z.object({
       intolerances: z.string().optional(),
       medications: z.string().optional(),
       supplements: z.string().optional(),
+      // C2 (#4, Roberto 2026-07-21): surgeries + injuries as first-class
+      // anamnesis fields (medications free-text carries tipo/dosaggio/variazioni)
+      surgeries: z.string().optional(),
+      injuries: z.string().optional(),
       digestion_issues: z.string().optional(),
       intestine_issues: z.string().optional(),
       sleep: z.string().optional(),
