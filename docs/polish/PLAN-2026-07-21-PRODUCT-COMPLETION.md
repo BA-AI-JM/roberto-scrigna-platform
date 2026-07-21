@@ -83,6 +83,17 @@ E8 Surfaces: coach grid editor + countdown; portal daily fight-week card (water 
 E9 NOT in v1: no auto-generated cut numbers, no sweat-rate models, no wearables.
 E10 Build gate: golden render fixtures — BOTH reference docs reproduced through the
    template model without loss before UI work starts.
+E11 Build notes (code recon, line-verified 2026-07-21): engine already has
+   waterLoadingSchedule (hydration.ts:88) + CombatProtocols fibre/sodium caps
+   (plan-generator.ts:130-137) — bundle carries waterLoading, portal.ts:207 returns it
+   ("UI renders in T3.5" pending), NO render path exists in portal or PDF yet.
+   PDF slots cleanly: add renderFightWeek page after day-type pages
+   (html-renderer.ts:505-586 pattern). DESIGN FORK to decide at build: bundle-embedded
+   (waterLoading precedent; relative days) vs normalized tables. RECOMMENDATION:
+   normalized (fight_week_protocol + fight_week_day + template library) — fight week
+   is coach-AUTHORED, date-anchored, edited daily mid-cut; a bundle blob would force
+   regeneration semantics on every edit. Existing waterLoading/fibre/sodium engine
+   output stays as-is and links INTO the protocol view, not replaced.
 
 ## F. Protocol blocks (Q5) [L]
 F1 Reusable content blocks (cold, heat, supplements, refeed, cutting kit — seeded
