@@ -53,7 +53,7 @@ D3 [L][EF] Q3 "day checker": client-side meal-structure changes/swaps validated
    against assigned daily targets using B1 classes; shows resulting macro state.
 D4 [M] Portal polish: dark theme pass (T3.5), emoji→icons, a11y basics.
 
-## E. Fight-week module (Q4) [XL][R][EF] — template model CONFIRMED-PENDING (presented 2026-07-21)
+## E. Fight-week module (Q4) [XL][EF] — template model CONFIRMED by Roberto 2026-07-21 (+ planned-weight amendment)
 Reference: docs/reference/fight-week/ (two real protocols; variance notes in its README).
 Principle: the app NEVER computes a cut — only arithmetic (countdowns, rehydration
 totals from entered cut at editable 150%/70% coefficients, ÷3 refuel helper).
@@ -63,7 +63,11 @@ E1 Data model — FightWeekProtocol: athlete, weighInDate (+early/late flag), op
 E2 DayRow (−7…−1, weigh-in): water (value or min–max mL) · salt g · training label
    (free text) · kcal/P/F/C · optional fibre cap · constraint flags (NO_SALT,
    LOW_FIBRE, NO_WHOLEGRAIN, NO_VEG, FRESH_FOOD_ONLY) · free-text meal template ·
-   conditional notes · optional target weight kg + morning-weight actual log.
+   conditional notes · PLANNED WEIGHT kg (AMENDMENT 2026-07-21: first-class, not
+   optional — Roberto authors/edits the fighter's per-day weight trajectory ahead of
+   time and can adjust any individual day mid-week) + actual morning-weight log;
+   plan-vs-actual variance visible per day (drives the "we modify according to how
+   much you lose" loop).
 E3 Weigh-in block: fasted flag, day-before options, cutting-work cycles (15–30'
    active/passive), orthostatic-hypotension safety line (always rendered).
 E4 RehydrationPlan: total = editable % of cut (default 150), prepared-in-bottles %
