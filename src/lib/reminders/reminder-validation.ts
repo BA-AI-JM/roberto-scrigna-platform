@@ -9,9 +9,12 @@ export const CHECK_IN_MAX = 90;
 export const BODY_COMP_MIN = 1;
 export const BODY_COMP_MAX = 365;
 
+// Must mirror the server's REMINDER_DEFAULTS (src/server/reminder-due.ts): check-in
+// every 21 days, body-comp 0 = OFF. A divergence here is what made the card summary
+// show a stale cadence (14/28) when a client's body-comp reminder was off.
 export const DEFAULT_REMINDER_SETTINGS: ReminderSettings = {
-  checkInEveryDays: 14,
-  bodyCompEveryDays: 28,
+  checkInEveryDays: 21,
+  bodyCompEveryDays: 0,
   enabled: true,
 };
 
@@ -47,7 +50,12 @@ export function validateSettings(input: {
 }): ReminderValidation {
   if (!input.enabled) return { checkIn: null, bodyComp: null, ok: true };
   const checkIn = validateCadence(input.checkInEveryDays, CHECK_IN_MIN, CHECK_IN_MAX);
-  const bodyComp = validateCadence(input.bodyCompEveryDays, BODY_COMP_MIN, BODY_COMP_MAX);
+  // Body-comp 0 = OFF (opt-out), matching the server (which stores 0 for "off").
+  // Only a non-zero value must fall within [BODY_COMP_MIN, BODY_COMP_MAX].
+  const bodyComp =
+    input.bodyCompEveryDays === 0
+      ? null
+      : validateCadence(input.bodyCompEveryDays, BODY_COMP_MIN, BODY_COMP_MAX);
   return { checkIn, bodyComp, ok: checkIn === null && bodyComp === null };
 }
 
@@ -64,7 +72,12 @@ export function formatCadence(label: string, days: number): string {
 /** The effective-cadence summary shown under the controls. */
 export function formatCadenceSummary(s: ReminderSettings): string {
   if (!s.enabled) return "Promemoria disattivati.";
-  return `${formatCadence("Check-in", s.checkInEveryDays)} · ${formatCadence("Composizione corporea", s.bodyCompEveryDays)}.`;
+  // Body-comp 0 = OFF — render it explicitly instead of "ogni 0 giorni".
+  const bodyComp =
+    s.bodyCompEveryDays === 0
+      ? "Composizione corporea: disattivata"
+      : formatCadence("Composizione corporea", s.bodyCompEveryDays);
+  return `${formatCadence("Check-in", s.checkInEveryDays)} · ${bodyComp}.`;
 }
 
 /**
