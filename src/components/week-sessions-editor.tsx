@@ -201,7 +201,7 @@ export function WeekSessionsEditor({
                             dayIndex,
                             si,
                             "duration_min",
-                            Math.max(1, parseInt(e.target.value) || 1)
+                            Math.min(480, Math.max(1, parseInt(e.target.value) || 1))
                           )
                         }
                         min={1}

@@ -407,7 +407,7 @@ export const legalRouter = router({
           generated_date: generatedDate,
           // Practitioner details from the practice profile (empty/absent → gaps).
           ...((profile as Record<string, string | null> | null) ?? {}),
-          // codice fiscale + residenza are not held on the client record → left as gaps
+          // client residenza is not held on the client record → left as a gap
         });
 
         const html = renderEngagementLetterHtml({

@@ -19,7 +19,15 @@ export async function GET(req: NextRequest) {
       // A4 (#14): deep-link set by the login page (delivery-email flow).
       // Validated again here — the cookie is client-writable.
       const rawNext = req.cookies.get(PORTAL_NEXT_COOKIE)?.value;
-      const decoded = rawNext ? decodeURIComponent(rawNext) : null;
+      // Guarded decode: the cookie is client-writable, and a malformed % would
+      // throw AFTER the one-shot code exchange succeeded (500 on a logged-in
+      // user). Malformed → ignore, land on the dashboard, clear the cookie.
+      let decoded: string | null = null;
+      try {
+        decoded = rawNext ? decodeURIComponent(rawNext) : null;
+      } catch {
+        decoded = null;
+      }
       const target = isSafePortalPath(decoded) ? decoded : "/portal/dashboard";
       const res = NextResponse.redirect(`${origin}${target}`);
       res.cookies.set(PORTAL_NEXT_COOKIE, "", { path: "/", maxAge: 0 });

@@ -544,6 +544,9 @@ export const trainingLogRouter = router({
    * reads expenditure from the snapshot intake, NEVER from training_log, so this
    * never changes a generated plan. Pass null to clear.
    */
+  // NOTE (#5/A1): PLANNED-grid session overrides no longer use this — they live
+  // on the session object in _intake.training_sessions and save with the form.
+  // This procedure remains for LOGGED training_log rows only (uuid-keyed).
   setSessionKcalOverride: protectedProcedure
     .input(
       z.object({
