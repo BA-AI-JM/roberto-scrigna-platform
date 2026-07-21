@@ -1,128 +1,343 @@
-# Product-completion plan — 2026-07-21
+# Product-completion plan — consolidated (2026-07-21)
 
-Source inputs: feedback register items 1–17 (docs/polish/ROBERTO-FEEDBACK-2026-07-21.md),
-the 8 macro answers (2026-07-21), Model 1 reference (docs/reference/MODEL-1-ENG.md),
-open arc backlog. Status: AWAITING Liam+Roberto once-over. Tags: [S/M/L/XL] size ·
-[R] needs Roberto decision/sign-off · [EF] clinical, engine-adjacent, value-equivalence
-gated per NORTHSTAR. Register item numbers in (#n).
+Source inputs: round-2 feedback R1–R16 (docs/polish/ROBERTO-FEEDBACK-2026-07-21-R2.md,
+operator-confirmed "happy with this list"); round-1 items 1–17 (docs/polish/ROBERTO-FEEDBACK-2026-07-21.md,
+all closed or superseded — cross-reference only); Model 1 reference (docs/reference/MODEL-1-ENG.md);
+NORTHSTAR.md + DIRECTION.md (governing); the not-yet-done tail of the prior plan (old waves D–J).
+Status: AWAITING two Roberto inputs (R8 ⚠×2, R14 sign-off) — every other item is build-ready.
 
-Sequencing: A→B ship first (Roberto is live-testing). C–E next (daily workflow).
-F–H are the new feature builds. I–K thread through and close.
+Tags: `[S/M/L/XL]` size · `[EF]` clinical / engine-adjacent / value-equivalence-gated per
+NORTHSTAR (the engine never invents a clinical value) · `[R-confirm]` needs a Roberto decision
+before build · `[PROD-STATE]` operational, no code · `[SHIPPED]` in code, verify-only ·
+`[PARKED]` operator-deferred, not work · `[DONE]` shipped this arc. Round-2 ids in **(Rn)**;
+prior-plan ids in **(old Xn)**.
 
-## A. Correctness first — active bugs (#5 #8 #10-math #14 #15)
-A1 [M] (#5) Training-edit "invalid" repro+fix; RPE→kcal live recalc.
-A2 [M][EF-verify] (#8) Tolerance-delta math audit. Golden fixtures (Roberto 2026-07-21):
-    (1) shown −86 vs hand −81.5 (~5% — hypothesis: food-label kcal vs 4/4/9 Atwater, legit
-    → label the UI "Δ da valori alimenti"); (2) shown +15 vs hand +31.7 (>2× — suspected
-    REAL seam bug). Trace both through engine→bundle→render; fix (2); document (1).
-A3 [M][EF-verify] (#10) Swap gram-equivalence audit (whey→kefir case) vs Model 1 tiers.
-A4 [M] (#14) Plan-email → login → plan deep-link (returnTo through magic-link flow).
-A5 [S] (#15) New-invoice client dropdown wiring.
-A6 [S] (#1) Practice identity constants: Biologo Nutrizionista n° AA_077690, P.IVA
-    10175580967, C.F. SCRRRT90S03F205Z, Via Don Luigi Guanella 44 20128 Milano
-    (CONFIRMED), rendered in lettera/invoice/PDF footer.
+## Sequencing (the intelligence, stated once)
 
-## B. The clinical model wired (#9 #10) + plan-builder UX (#6 #7 #11)
-B1 [L][EF] (#10) Slot-class substitution wiring from Model 1 §1: class membership per
-   meal slot (Colazione/Spuntino/Pranzo-Cena), tiered equivalence; DB = macro truth.
-B2 [DONE 2026-07-21][EF] (#9) Carb-led tier rule encoded from Roberto's answers:
-   tier kcal deltas allocated as cereal composition (+12.5P/+1.5F per 350 kcal,
-   carbs absorb remainder exactly); engine applies + signals via assumptions;
-   absolute overrides bypass. src/engine/carb-led-tiers.ts, 6 goldens.
-B3 [M] (#6) Remove presets; periodization modes (FINAL, Roberto 2026-07-21):
-   ① Media settimanale ② OFF + ON (ON = average caloric expenditure of training days)
-   ③ OFF–Leggero–Medio ④ OFF–Leggero–Medio–Intenso (③/④ when per-day delta justifies
-   a personalised day). Per-day edit affordances visible.
-B4 [M] (#7) Two sessions per day (schema perDaySessions[] already array? verify) + UI.
-B5 [M] (#11) Merge Panoramica+Macro review tabs.
+Waves A/B/C are **DONE** (A1–A6, B1–B5, C1–C5 shipped) — summarised below for context, not
+re-planned. Round-2 feedback R1–R16 is folded into a new **Wave D**, the immediate next work,
+split D1–D7. The prior plan's tail keeps its letters and content: **E** fight-week, **F**
+protocol blocks, **G** finance, **H** i18n, **I** import, **J** hardening. The prior "D. Portal"
+wave is absorbed into new Wave D (old D3 day-checker → **D6**; old D1/D2/D4 → **D2**/**D7**) —
+"Wave D" now denotes round-2 work, so old D3 is renumbered exactly as flagged.
 
-## C. Client & practice management (#2 #4 #12 #16 + payments)
-C1 [L][R-shape-confirmed] (#2) Cooperation types: abbonamento | consulenza (visit
-   count) | fight camp (own type, date-bounded) | free/no-cost flag; optional calendar
-   duration picker; derived status + expiry reminders.
-C2 [M] (#4) Anamnesis editable post-intake + new fields: surgeries, medications
-   (type/dosage/changes), injuries, gut/digestive status.
-C3 [S][R] (#12) Check-in frequency: single home (client profile, shown in Monitoraggio).
-C4 [S] (#16) "Nuova fattura" from client detail, pre-filled.
-C5 [M] Payments: method enum (contanti | bonifico | SumUp), manual mark-paid from
-   client profile + invoice; courtesy-invoice footer (Q1); IBAN block on documents.
+Load-bearing ordering decisions:
 
-## D. Portal & client experience (#13 + Q3)
-D1 [S] (#13) Check-in adds: training quality 0–10, digestion/gut 0–10 (schema+forms+
-   coach review + trends).
-D2 [S] Weekly-average weight auto-computed and shown (portal + coach).
-D3 [L][EF] Q3 "day checker": client-side meal-structure changes/swaps validated
-   against assigned daily targets using B1 classes; shows resulting macro state.
-D4 [M] Portal polish: dark theme pass (T3.5), emoji→icons, a11y basics.
+1. **R14 SUPERSEDES B3.** B3 shipped the four-mode tier system (`periodization-modes.ts`;
+   DayType tiers `training_light/medium/intense/double` + `refeed/deload` at
+   `src/engine/types.ts:20-28`). R14 replaces it with **OFF / 1-session / 2-session / 3-session
+   days only**; the day's energy *emerges* from the scheduled sessions' per-day TDEE (already
+   computed via `perDayTrainingSession → ExerciseSession[]`). So R14's build **deletes** those
+   surfaces — **no polish, no fixes are planned on anything R14 removes.**
+2. **R12 + R11 are ABSORBED into R14 (D5), not standalone items.** R12 (mode-change wipes the
+   entered schedule) is caused by a periodization-mode template overwriting the whole `DayType[7]`;
+   R14 removes the mode-template mechanism entirely (day type = session count = the schedule), so
+   R12's fix is inherent to the rebuild. R11 (two sessions/day) already shipped in B4
+   (`WeekSessionsEditor.addSession`) — re-verify it *through the new model*, not before.
+3. **R15 rides the SAME engine seam as R14** (`src/server/routers/plan.ts:452-466`, where
+   `perDayTrainingSession` becomes `engineOptions`). One engine change, two facets: R14 = day
+   energy emerges from scheduled sessions; R15 = a per-session manual kcal *replaces* MET when set
+   and feeds that expenditure. **R15 deliberately inverts the display-only invariant** pinned in
+   `src/server/routers/__tests__/session-kcal-override.test.ts:179-186` — that test is named here
+   as one to be **updated**, not kept green as-is.
+4. **MET-value retuning is PARKED** (operator ruling): a post-fix review with Roberto, not work.
+   R15 is the structural fix; the 1,626-kcal MET question is deferred behind it.
+5. **R2 is NO WORK** — prod DB missing migrations 023/024 (`client.list` errors). Resolved by the
+   SQL paste / rollback; **verify-after-SQL only.**
+6. **Quick wins front-loaded** (small, independent, Roberto is live-testing): R13, R16, R7, R6 →
+   **D1**. R13 touches the same editor R14 rebuilds — it ships now as a display-only header add and
+   R14 preserves it (coupling noted at D1a).
+7. **The only open Roberto inputs** besides R14 sign-off are R8's two ⚠ confirms (veg ceiling 500
+   vs 400; inverse-energy-scaling shape). R5's numbers are given; R1's method (Harris-Benedict) is
+   named. Everything else is unblocked.
 
-## E. Fight-week module (Q4) [XL][EF] — template model CONFIRMED by Roberto 2026-07-21 (+ planned-weight amendment)
+---
+
+## DONE — Waves A/B/C (context; not re-planned)
+
+- **A** correctness bugs (A1 training-edit · A2 tolerance-delta math · A3 swap equivalence ·
+  A4 plan-email deep-link · A5 invoice dropdown · A6 practice identity) — **shipped**.
+- **B** clinical model + plan-builder UX (B1 slot-class substitution · B2 carb-led tiers ·
+  **B3 four periodization modes** · B4 two-sessions/day · B5 merged review tabs) — **shipped**.
+  ⚠ **B3 is superseded by R14/D5** (partial unbuild — see D5).
+- **C** client & practice management (C1 cooperation types · C2 anamnesis · C3 check-in freq ·
+  C4 invoice-from-client · C5 payments) — **shipped**.
+
+---
+
+## Wave D — Round-2 correctness & clinical feedback (R1–R16)
+
+### D1 — Quick wins (front-loaded; independent) [S each]
+
+**D1a [S] (R13) Column headers on the week-structure session rows.**
+- File: `src/components/week-sessions-editor.tsx` — sessions render as cards with inline per-field
+  labels ("Modalità"/"Durata (min)"/"RPE" at L173-234); add a sticky column-header row
+  (Modalità · Durata min · RPE) above the day's session grid.
+- Coupling: D5/R14 rebuilds this editor; the header treatment is preserved through that rebuild.
+- Accept: headers render above the session grid on intake + client-edit; component render test.
+
+**D1b [S] (R16) Supplement double-assign fix.**
+- Files: `src/components/plan/supplements-editor.tsx:196-201` (library "Aggiungi" button calls
+  `onAddEntries([libraryItemToEntry(item)])` with no dedupe); `src/components/plan/supplement-helpers.ts`.
+- Guard the add against an already-present id; filter assigned items out of the picker `groups`
+  (`supplements-editor.tsx:70-74`) so a picked item leaves the list — mirror the `coreSetEntries`
+  dedupe precedent (already supplement-aware at L76).
+- Accept: double-click adds once; assigned item disappears from the picker; helper unit test.
+
+**D1c [S] (R7) Daily macro recap line above each day's meals.**
+- Files: `src/app/(dashboard)/plans/[id]/review/page.tsx` (per-day render; reuse the existing
+  scannable daily-totals grammar + `MACRO_ACCENTS` at ~L83-104 and `MEAL_LABELS` ~L100);
+  `src/components/portal/active-plan-view.tsx`.
+- Add a kcal/P/C/F recap line at the top of each day's meal list (in addition to the column).
+- Accept: recap line renders above the meals on coach review + portal.
+
+**D1d [S] (R6) Fibre shown per meal / per day.**
+- Engine already tracks `fibreG` (`src/engine/meal-plan/solver.ts:614`; carried in meal-plan types).
+- Surface it in the review page, portal, and PDF alongside the macro figures.
+- Accept: fibre grams shown per meal and per day total; no engine change (display-only).
+
+### D2 — Check-in review loop (R3, R4) [M]
+
+**D2a [M] (R3) Reply to a check-in.** *(absorbs old D1 check-in questionnaire — already collected)*
+- Column exists; write + read paths exist: `checkin.markReviewed` writes `review_notes`
+  (`src/server/routers/checkin.ts:491-504`); `checkin.getLatestCompleted` returns it
+  (`checkin.ts:405-429`); `src/components/client/feedback-card.tsx:102-115` already renders a
+  "Note del coach" block when present.
+- Build: coach compose UI on the check-in surface (`src/app/(dashboard)/clients/[id]/page.tsx` —
+  `FeedbackCard` import L22; check-in list L780/L1030) wired to `markReviewed({ reviewNotes })`;
+  client-facing display in the portal (`src/app/portal/(protected)/feedback/page.tsx`); notify the
+  client via a new `checkin/reviewed` inngest event (pattern: `checkin.ts:158` `checkin/due`,
+  `checkin.ts:338` `checkin/weight-alert`).
+- Accept: coach writes a note → portal shows "Note del nutrizionista" + client is notified;
+  lexicon is *il tuo nutrizionista* (DIRECTION §7).
+
+**D2b [S] (R4) Feedback review shows EVERY answer.**
+- The stored answer set is complete (`submitCheckin` persists energy/sleep/stress/hunger/digestive/
+  adherence/training-adherence/notes — `checkin.ts:296-303`) but `getLatestCompleted` selects only a
+  subset (`checkin.ts:411-414`) and `feedback-card.tsx` shows 4 metrics (L122-137).
+- Expand the `getLatestCompleted` select to add `stress_level, hunger_level, digestive_health,
+  training_adherence, notes`; expand the review surface to render all 0–10 scales + free text, not
+  the 4-field summary card. No migration.
+- Accept: review shows all scales (energy/sleep/stress/hunger/digestive) + training adherence +
+  free-text notes.
+
+### D3 — EF macro & hydration retune (R5, R8, R9) [EF]
+
+**D3a [M][EF] (R5) Salt = 1 g per 1 L water; water 30–40 mL/kg.**
+- File: `src/engine/hydration.ts:14-48`. Current rule is the flat `BASE_SALT_G = 5` (L20) +
+  `TRAINING_SALT_BONUS_G = 1.5` (L23) → **6.5 g on training days** — exactly Roberto's "6.5 g/day
+  observed = wrong". Replace with `saltG = round(waterMl / 1000 × 1)` derived from the computed
+  water target. Confirm `BASE_WATER_ML_PER_KG = 37.5` (L14) sits inside Roberto's 30–40 mL/kg band
+  (it does) — keep, or expose as a parameter.
+- EF: clinical constant; value-diff golden required.
+- Accept: 85 kg training day → water ~3.7 L, salt ~3.7 g (not 6.5); golden fixtures pin the ratio.
+
+**D3b [M/L][EF][R-confirm] (R8) Veggie portions.**
+- File: `src/engine/meal-plan/solver.ts:62-64` — `CATEGORY_BOUNDS.VEG = [20, 400]`. The min of **20 g
+  is the culprit** behind "2 g broccoli / 60 g pomodorini". Raise to `[100, 500]` **(⚠ Roberto says
+  "100–400" for green sources — CONFIRM which ceiling)**. Add a **max 1–2 green-source cap per meal**
+  and **inverse-energy scaling** (lower kcal day → more veg) **(⚠ scaling shape needs one confirm)**;
+  the veg-growing path is at `solver.ts:610-626`.
+- EF: two clinical parameters; goldens required. **Open Roberto inputs: (1) ceiling 500 vs 400;
+  (2) inverse-scaling shape.**
+- Accept: no veg portion < 100 g; ≤ 2 green sources/meal; low-kcal day yields more veg; goldens green.
+
+**D3c [S] (R9) Peri-workout intra water + pre/intra space in the meal plan.**
+- The peri-workout box partially exists (`src/components/plan/peri-workout-timing-card.tsx`;
+  `active-plan-view.tsx:244`). Surface pre + **intra-session water** (Model 1 §1.7: INTRA = water)
+  in the plan.
+- Accept: pre/intra/post shown with the intra water line; display-only.
+
+### D4 — BMR fallback + manual body-fat (R1) [M][EF]
+
+**D4 [M][EF] (R1) Manual BF% + Harris-Benedict fallback (Roberto's method, named).**
+- Manual BF% ALREADY has an engine path: `estimateBodyFat` consumes `snapshot.bodyFatPctOverride`
+  (`src/engine/body-fat.ts:111-113`, method `"override"`) → `calculateBmr` (Katch-McArdle). Missing
+  piece is the **wizard input field** to set it.
+- BMR fallback: `src/engine/bmr.ts` is **Katch-McArdle only** (L17-25). Today, with no skinfolds +
+  no override, `body-fat.ts:122-130` runs the silent Deurenberg **BMI heuristic** then feeds
+  Katch-McArdle. Roberto's explicit ask: use **Harris-Benedict** directly. Add
+  `harrisBenedict(weightKg, heightCm, ageYears, sex)` to `bmr.ts`; in the no-body-comp path prefer
+  it over the BMI heuristic; surface the method as an assumption (Disclosure-over-polish, NORTHSTAR).
+- EF: BMR formula change; goldens required.
+- Accept: no measurements → Harris-Benedict BMR (not BMI heuristic); manual BF% flows to
+  Katch-McArdle; method visible to the coach; goldens green.
+
+### D5 — Unified day-type + manual-kcal engine change (R14 + R15; absorbs R12 + R11) [XL][EF][R-confirm]
+
+**THE BIG ONE — one engine change, two facets, gated on Roberto's sign-off. Design doc first.**
+
+**D5-design [M][R-confirm] Consequence sign-off before any build.**
+- New DayType model: **OFF / 1-session / 2-session / 3-session** days only. Author the consequence
+  ledger Roberto must sign: retires `refeed`, `deload`, `training_light/medium/intense/double` from
+  the `DayType` union (`src/engine/types.ts:20-28`); deletes periodization modes 3–4
+  (`periodization-modes.ts:37-66`); prunes `DAY_TYPE_SHORT_LABELS` (review page ~L84-96); drops the
+  `deload` branch in `hydration.ts:39`. Energy level **emerges** from the scheduled workouts' per-day
+  session TDEE (existing `perDayTrainingSession` path) — refeed/deload params retire because they no
+  longer have a home.
+- **Gate: Roberto signs the retirement list before D5a starts.**
+
+**D5a [XL][EF] (R14 + R15) The engine seam — two facets.**
+- Seam: `src/server/routers/plan.ts:452-466` (`intakeTrainingSessions` → `perDayTrainingSession` →
+  `engineOptions.perDayTrainingSession`) + the engine's day-TDEE assembly + the DayType model.
+  - **Facet R14:** day type = session count; the day's energy emerges from the scheduled sessions'
+    expenditure (`ExerciseSession[]`), not a manual tier label.
+  - **Facet R15:** a per-session manual kcal (`session.kcal_override`,
+    `week-sessions-editor.tsx:34`) **replaces MET when set** — carry it into the `ExerciseSession`
+    as `method: "session_estimate", kcalEstimate` in the intake→engine mapping (`plan.ts:455-466`).
+    This flips the display-only behaviour.
+- **Deliberately update** (not keep green): the invariant at
+  `src/server/routers/__tests__/session-kcal-override.test.ts:179-186` ("a kcal override does NOT
+  move the plan") is **inverted** — a set override now moves that day's plan. Also update the
+  display-only copy at `session-kcal-row.tsx:149` ("Non modifica il calcolo del piano") and the
+  comment at `week-sessions-editor.tsx:32-33`.
+- **Absorb R12:** the mode-change wipe disappears — day type = session count = the schedule, so no
+  template overwrite exists to wipe sessions. Verify sessions persist across a day-type change.
+- **Absorb R11 [SHIPPED-verify]:** two sessions/day already works (`WeekSessionsEditor.addSession`,
+  L89-95); re-verify through the new model + after the R2 SQL.
+
+**D5b [L] Wizard rebuild.**
+- Replace the four-mode selector (`periodization-modes.ts`) with OFF/1/2/3-session day affordances;
+  per-day edit visible (round-1 #6 intent preserved under the new model).
+- Accept: golden plan fixtures pass under the new model; setting/clearing a per-session kcal moves
+  that day's plan; changing day type preserves entered sessions; the inverted invariant test is
+  green; a value-diff oracle covers the seam.
+
+### D6 — Client-side day checker (old D3, renumbered) [L][EF]
+
+**D6 [L][EF] (old D3 / round-1 Q3) Day checker.**
+- Client-side meal-structure changes/swaps validated against assigned daily targets using the B1
+  slot classes (Model 1 §1, shipped); shows the resulting macro state.
+- Accept: portal swap validated vs targets; macro delta shown; DB stays macro-value source of truth.
+
+### D7 — Portal experience residuals (old D2, old D4) [M]
+
+**D7a [S] (old D2) Weekly-average weight auto-computed + shown** (portal + coach). Not shipped
+(no rolling-average surface found). Accept: 7-day average weight rendered on both surfaces.
+
+**D7b [M] (old D4) Portal polish:** dark-theme pass (DIRECTION theme ruling — one token system,
+two themes), emoji→icons (DIRECTION §7 bans emoji-as-iconography — 📊✅⚠️ die), a11y basics.
+Coordinates with H (i18n) + J (hardening).
+
+---
+
+## Wave E — Fight-week module (Q4) [XL][EF] — model CONFIRMED by Roberto 2026-07-21 (+ planned-weight amendment)
+
 Reference: docs/reference/fight-week/ (two real protocols; variance notes in its README).
-Principle: the app NEVER computes a cut — only arithmetic (countdowns, rehydration
-totals from entered cut at editable 150%/70% coefficients, ÷3 refuel helper).
-E1 Data model — FightWeekProtocol: athlete, weighInDate (+early/late flag), optional
-   fightDate/time, weight-class target, notes; instantiated from coach-owned template
-   library (seeded from both reference docs).
-E2 DayRow (−7…−1, weigh-in): water (value or min–max mL) · salt g · training label
-   (free text) · kcal/P/F/C · optional fibre cap · constraint flags (NO_SALT,
-   LOW_FIBRE, NO_WHOLEGRAIN, NO_VEG, FRESH_FOOD_ONLY) · free-text meal template ·
-   conditional notes · PLANNED WEIGHT kg (AMENDMENT 2026-07-21: first-class, not
-   optional — Roberto authors/edits the fighter's per-day weight trajectory ahead of
-   time and can adjust any individual day mid-week) + actual morning-weight log;
-   plan-vs-actual variance visible per day (drives the "we modify according to how
-   much you lose" loop).
-E3 Weigh-in block: fasted flag, day-before options, cutting-work cycles (15–30'
-   active/passive), orthostatic-hypotension safety line (always rendered).
-E4 RehydrationPlan: total = editable % of cut (default 150), prepared-in-bottles %
-   (default 70), timed bolus schedule rows, drink recipe (½-dose electrolyte +
-   40–60 g/L carbs), ÷3 INS helper (deficit → 2/3 liquid + 1/3 dense food).
-E5 RefuelTimeline: phases 0–1h (liquids-only-if-dehydrated) / 1–2h / 2–3h / 3h+
-   (1.2 g/kg/h), each with content, examples, macro ranges; per-24h targets
-   (e.g. P 120–150 / F 50–70 / C 650–800 / fibre <20); per-meal ritual (creatine
-   4–6g + enzymes + ~2g salt shot); fluids ≥1L/h first 4–6h.
-E6 MatchDayPlan: meal templates with early/late-match variants; final-60' stack;
-   final-5' honey/ginger item.
-E7 Attached protocol blocks (F): fight-week supplements, cramps/TRPA1 + mouth rinse,
-   fight-week plant foods, shopping/pharmacy/equipment — referenced, not duplicated.
-E8 Surfaces: coach grid editor + countdown; portal daily fight-week card (water with
-   bolus rhythm, salt, training, macros, meals, badges, notes, weight log) flipping
-   to rehydration/refuel checklist post-weigh-in; full-protocol PDF export.
-E9 NOT in v1: no auto-generated cut numbers, no sweat-rate models, no wearables.
-E10 Build gate: golden render fixtures — BOTH reference docs reproduced through the
-   template model without loss before UI work starts.
-E11 Build notes (code recon, line-verified 2026-07-21): engine already has
-   waterLoadingSchedule (hydration.ts:88) + CombatProtocols fibre/sodium caps
-   (plan-generator.ts:130-137) — bundle carries waterLoading, portal.ts:207 returns it
-   ("UI renders in T3.5" pending), NO render path exists in portal or PDF yet.
-   PDF slots cleanly: add renderFightWeek page after day-type pages
-   (html-renderer.ts:505-586 pattern). DESIGN FORK to decide at build: bundle-embedded
-   (waterLoading precedent; relative days) vs normalized tables. RECOMMENDATION:
-   normalized (fight_week_protocol + fight_week_day + template library) — fight week
-   is coach-AUTHORED, date-anchored, edited daily mid-cut; a bundle blob would force
-   regeneration semantics on every edit. Existing waterLoading/fibre/sodium engine
-   output stays as-is and links INTO the protocol view, not replaced.
+Principle: the app NEVER computes a cut — only arithmetic (countdowns, rehydration totals from
+entered cut at editable 150%/70% coefficients, ÷3 refuel helper).
 
-## F. Protocol blocks (Q5) [L]
-F1 Reusable content blocks (cold, heat, supplements, refeed, cutting kit — seeded
-   from Model 1) attachable to plans; rendered in portal + PDF; coach-editable.
+- **E1** Data model — FightWeekProtocol: athlete, weighInDate (+early/late flag), optional
+  fightDate/time, weight-class target, notes; instantiated from a coach-owned template library
+  (seeded from both reference docs).
+- **E2** DayRow (−7…−1, weigh-in): water (value or min–max mL) · salt g · training label · kcal/P/F/C ·
+  optional fibre cap · constraint flags (NO_SALT, LOW_FIBRE, NO_WHOLEGRAIN, NO_VEG, FRESH_FOOD_ONLY) ·
+  free-text meal template · conditional notes · **PLANNED WEIGHT kg** (AMENDMENT 2026-07-21:
+  first-class, not optional — Roberto authors/edits the per-day weight trajectory ahead of time and
+  adjusts any day mid-week) + actual morning-weight log; plan-vs-actual variance visible per day.
+- **E3** Weigh-in block: fasted flag, day-before options, cutting-work cycles (15–30' active/passive),
+  orthostatic-hypotension safety line (always rendered).
+- **E4** RehydrationPlan: total = editable % of cut (default 150), prepared-in-bottles % (default 70),
+  timed bolus rows, drink recipe (½-dose electrolyte + 40–60 g/L carbs), ÷3 INS helper (deficit →
+  2/3 liquid + 1/3 dense food).
+- **E5** RefuelTimeline: phases 0–1h / 1–2h / 2–3h / 3h+ (1.2 g/kg/h), each with content, examples,
+  macro ranges; per-24h targets (e.g. P 120–150 / F 50–70 / C 650–800 / fibre <20); per-meal ritual
+  (creatine 4–6g + enzymes + ~2g salt shot); fluids ≥1L/h first 4–6h.
+- **E6** MatchDayPlan: meal templates with early/late-match variants; final-60' stack; final-5'
+  honey/ginger item.
+- **E7** Attached protocol blocks (F): fight-week supplements, cramps/TRPA1 + mouth rinse, fight-week
+  plant foods, shopping/pharmacy/equipment — referenced, not duplicated.
+- **E8** Surfaces: coach grid editor + countdown; portal daily fight-week card flipping to
+  rehydration/refuel checklist post-weigh-in; full-protocol PDF export.
+- **E9** NOT in v1: no auto-generated cut numbers, no sweat-rate models, no wearables.
+- **E10** Build gate: golden render fixtures — BOTH reference docs reproduced through the template
+  model without loss before UI work starts.
+- **E11** Build notes (line-verified 2026-07-21): engine already has `waterLoadingSchedule`
+  (`hydration.ts:88`) + CombatProtocols fibre/sodium caps (`plan-generator.ts:130-137`); bundle carries
+  waterLoading, `portal.ts:207` returns it, NO render path exists in portal or PDF yet. PDF slots
+  cleanly after day-type pages (`html-renderer.ts:505-586` pattern). RECOMMENDATION: **normalized**
+  tables (fight_week_protocol + fight_week_day + template library) — fight week is coach-AUTHORED,
+  date-anchored, edited daily; a bundle blob would force regeneration semantics on every edit.
+  Existing waterLoading/fibre/sodium engine output stays as-is and links INTO the protocol view.
 
-## G. Financial dashboard (#17) [L]
-G1 Build per approved mock: KPIs, 12-month chart, per-athlete economics, aging,
-   pricing intelligence, "da fatturare" — cooperation-type segmentation lands with C1.
+## Wave F — Protocol blocks (Q5) [L]
 
-## H. Internationalization (Q7) [XL]
-H1 i18n framework + string extraction pattern (early, so new features are built
-   translatable); per-user language (coach + per-client portal).
-H2 Full IT/EN translation pass incl. PDFs/emails.
+**F1** Reusable content blocks (cold, heat, supplements, refeed, cutting kit — seeded from Model 1 §2–3)
+attachable to plans; rendered in portal + PDF; coach-editable.
 
-## I. Data import (Q6) [M][R]
-I1 Import path for last-year clients: minimal fields (anagrafica) via assisted
-   CSV/manual; optional measurements; recent clients first.
+## Wave G — Financial dashboard (#17) [L]
 
-## J. Hardening & release (arc backlog)
-J1 Wave B hex→token sweep (remaining coach pages) + theme toggle UI.
-J2 T3.3 async-state primitives; T3.9 a11y (labels, role=tab); charts polish;
-   C3 follow-up: read-only 'Frequenza check-in' pointer on Monitoraggio linking
-   to the client card (single-writer preserved).
-J3 T1.11 rate limiter; T1.13-fix (pending EF4 from pack).
-J4 Release seal: design re-score, full-suite + live e2e, prod deploy checklist,
-   real-device pass, updated DEMO-SCRIPT.
+**G1** Build per approved mock (docs/polish/concepts/finance-dashboard-mock.html): KPIs, 12-month chart,
+per-athlete economics, aging, pricing intelligence, "da fatturare". Cooperation-type segmentation
+consumes C1 (shipped). Invoice-derived metrics are complete (all work invoiced through the app).
+
+## Wave H — Internationalization (Q7) [XL]
+
+**H1** i18n framework + string-extraction pattern (built early so new features are translatable);
+per-user language (coach + per-client portal).
+**H2** Full IT/EN translation pass incl. PDFs/emails.
+
+## Wave I — Data import (Q6) [M][R]
+
+**I1** Import path for last-year clients: minimal fields (anagrafica) via assisted CSV/manual;
+optional measurements; recent clients first.
+
+## Wave J — Hardening & release (arc backlog)
+
+**J1** Wave B hex→token sweep (remaining coach pages) + theme toggle UI.
+**J2** T3.3 async-state primitives; T3.9 a11y (labels, role=tab); charts polish; C3 follow-up:
+read-only 'Frequenza check-in' pointer on Monitoraggio linking to the client card (single-writer preserved).
+**J3** T1.11 rate limiter; T1.13-fix (pending EF4 from pack).
+**J4** Release seal: design re-score, full-suite + live e2e, prod deploy checklist, real-device pass,
+updated DEMO-SCRIPT.
+
+---
+
+## PARKED (operator-deferred, not work)
+
+- **MET-value retuning** — the 1,626-kcal question (2 h BJJ + 1 h weights; MET holds for full duration,
+  real classes have downtime). R15 (D5) is the structural fix; any MET retune is a post-fix review
+  with Roberto. Formula trace: `engine/exercise.ts` + `training-modality.ts`, `kcal = weighted MET ×
+  kg × hours × 0.85`.
+
+---
+
+## Coverage — round-2 R1–R16 → new plan ids
+
+| R-id | Type | New id | Disposition |
+|------|------|--------|-------------|
+| R1 | NEW+EF | **D4** | Manual BF% (override path exists, add wizard field) + Harris-Benedict BMR fallback in `bmr.ts`. |
+| R2 | PROD-STATE | **verify-only** | Migrations 023/024 on prod; SQL paste/rollback resolves. No code. Re-verify after SQL. |
+| R3 | NEW | **D2a** | Coach reply UI → `markReviewed` (exists) + portal display + `checkin/reviewed` notification. |
+| R4 | CHANGE | **D2b** | Expand `getLatestCompleted` select + review surface to all answers (data already stored). |
+| R5 | BUG+EF | **D3a** | Salt = water-L × 1 g/L in `hydration.ts` (replaces flat 5+1.5=6.5); water 30–40 mL/kg confirmed. |
+| R6 | NEW | **D1d** | Surface `fibreG` (engine tracks it) per meal/day in review + portal + PDF. |
+| R7 | CHANGE | **D1c** | Daily macro recap line above each day's meals (coach + portal). |
+| R8 | BUG+EF | **D3b** | `CATEGORY_BOUNDS.VEG` 20→100 min; ceiling ⚠500/400; ≤2 green sources; inverse-energy scaling. |
+| R9 | CHANGE | **D3c** | Pre/intra space + intra-session water in the meal plan (box partially exists). |
+| R10 | BUG | **D5a (verify)** | Wizard prefill of updated routine — verified through the rebuilt editor/model. |
+| R11 | SHIPPED-VERIFY | **D5a (absorb)** | Two sessions/day shipped in B4; re-verify through new model + after SQL. |
+| R12 | BUG | **D5a (absorb)** | Mode-change wipe removed by R14's rebuild (no template overwrite to wipe). |
+| R13 | CHANGE | **D1a** | Column headers (Durata min / RPE) on session rows; preserved through D5 rebuild. |
+| R14 | CHANGE+EF | **D5-design + D5a/D5b** | New OFF/1/2/3-session model; supersedes B3; gated on sign-off. |
+| R15 | CHANGE+EF | **D5a** | Manual kcal feeds the engine; inverts `session-kcal-override.test.ts:179-186`. |
+| R16 | BUG | **D1b** | Supplement dedupe: guard add + remove assigned from picker. |
+| — | (chat) | **PARKED** | MET-value retuning deferred to post-fix Roberto review. |
+
+## Coverage — prior not-yet-done items (old D–J) → new plan ids
+
+| Old id | Item | New id | Disposition |
+|--------|------|--------|-------------|
+| old D1 | Check-in adds training-quality/digestion 0–10 | **D2a/D2b** | Schema + portal form already collect these; folded into the R3/R4 review loop. |
+| old D2 | Weekly-average weight auto-computed | **D7a** | Not shipped; carried as a portal residual. |
+| old D3 | Client-side "day checker" (Q3) | **D6** | Renumbered exactly as flagged; uses B1 slot classes. |
+| old D4 | Portal polish (dark theme, emoji→icons, a11y) | **D7b** | Carried; coordinates with H + J. |
+| old E | Fight-week module (E1–E11) | **E** | Kept verbatim (letters + content + gates). |
+| old F | Protocol blocks | **F** | Kept. |
+| old G | Financial dashboard (#17) | **G** | Kept. |
+| old H | Internationalization | **H** | Kept. |
+| old I | Data import (Q6) | **I** | Kept. |
+| old J | Hardening & release | **J** | Kept. |
+
+Every R1–R16 id and every not-yet-done prior item (old D–J) is accounted for above.
+Open Roberto inputs: **R8 ⚠ ceiling (500 vs 400)**, **R8 ⚠ inverse-scaling shape**, **R14 consequence sign-off**.
