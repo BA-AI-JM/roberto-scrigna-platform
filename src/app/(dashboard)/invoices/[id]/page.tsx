@@ -28,6 +28,13 @@ interface LineItem {
 }
 
 type InvoiceStatus = "draft" | "sent" | "paid" | "overdue" | "cancelled";
+type PaymentMethod = "contanti" | "bonifico" | "sumup";
+
+const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
+  contanti: "Contanti",
+  bonifico: "Bonifico",
+  sumup: "SumUp",
+};
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -148,6 +155,9 @@ export default function InvoiceDetailPage() {
 
   const [statusError, setStatusError] = useState<string | null>(null);
   const [pdfLoading, setPdfLoading] = useState(false);
+  // "Segna come pagata" opens an inline method picker before committing markPaid.
+  const [payingOpen, setPayingOpen] = useState(false);
+  const [payMethod, setPayMethod] = useState<"" | PaymentMethod>("");
 
   // Fetch invoice data
   const {
@@ -162,6 +172,19 @@ export default function InvoiceDetailPage() {
     onSuccess: () => {
       void refetch();
       setStatusError(null);
+    },
+    onError: (err) => {
+      setStatusError(humanizeTrpcError(err.message));
+    },
+  });
+
+  // Mark-paid mutation (records the payment method chosen in the inline picker).
+  const markPaid = trpc.invoice.markPaid.useMutation({
+    onSuccess: () => {
+      void refetch();
+      setStatusError(null);
+      setPayingOpen(false);
+      setPayMethod("");
     },
     onError: (err) => {
       setStatusError(humanizeTrpcError(err.message));
@@ -187,6 +210,14 @@ export default function InvoiceDetailPage() {
         newStatus === "paid"
           ? new Date().toISOString().split("T")[0]
           : undefined,
+    });
+  }
+
+  function handleConfirmPaid() {
+    setStatusError(null);
+    markPaid.mutate({
+      id: invoiceId,
+      paymentMethod: payMethod || undefined,
     });
   }
 
@@ -277,6 +308,7 @@ export default function InvoiceDetailPage() {
     issued_date: string | null;
     due_date: string | null;
     paid_date: string | null;
+    payment_method: PaymentMethod | null;
     description: string | null;
     line_items: LineItem[];
     created_at: string;
@@ -303,7 +335,8 @@ export default function InvoiceDetailPage() {
     text: "#374151",
   };
   const nextActions = NEXT_STATUS_MAP[invoice.status] ?? [];
-  const isBusy = updateStatus.isPending || deleteInvoice.isPending;
+  const isBusy =
+    updateStatus.isPending || deleteInvoice.isPending || markPaid.isPending;
 
   return (
     <div className="coach-container" style={{ maxWidth: "860px" }}>
@@ -429,6 +462,15 @@ export default function InvoiceDetailPage() {
               <InfoRow
                 label="Data pagamento"
                 value={formatDate(invoice.paid_date)}
+              />
+            )}
+            {invoice.status === "paid" && invoice.payment_method && (
+              <InfoRow
+                label="Metodo pagamento"
+                value={
+                  PAYMENT_METHOD_LABELS[invoice.payment_method] ??
+                  invoice.payment_method
+                }
               />
             )}
           </div>
@@ -644,7 +686,11 @@ export default function InvoiceDetailPage() {
           {nextActions.map((action) => (
             <button
               key={action.status}
-              onClick={() => handleStatusUpdate(action.status)}
+              onClick={() =>
+                action.status === "paid"
+                  ? setPayingOpen((v) => !v)
+                  : handleStatusUpdate(action.status)
+              }
               disabled={isBusy}
               style={{
                 padding: "8px 16px",
@@ -674,6 +720,62 @@ export default function InvoiceDetailPage() {
               {action.label}
             </button>
           ))}
+
+          {payingOpen && (
+            <div
+              style={{
+                width: "100%",
+                display: "flex",
+                gap: "8px",
+                alignItems: "center",
+                flexWrap: "wrap",
+                marginTop: "4px",
+                paddingTop: "12px",
+                borderTop: "1px dashed #e2e8f0",
+              }}
+            >
+              <label style={{ fontSize: "13px", color: "#6b7280" }}>
+                Metodo di pagamento:
+              </label>
+              <select
+                value={payMethod}
+                onChange={(e) =>
+                  setPayMethod(e.target.value as "" | PaymentMethod)
+                }
+                style={{
+                  padding: "8px 12px",
+                  border: "1px solid #d1d5db",
+                  borderRadius: "8px",
+                  fontSize: "13px",
+                  color: "#1a1a2e",
+                  background: "#ffffff",
+                  cursor: "pointer",
+                }}
+              >
+                <option value="">—</option>
+                <option value="contanti">Contanti</option>
+                <option value="bonifico">Bonifico</option>
+                <option value="sumup">SumUp</option>
+              </select>
+              <button
+                onClick={handleConfirmPaid}
+                disabled={isBusy}
+                style={{
+                  padding: "8px 16px",
+                  border: "1px solid #1a1a2e",
+                  borderRadius: "8px",
+                  background: "#1a1a2e",
+                  color: "#ffffff",
+                  cursor: isBusy ? "not-allowed" : "pointer",
+                  fontSize: "13px",
+                  fontWeight: 600,
+                  opacity: isBusy ? 0.6 : 1,
+                }}
+              >
+                {markPaid.isPending ? "Conferma..." : "Conferma pagamento"}
+              </button>
+            </div>
+          )}
 
           {invoice.status !== "paid" && invoice.status !== "cancelled" && (
             <button

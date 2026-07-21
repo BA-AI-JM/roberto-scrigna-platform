@@ -37,6 +37,9 @@ const invoiceStatusSchema = z.enum([
   "cancelled",
 ]);
 
+/** Payment method values (migration 024) — how a courtesy invoice was paid. */
+const paymentMethodSchema = z.enum(["contanti", "bonifico", "sumup"]);
+
 /** Schema for creating a new invoice */
 const createInvoiceSchema = z.object({
   clientId: z.string().uuid(),
@@ -47,6 +50,8 @@ const createInvoiceSchema = z.object({
   currency: z.string().length(3).default("EUR"),
   issuedDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Formato data: YYYY-MM-DD").optional(),
   dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Formato data: YYYY-MM-DD").optional(),
+  /** How the invoice was/will be paid (optional; also settable via markPaid). */
+  paymentMethod: paymentMethodSchema.optional(),
 });
 
 /** Schema for updating an invoice */
@@ -133,7 +138,7 @@ export const invoiceRouter = router({
         .from("invoice")
         .select(
           `id, invoice_number, status, amount_cents, currency, tax_pct,
-           issued_date, due_date, paid_date, description, line_items,
+           issued_date, due_date, paid_date, payment_method, description, line_items,
            created_at, updated_at,
            client:client_id (id, full_name, email)`
         )
@@ -172,7 +177,7 @@ export const invoiceRouter = router({
         .from("invoice")
         .select(
           `id, invoice_number, status, amount_cents, currency, tax_pct,
-           issued_date, due_date, paid_date, description, line_items,
+           issued_date, due_date, paid_date, payment_method, description, line_items,
            created_at, updated_at,
            client:client_id (id, full_name, email, phone)`
         )
@@ -240,6 +245,7 @@ export const invoiceRouter = router({
             line_items: input.lineItems,
             issued_date: input.issuedDate ?? new Date().toISOString().split("T")[0],
             due_date: input.dueDate ?? null,
+            payment_method: input.paymentMethod ?? null,
           })
           .select("id, invoice_number")
           .single();
@@ -305,6 +311,7 @@ export const invoiceRouter = router({
       if (input.dueDate !== undefined) updates.due_date = input.dueDate;
       if (input.issuedDate !== undefined) updates.issued_date = input.issuedDate;
       if (input.currency !== undefined) updates.currency = input.currency;
+      if (input.paymentMethod !== undefined) updates.payment_method = input.paymentMethod;
 
       if (input.lineItems !== undefined) {
         const taxPct = input.taxPct ?? 0;
@@ -411,6 +418,71 @@ export const invoiceRouter = router({
         } catch (err) {
           console.error("[router/invoice.updateStatus] inngest.send failed:", err);
         }
+      }
+
+      return { success: true };
+    }),
+
+  /**
+   * Mark an invoice as paid: sets status='paid', paid_date (today unless given),
+   * and an optional payment method (migration 024). Partner-scoped.
+   *
+   * Keeps the existing status machine intact — only a 'sent' or 'overdue' invoice
+   * can be marked paid (a draft must be sent first; paid/cancelled are terminal),
+   * matching updateStatus's validTransitions for the 'paid' target.
+   */
+  markPaid: protectedProcedure
+    .input(
+      z.object({
+        id: z.string().uuid(),
+        paymentMethod: paymentMethodSchema.optional(),
+        paidDate: z
+          .string()
+          .regex(/^\d{4}-\d{2}-\d{2}$/, "Formato data: YYYY-MM-DD")
+          .optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { data: existing, error: fetchError } = await ctx.supabase
+        .from("invoice")
+        .select("id, status")
+        .eq("id", input.id)
+        .eq("partner_id", ctx.partnerId)
+        .is("deleted_at", null)
+        .single();
+
+      if (fetchError) {
+        throwDiscriminated(fetchError, "Fattura non trovata.", "router/invoice.markPaid");
+      }
+      if (!existing) {
+        throwDiscriminated(null, "Fattura non trovata.", "router/invoice.markPaid");
+      }
+
+      if (existing.status !== "sent" && existing.status !== "overdue") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `Transizione non valida: ${existing.status} → paid.`,
+        });
+      }
+
+      const updates: Record<string, unknown> = {
+        status: "paid" as const,
+        paid_date: input.paidDate ?? new Date().toISOString().split("T")[0],
+        updated_at: new Date().toISOString(),
+      };
+      if (input.paymentMethod !== undefined) {
+        updates.payment_method = input.paymentMethod;
+      }
+
+      const { error } = await ctx.supabase
+        .from("invoice")
+        .update(updates)
+        .eq("id", input.id)
+        .eq("partner_id", ctx.partnerId);
+
+      if (error) {
+        console.error("[router/invoice.markPaid]", error);
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Errore nell'aggiornamento. Riprova." });
       }
 
       return { success: true };

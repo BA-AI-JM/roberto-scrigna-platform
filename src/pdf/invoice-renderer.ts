@@ -19,6 +19,20 @@ interface LineItem {
   taxPct?: number;
 }
 
+/**
+ * Practice-identity fields for the courtesy footer, sourced from
+ * partner_practice_profile (see the PDF route). Optional/nullable: an
+ * unfilled profile simply omits the missing lines.
+ */
+export interface InvoicePracticeProfile {
+  professione: string | null;
+  albo_ordine: string | null;
+  albo_number: string | null;
+  partita_iva: string | null;
+  codice_fiscale: string | null;
+  studio_address: string | null;
+}
+
 export interface InvoiceRenderData {
   invoiceNumber: string;
   status: string;
@@ -37,6 +51,8 @@ export interface InvoiceRenderData {
   } | null;
   partnerName: string;
   partnerEmail: string;
+  /** Practice identity for the courtesy footer (all lines optional). */
+  practiceProfile?: InvoicePracticeProfile | null;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -100,6 +116,7 @@ export function renderInvoiceHtml(data: InvoiceRenderData): string {
     client,
     partnerName,
     partnerEmail,
+    practiceProfile,
   } = data;
 
   const subtotalCents = lineItems.reduce(
@@ -136,6 +153,22 @@ export function renderInvoiceHtml(data: InvoiceRenderData): string {
            <td class="meta-value">${formatDate(paidDate)}</td>
          </tr>`
       : "";
+
+  // Courtesy-footer identity — pulled dynamically from the practice profile.
+  // Each fragment appears only when its field is set, so an unfilled profile
+  // simply renders fewer lines (never a blank/broken row).
+  const p = practiceProfile ?? null;
+  const identityParts: string[] = [];
+  if (p?.professione) identityParts.push(esc(p.professione));
+  const alboLine = [p?.albo_ordine, p?.albo_number]
+    .filter((v): v is string => Boolean(v))
+    .map((v) => esc(v))
+    .join(" n. ");
+  if (alboLine) identityParts.push(`Albo: ${alboLine}`);
+  if (p?.partita_iva) identityParts.push(`P.IVA ${esc(p.partita_iva)}`);
+  if (p?.codice_fiscale) identityParts.push(`C.F. ${esc(p.codice_fiscale)}`);
+  if (p?.studio_address) identityParts.push(esc(p.studio_address));
+  const identityLine = identityParts.join(" · ");
 
   return `<!DOCTYPE html>
 <html lang="it">
@@ -415,6 +448,34 @@ export function renderInvoiceHtml(data: InvoiceRenderData): string {
     .footer strong {
       color: #374151;
     }
+
+    .courtesy-note {
+      font-weight: 700;
+      color: #475569;
+      margin-bottom: 12px;
+      padding-bottom: 10px;
+      border-bottom: 1px dashed #e2e8f0;
+      letter-spacing: 0.01em;
+    }
+
+    .footer-identity {
+      margin-bottom: 10px;
+    }
+
+    .footer-iban {
+      display: inline-block;
+      margin: 0 auto 10px;
+      padding: 8px 14px;
+      background: #f8fafc;
+      border-radius: 6px;
+      color: #475569;
+      text-align: center;
+    }
+
+    .footer-iban .iban-heading {
+      font-weight: 700;
+      color: #374151;
+    }
   </style>
 </head>
 <body>
@@ -508,9 +569,20 @@ export function renderInvoiceHtml(data: InvoiceRenderData): string {
 
   <!-- Footer -->
   <footer class="footer">
-    <strong>Roberto Scrigna</strong> &mdash; Nutrizionista &amp; Personal Trainer<br />
-    ${esc(partnerEmail)}<br />
-    Grazie per la fiducia.
+    <div class="courtesy-note">Documento di cortesia — non valido ai fini fiscali.</div>
+    <div class="footer-identity">
+      <strong>${esc(partnerName)}</strong>${identityLine ? " &mdash; " + identityLine : ""}<br />
+      ${esc(partnerEmail)}
+    </div>
+    <div class="footer-iban">
+      <!-- IBAN block HARDCODED: partner_practice_profile has no IBAN/SWIFT column
+           yet, so these are sourced from Model 1 (engagement-letter identity).
+           Move to the profile once a column exists. -->
+      <span class="iban-heading">Coordinate per bonifico</span><br />
+      IBAN IT28E0306920705100000019415 &middot; SWIFT/BIC BCITITMM<br />
+      Intesa San Paolo &mdash; Sesto San Giovanni (MI)
+    </div>
+    <div>Grazie per la fiducia.</div>
   </footer>
 
 </div>

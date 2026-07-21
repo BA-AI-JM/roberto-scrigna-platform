@@ -12,7 +12,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { trpc } from "@/lib/trpc/client";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -24,6 +24,8 @@ interface LineItem {
   unitPriceCents: number;
 }
 
+type PaymentMethod = "" | "contanti" | "bonifico" | "sumup";
+
 interface InvoiceFormState {
   clientId: string;
   lineItems: LineItem[];
@@ -31,6 +33,7 @@ interface InvoiceFormState {
   issuedDate: string;
   dueDate: string;
   description: string;
+  paymentMethod: PaymentMethod;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -107,6 +110,8 @@ function Field({
 
 export default function NewInvoicePage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const preselectedClientId = searchParams.get("clientId") ?? "";
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -117,7 +122,7 @@ export default function NewInvoicePage() {
       .split("T")[0] ?? "";
 
   const [form, setForm] = useState<InvoiceFormState>({
-    clientId: "",
+    clientId: preselectedClientId,
     lineItems: [
       {
         id: tempId(),
@@ -130,6 +135,7 @@ export default function NewInvoicePage() {
     issuedDate: today,
     dueDate: thirtyDaysLater,
     description: "",
+    paymentMethod: "",
   });
 
   // Load client list for dropdown
@@ -218,6 +224,7 @@ export default function NewInvoicePage() {
       issuedDate: form.issuedDate || undefined,
       dueDate: form.dueDate || undefined,
       description: form.description || undefined,
+      paymentMethod: form.paymentMethod || undefined,
     });
   }
 
@@ -325,6 +332,27 @@ export default function NewInvoicePage() {
               placeholder="Piano nutrizionale — pacchetto 3 mesi..."
               style={{ ...inputStyle, minHeight: "80px", resize: "vertical" }}
             />
+          </Field>
+
+          <Field
+            label="Metodo di pagamento"
+            hint="Opzionale — puoi impostarlo anche al momento del pagamento."
+          >
+            <select
+              value={form.paymentMethod}
+              onChange={(e) =>
+                setForm((f) => ({
+                  ...f,
+                  paymentMethod: e.target.value as PaymentMethod,
+                }))
+              }
+              style={{ ...inputStyle, cursor: "pointer", appearance: "auto" }}
+            >
+              <option value="">—</option>
+              <option value="contanti">Contanti</option>
+              <option value="bonifico">Bonifico</option>
+              <option value="sumup">SumUp</option>
+            </select>
           </Field>
         </section>
 
