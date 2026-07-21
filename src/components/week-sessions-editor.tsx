@@ -28,6 +28,9 @@ export interface TrainingSession {
   // #18 nutrient timing — optional clock time ("HH:MM"). Display-only.
   startTime?: string;
   endTime?: string;
+  // #5/A1 — optional coach kcal override for this session. Display-only by
+  // construction (the intake→engine mapping never reads it).
+  kcal_override?: number;
 }
 
 /** Map of weekday index (0=Mon..6=Sun) → sessions for that day. */
@@ -68,8 +71,6 @@ export interface WeekSessionsEditorProps {
   hint?: string;
   /** #10 — client bodyweight (kg) for the provisional per-session kcal estimate. */
   bodyweightKg?: number | null;
-  /** #10 — saved kcal overrides keyed by "<dayIndex>:<sessionIndex>" (display-only). */
-  initialOverrides?: Record<string, number | null>;
 }
 
 export function WeekSessionsEditor({
@@ -77,7 +78,6 @@ export function WeekSessionsEditor({
   onChange,
   hint = "Aggiungi sessioni per ogni giorno di allenamento. I giorni senza sessioni sono considerati riposo.",
   bodyweightKg = null,
-  initialOverrides,
 }: WeekSessionsEditorProps) {
   const setSessions = useCallback(
     (dayIndex: number, sessions: TrainingSession[]) => {
@@ -110,12 +110,16 @@ export function WeekSessionsEditor({
       dayIndex: number,
       sessionIndex: number,
       field: keyof TrainingSession,
-      next: string | number
+      next: string | number | undefined
     ) => {
       const existing = [...(value[dayIndex] ?? [])];
       const current = existing[sessionIndex];
       if (!current) return;
-      existing[sessionIndex] = { ...current, [field]: next } as TrainingSession;
+      const draft = { ...current, [field]: next } as TrainingSession;
+      // undefined clears the key entirely — "" must never reach the server
+      // (the HH:MM regex rejects it and the whole save fails as "invalid").
+      if (next === undefined) delete (draft as unknown as Record<string, unknown>)[field];
+      existing[sessionIndex] = draft;
       setSessions(dayIndex, existing);
     },
     [value, setSessions]
@@ -236,7 +240,7 @@ export function WeekSessionsEditor({
                         type="time"
                         className={inputCls}
                         value={session.startTime ?? ""}
-                        onChange={(e) => updateSession(dayIndex, si, "startTime", e.target.value)}
+                        onChange={(e) => updateSession(dayIndex, si, "startTime", e.target.value || undefined)}
                       />
                     </div>
                     <div>
@@ -245,7 +249,7 @@ export function WeekSessionsEditor({
                         type="time"
                         className={inputCls}
                         value={session.endTime ?? ""}
-                        onChange={(e) => updateSession(dayIndex, si, "endTime", e.target.value)}
+                        onChange={(e) => updateSession(dayIndex, si, "endTime", e.target.value || undefined)}
                       />
                     </div>
                   </div>
@@ -266,7 +270,10 @@ export function WeekSessionsEditor({
                   sessionId={`${dayIndex}:${si}`}
                   session={session}
                   bodyweightKg={bodyweightKg}
-                  initialOverride={initialOverrides?.[`${dayIndex}:${si}`] ?? null}
+                  overrideKcal={session.kcal_override ?? null}
+                  onOverrideChange={(v) =>
+                    updateSession(dayIndex, si, "kcal_override", v ?? undefined)
+                  }
                 />
               </div>
             ))}

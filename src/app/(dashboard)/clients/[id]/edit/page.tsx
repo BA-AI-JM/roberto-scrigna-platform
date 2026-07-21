@@ -17,6 +17,7 @@ import {
   type WeekSessions,
   type TrainingSession,
 } from "@/components/week-sessions-editor";
+import { normalizeIntakeSession } from "@/lib/training/normalize-session";
 import {
   SkinfoldsEditor,
   EMPTY_SKINFOLDS,
@@ -213,13 +214,15 @@ export default function ClientEditPage() {
       }
 
       const sessions = intake.training_sessions as
-        | Record<string, TrainingSession[]>
+        | Record<string, unknown[]>
         | undefined;
       if (sessions) {
         const next: WeekSessions = {};
         for (const [k, v] of Object.entries(sessions)) {
           const idx = Number(k);
-          if (!Number.isNaN(idx) && Array.isArray(v)) next[idx] = v;
+          // Normalize every stored shape (legacy rows exist with times but no
+          // duration_min; verbatim hydration made every save fail as invalid).
+          if (!Number.isNaN(idx) && Array.isArray(v)) next[idx] = v.map(normalizeIntakeSession);
         }
         setWeekSessions(next);
       }
@@ -327,7 +330,7 @@ export default function ClientEditPage() {
         // (#18: startTime/endTime ride through to _intake.)
         const trainingSessions: Record<
           string,
-          Array<{ modality: string; duration_min: number; rpe: number; startTime?: string; endTime?: string }>
+          Array<{ modality: string; duration_min: number; rpe: number; startTime?: string; endTime?: string; kcal_override?: number }>
         > = {};
         for (const [k, v] of Object.entries(weekSessions)) {
           if (v && v.length > 0) trainingSessions[k] = v;

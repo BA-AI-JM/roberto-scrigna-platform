@@ -134,7 +134,7 @@ export default function NewInvoicePage() {
 
   // Load client list for dropdown
   const { data: clientsData, isLoading: clientsLoading } =
-    trpc.client.list.useQuery({ status: "active", limit: 200 });
+    trpc.client.list.useQuery({ status: "active", limit: 100 });
 
   const clients = clientsData?.clients ?? [];
 

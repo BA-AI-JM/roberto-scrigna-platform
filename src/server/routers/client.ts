@@ -49,11 +49,19 @@ const createClientSchema = z.object({
   tags: z.array(z.string()).optional(),
 });
 
-/** Training session for a single day */
-const trainingSessionSchema = z.object({
+/** Training session for a single day (exported for schema unit tests) */
+export const trainingSessionSchema = z.object({
   modality: z.string().max(100),
   duration_min: z.number().min(1).max(480),
   rpe: z.number().min(1).max(10),
+  /**
+   * #5/A1 — per-session coach kcal override. Display-only BY CONSTRUCTION:
+   * buildTrainingSessionFromIntake / buildTrainingSessionForDay read only
+   * modality/duration_min/rpe, so this field can never move the engine.
+   * Rides trainingSessions in _intake JSONB — additive, no migration
+   * (same pattern as startTime/endTime, #18).
+   */
+  kcal_override: z.number().positive().max(10000).optional(),
   // #18 nutrient timing — optional 24h clock "HH:MM" (e.g. "18:00"). Additive:
   // absent = unchanged. Display-only (drives the timed session box + pre/intra/
   // post grouping); the TDEE engine ignores it. Rides _intake JSONB, no migration.

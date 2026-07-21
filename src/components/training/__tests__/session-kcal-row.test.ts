@@ -11,7 +11,7 @@ const SESSION = { modality: "Pesi — Forza", duration_min: 60, rpe: 5 };
 
 describe("SessionKcalRow", () => {
   test("renders the provisional estimate badge + the override input", () => {
-    const html = renderToStaticMarkup(createElement(SessionKcalRow, { sessionId: "0:0", session: SESSION, bodyweightKg: 80 }));
+    const html = renderToStaticMarkup(createElement(SessionKcalRow, { sessionId: "0:0", session: SESSION, bodyweightKg: 80, overrideKcal: null, onOverrideChange: () => {} }));
     expect(html).toContain("204"); // estimate (engine-faithful)
     expect(html).toContain("stimato");
     expect(html).toContain("kcal personalizzato");
@@ -19,7 +19,7 @@ describe("SessionKcalRow", () => {
   });
 
   test("an override supersedes the estimate (override primary + 'modificato' + struck estimate)", () => {
-    const html = renderToStaticMarkup(createElement(SessionKcalRow, { sessionId: "0:0", session: SESSION, bodyweightKg: 80, initialOverride: 350 }));
+    const html = renderToStaticMarkup(createElement(SessionKcalRow, { sessionId: "0:0", session: SESSION, bodyweightKg: 80, overrideKcal: 350, onOverrideChange: () => {} }));
     expect(html).toContain("350 kcal");
     expect(html).toContain("modificato");
     expect(html).toContain("line-through"); // estimate shown struck, not removed
@@ -27,7 +27,7 @@ describe("SessionKcalRow", () => {
   });
 
   test("falls back to n/d when bodyweight is unknown", () => {
-    const html = renderToStaticMarkup(createElement(SessionKcalRow, { sessionId: "0:0", session: SESSION, bodyweightKg: null }));
+    const html = renderToStaticMarkup(createElement(SessionKcalRow, { sessionId: "0:0", session: SESSION, bodyweightKg: null, overrideKcal: null, onOverrideChange: () => {} }));
     expect(html).toContain("kcal stimato: n/d");
   });
 });
