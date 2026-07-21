@@ -7,7 +7,7 @@ import type { ReminderSettings } from "./types";
 export const CHECK_IN_MIN = 1;
 export const CHECK_IN_MAX = 90;
 export const BODY_COMP_MIN = 1;
-export const BODY_COMP_MAX = 365;
+export const BODY_COMP_MAX = 90; // matches server zod max(90) — was 365 (drift)
 
 // Must mirror the server's REMINDER_DEFAULTS (src/server/reminder-due.ts): check-in
 // every 21 days, body-comp 0 = OFF. A divergence here is what made the card summary

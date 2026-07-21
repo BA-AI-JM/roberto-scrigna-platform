@@ -124,3 +124,11 @@ describe("regression: the 21/0 stale-summary case (from the C3 screenshot)", () 
     expect(summary).not.toContain("28");
   });
 });
+
+// Residual from the decoherence fix: client bound must equal the server's
+// zod max(90) (notification.ts:267) — 365 would pass client-side then be
+// rejected server-side as raw zod (the exact error class this arc kills).
+import { BODY_COMP_MAX as _BCMAX, CHECK_IN_MAX as _CIMAX } from "../reminder-validation";
+test("client bounds mirror the server zod bounds (90)", () => {
+  expect(_BCMAX).toBe(90);
+});
