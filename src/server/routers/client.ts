@@ -155,10 +155,20 @@ const createSnapshotSchema = z.object({
     .optional(),
 });
 
+/** C1 (#2, Roberto 2026-07-21): cooperation-type fields (all optional/additive). */
+const cooperationSchema = {
+  cooperationType: z.enum(["abbonamento", "consulenza", "fight_camp"]).nullish(),
+  engagementStart: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullish(),
+  engagementEnd: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullish(),
+  visitCount: z.number().int().min(0).max(1000).nullish(),
+  isFree: z.boolean().optional(),
+};
+
 /** Schema for updating a client */
 const updateClientSchema = createClientSchema.partial().extend({
   id: z.string().uuid(),
   status: clientStatusSchema.optional(),
+  ...cooperationSchema,
 });
 
 /** Atomic input for the 7-page intake form. */
@@ -190,7 +200,7 @@ export const clientRouter = router({
 
       let query = ctx.supabase
         .from("client")
-        .select("id, full_name, email, phone, sex, status, tags, created_at", {
+        .select("id, full_name, email, phone, sex, status, tags, created_at, cooperation_type, engagement_start, engagement_end, visit_count, is_free", {
           count: "exact",
         })
         .eq("partner_id", ctx.partnerId)
@@ -755,6 +765,12 @@ export const clientRouter = router({
       if (updates.status !== undefined) updateData.status = updates.status;
       if (updates.notes !== undefined) updateData.notes = updates.notes;
       if (updates.tags !== undefined) updateData.tags = updates.tags;
+      // C1 cooperation fields (null clears)
+      if (updates.cooperationType !== undefined) updateData.cooperation_type = updates.cooperationType;
+      if (updates.engagementStart !== undefined) updateData.engagement_start = updates.engagementStart;
+      if (updates.engagementEnd !== undefined) updateData.engagement_end = updates.engagementEnd;
+      if (updates.visitCount !== undefined) updateData.visit_count = updates.visitCount;
+      if (updates.isFree !== undefined) updateData.is_free = updates.isFree;
 
       const { data, error } = await ctx.supabase
         .from("client")
