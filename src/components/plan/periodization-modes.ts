@@ -30,27 +30,29 @@ export const PERIODIZATION_MODES: PeriodizationMode[] = [
   },
   {
     id: "train-rest",
-    label: "Allenamento / riposo",
-    hint: "Apporto più alto nei giorni di allenamento",
+    label: "ON / OFF",
+    hint: "Apporto più alto nei giorni ON (media del dispendio dei giorni di allenamento)",
     schedule: ["training", "rest", "training", "rest", "training", "training", "rest"],
   },
+  // B3 (#6) FINAL (Roberto 2026-07-21): tier ladder is Leggero→Medio (→Intenso
+  // in mode 4) — the old medio/intenso pairing predates his answer.
   {
-    id: "off-medium-intense",
-    label: "OFF / medio / intenso",
+    id: "off-light-medium",
+    label: "OFF / leggero / medio",
     hint: "Riposo + due livelli di intensità",
     schedule: [
       "rest",
+      "training_light",
       "training_medium",
-      "training_intense",
       "rest",
+      "training_light",
       "training_medium",
-      "training_intense",
       "rest",
     ],
   },
   {
     id: "full-tiers",
-    label: "OFF / leggero / medio / intenso / doppia",
+    label: "OFF / leggero / medio / intenso",
     hint: "Periodizzazione completa a livelli",
     schedule: [
       "rest",

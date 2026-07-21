@@ -45,14 +45,9 @@ export const DAY_TYPE_COLORS: Record<DayType, { bg: string; text: string; border
   training_double:  { bg: "#e0e7ff", text: "#3730a3", border: "#818cf8" },
 };
 
-export const WEEK_PRESETS: Record<string, DayType[]> = {
-  // Mode 1 — uniform week (every day the same type): no training/rest
-  // differentiation, so the plan resolves to a single weekly target.
-  "Media settimanale": ["training", "training", "training", "training", "training", "training", "training"],
-  "3/sett": ["training", "rest",     "training", "rest",     "training", "rest", "rest"],
-  "4/sett": ["training", "training", "rest",     "training", "training", "rest", "rest"],
-  "5/sett": ["training", "training", "rest",     "training", "training", "training", "rest"],
-  "6/sett": ["training", "training", "training", "rest",     "training", "training", "training"],
-};
+// B3 (#6): the quick presets are gone (Roberto: "take off the presets").
+// The four periodization modes live in src/components/plan/periodization-modes.ts
+// (#17 Stage B) and render at the TOP of the week-structure card.
+
 
 // ── Form State ───────────────────────────────────────────────────────────────

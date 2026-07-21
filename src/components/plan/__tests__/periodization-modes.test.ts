@@ -31,9 +31,9 @@ describe("PERIODIZATION_MODES", () => {
     expect(s.some((d) => d.startsWith("training_"))).toBe(false);
   });
 
-  test("mode 3 = rest + medium + intense tiers only", () => {
+  test("mode 3 = rest + light + medium tiers (Roberto FINAL 2026-07-21)", () => {
     expect(new Set(PERIODIZATION_MODES[2]!.schedule)).toEqual(
-      new Set<DayType>(["rest", "training_medium", "training_intense"])
+      new Set<DayType>(["rest", "training_light", "training_medium"])
     );
   });
 
@@ -53,7 +53,7 @@ describe("PERIODIZATION_MODES", () => {
 describe("activeModeId", () => {
   test("matches a mode whose schedule equals the week, null when fine-tuned/empty", () => {
     expect(activeModeId(PERIODIZATION_MODES[0]!.schedule)).toBe("weekly-average");
-    expect(activeModeId(PERIODIZATION_MODES[2]!.schedule)).toBe("off-medium-intense");
+    expect(activeModeId(PERIODIZATION_MODES[2]!.schedule)).toBe("off-light-medium");
     expect(activeModeId(["training", "rest", "rest", "rest", "rest", "rest", "rest"])).toBeNull();
     expect(activeModeId([])).toBeNull();
     expect(activeModeId(null)).toBeNull();
@@ -71,9 +71,9 @@ describe("PeriodizationModeSelector render", () => {
     );
     expect(html).toContain("Modalità di periodizzazione");
     expect(html).toContain("1 · Media settimanale");
-    expect(html).toContain("2 · Allenamento / riposo");
-    expect(html).toContain("3 · OFF / medio / intenso");
-    expect(html).toContain("4 · OFF / leggero / medio / intenso / doppia");
+    expect(html).toContain("2 · ON / OFF");
+    expect(html).toContain("3 · OFF / leggero / medio");
+    expect(html).toContain("4 · OFF / leggero / medio / intenso");
   });
 
   test("marks the active mode as pressed", () => {

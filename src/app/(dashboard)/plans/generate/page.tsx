@@ -27,7 +27,6 @@ import {
   DAY_LABELS_IT,
   DAY_TYPE_COLORS,
   DAY_TYPE_LABELS,
-  WEEK_PRESETS,
 } from "../../../../components/plan-wizard/constants";
 import { PeriodizationModeSelector } from "../../../../components/plan/periodization-mode-selector";
 import {

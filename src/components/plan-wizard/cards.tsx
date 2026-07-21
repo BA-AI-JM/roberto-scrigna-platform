@@ -13,7 +13,6 @@ import {
   DAY_LABELS_IT,
   DAY_TYPE_COLORS,
   DAY_TYPE_LABELS,
-  WEEK_PRESETS,
 } from "./constants";
 
 /** Per-day training session shape sent to the server. Matches
@@ -76,61 +75,14 @@ export function WeekStructureCard({
         e le kcal target si aggiornano in tempo reale.
       </p>
 
-      {/* Periodization explainer (Item #19) — names the choice the calendar makes */}
-      <div
-        style={{
-          fontSize: "12px",
-          color: "#52525b",
-          padding: "10px 12px",
-          backgroundColor: "#fafafa",
-          border: "1px solid #f4f4f5",
-          borderRadius: "8px",
-          marginBottom: "16px",
-          lineHeight: "1.5",
-        }}
-      >
-        <div style={{ fontWeight: 600, color: "#3f3f46", marginBottom: "6px" }}>
-          Come scegliere la periodizzazione
-        </div>
-        <div style={{ marginBottom: "4px" }}>
-          <strong style={{ color: "#18181b" }}>Media settimanale</strong> — stesso
-          apporto calorico ogni giorno, senza differenziare allenamento e riposo
-          (imposta tutti i giorni sullo stesso tipo, o usa il preset omonimo).
-        </div>
-        <div>
-          <strong style={{ color: "#18181b" }}>
-            Differenzia allenamento / riposo
-          </strong>{" "}
-          — apporto più alto nei giorni di allenamento, più basso nei giorni di
-          riposo (giorni ON/OFF diversi nel calendario qui sotto).
-        </div>
-      </div>
-
-      {/* Presets */}
-      <div style={{ marginBottom: "16px" }}>
-        <label style={labelStyle}>Preset rapidi</label>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
-          {Object.entries(WEEK_PRESETS).map(([label, preset]) => (
-            <button
-              key={label}
-              type="button"
-              onClick={() => onPreset(preset)}
-              style={{
-                padding: "6px 14px",
-                borderRadius: "20px",
-                border: "1px solid #d4d4d8",
-                backgroundColor: "#ffffff",
-                color: "#3f3f46",
-                cursor: "pointer",
-                fontSize: "12px",
-                fontWeight: 500,
-              }}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
+      {/* B3 (#6) — the four periodization modes, front and centre (quick presets
+          removed; #17 Stage B selector promoted from below the calendar). Every
+          day remains individually editable in the calendar underneath. */}
+      <PeriodizationModeSelector
+        weekSchedule={weekSchedule}
+        onSelect={onPreset}
+        labelStyle={labelStyle}
+      />
 
       {/* Calendar grid — horizontal scroll on narrow screens so the 7 day cells never crush */}
       <div style={{ overflowX: "auto", marginBottom: "14px" }}>
@@ -161,22 +113,28 @@ export function WeekStructureCard({
               <div style={{ fontSize: "11px", color: c.text, fontWeight: 600 }}>
                 {DAY_LABELS_IT[i]}
               </div>
+              {/* Contrast fix (operator 2026-07-21): the select had transparent
+                  bg + the cell's text colour — white-on-white on ON days (cell
+                  #18181b/text #ffffff; the OS popup inherits the white text on
+                  a white popup). Solid readable surface on EVERY tint. */}
               <select
                 value={dt}
                 onChange={(e) => onUpdateDay(i, { dayType: e.target.value as DayType })}
                 style={{
-                  fontSize: "10px",
-                  padding: "2px 4px",
-                  border: "none",
-                  background: "transparent",
-                  color: c.text,
+                  fontSize: "10.5px",
+                  padding: "3px 6px",
+                  border: "1px solid rgba(0,0,0,0.18)",
+                  borderRadius: "6px",
+                  background: "#ffffff",
+                  color: "#18181b",
                   fontWeight: 700,
                   cursor: "pointer",
                   outline: "none",
+                  maxWidth: "100%",
                 }}
               >
                 {ALL_DAY_TYPES.map((opt) => (
-                  <option key={opt} value={opt}>
+                  <option key={opt} value={opt} style={{ color: "#18181b", background: "#ffffff" }}>
                     {DAY_TYPE_LABELS[opt]}
                   </option>
                 ))}
@@ -187,7 +145,10 @@ export function WeekStructureCard({
         </div>
       </div>
 
-      {/* Per-day sessions for training days */}
+      {/* B4 (#7) + operator 2026-07-21: per-day sessions — EVERY session is a
+          fully editable row (modality/durata/RPE). Double days get a real second
+          row (max 2), no auto-fill: the coach owns both sessions. State/server/
+          engine already carry arrays (duration-weighted MET). */}
       <div style={{ marginBottom: "14px" }}>
         <label style={labelStyle}>Attività per giorno (solo giorni ON)</label>
         <div style={{ overflowX: "auto" }}>
@@ -195,83 +156,126 @@ export function WeekStructureCard({
           {weekSchedule.map((dt, i) => {
             if (!isTrainingLikeDayType(dt)) return null;
             const sessions = perDaySessions[i] ?? [];
-            const first = sessions[0] ?? { modality: "", duration_min: 60, rpe: 7 };
+            const rows: DaySession[] = sessions.length > 0 ? sessions : [{ modality: "", duration_min: 60, rpe: 7 }];
+            const setRow = (si: number, patch: Partial<DaySession>) => {
+              const next = rows.map((r, j) => (j === si ? { ...r, ...patch } : r));
+              // First row cleared to the default option → whole day falls back to null.
+              if (si === 0 && patch.modality === "" && next.length === 1) {
+                onUpdateDay(i, { sessions: null });
+              } else {
+                onUpdateDay(i, { sessions: next });
+              }
+            };
             return (
-              <div
-                key={i}
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "60px 1fr 100px 80px",
-                  gap: "8px",
-                  alignItems: "center",
-                }}
-              >
-                <div style={{ fontSize: "12px", fontWeight: 600, color: "#3f3f46" }}>
-                  {DAY_LABELS_IT[i]}
-                </div>
-                <select
-                  value={first.modality ?? ""}
-                  onChange={(e) =>
-                    onUpdateDay(i, {
-                      sessions: e.target.value
-                        ? [{ ...first, modality: e.target.value }]
-                        : null,
-                    })
-                  }
-                  style={{ ...inputStyle, padding: "6px 8px", fontSize: "12px" }}
-                >
-                  <option value="">Default (media settimanale)</option>
-                  {sportGroups.map((g) => (
-                    <optgroup key={g.group} label={g.group}>
-                      {g.entries.map((s) => (
-                        <option key={s.displayIt} value={s.displayIt}>
-                          {s.displayIt}
-                        </option>
+              <div key={i} style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                {rows.map((row, si) => (
+                  <div
+                    key={si}
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "60px 1fr 100px 80px 30px",
+                      gap: "8px",
+                      alignItems: "center",
+                    }}
+                  >
+                    <div style={{ fontSize: "12px", fontWeight: 600, color: "#3f3f46" }}>
+                      {si === 0 ? DAY_LABELS_IT[i] : ""}
+                      {si > 0 && (
+                        <span style={{ fontSize: "10px", color: "#71717a", fontWeight: 500 }}>2ª sess.</span>
+                      )}
+                    </div>
+                    <select
+                      value={row.modality ?? ""}
+                      onChange={(e) => setRow(si, { modality: e.target.value })}
+                      style={{ ...inputStyle, padding: "6px 8px", fontSize: "12px" }}
+                    >
+                      {si === 0 ? (
+                        <option value="">Default (media settimanale)</option>
+                      ) : (
+                        <option value="">— scegli attività —</option>
+                      )}
+                      {sportGroups.map((g) => (
+                        <optgroup key={g.group} label={g.group}>
+                          {g.entries.map((sp) => (
+                            <option key={sp.displayIt} value={sp.displayIt}>
+                              {sp.displayIt}
+                            </option>
+                          ))}
+                        </optgroup>
                       ))}
-                    </optgroup>
-                  ))}
-                </select>
-                <input
-                  type="number"
-                  min={10}
-                  max={300}
-                  step={5}
-                  value={first.duration_min ?? 60}
-                  onChange={(e) =>
-                    onUpdateDay(i, {
-                      sessions: [{ ...first, duration_min: Number(e.target.value) || 60 }],
-                    })
-                  }
-                  placeholder="min"
-                  style={{ ...inputStyle, padding: "6px 8px", fontSize: "12px" }}
-                />
-                <input
-                  type="number"
-                  min={1}
-                  max={10}
-                  step={1}
-                  value={first.rpe ?? 7}
-                  onChange={(e) =>
-                    onUpdateDay(i, {
-                      sessions: [{ ...first, rpe: Number(e.target.value) || 7 }],
-                    })
-                  }
-                  placeholder="RPE"
-                  style={{ ...inputStyle, padding: "6px 8px", fontSize: "12px" }}
-                />
+                    </select>
+                    <input
+                      type="number"
+                      min={10}
+                      max={300}
+                      step={5}
+                      value={row.duration_min ?? 60}
+                      onChange={(e) => setRow(si, { duration_min: Number(e.target.value) || 60 })}
+                      placeholder="min"
+                      style={{ ...inputStyle, padding: "6px 8px", fontSize: "12px" }}
+                    />
+                    <input
+                      type="number"
+                      min={1}
+                      max={10}
+                      step={1}
+                      value={row.rpe ?? 7}
+                      onChange={(e) => setRow(si, { rpe: Number(e.target.value) || 7 })}
+                      placeholder="RPE"
+                      style={{ ...inputStyle, padding: "6px 8px", fontSize: "12px" }}
+                    />
+                    {si > 0 ? (
+                      <button
+                        type="button"
+                        title="Rimuovi la seconda sessione"
+                        onClick={() => onUpdateDay(i, { sessions: rows.filter((_, j) => j !== si) })}
+                        style={{
+                          border: "1px solid #fecaca",
+                          background: "#ffffff",
+                          color: "#b91c1c",
+                          borderRadius: "6px",
+                          padding: "4px 0",
+                          cursor: "pointer",
+                          fontSize: "12px",
+                        }}
+                      >
+                        ✕
+                      </button>
+                    ) : (
+                      <span />
+                    )}
+                  </div>
+                ))}
+                {rows.length === 1 && rows[0] && rows[0].modality !== "" && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      onUpdateDay(i, {
+                        sessions: [...rows, { modality: rows[0]!.modality, duration_min: 60, rpe: 7 }],
+                      })
+                    }
+                    style={{
+                      alignSelf: "flex-start",
+                      marginLeft: "68px",
+                      border: "1px dashed #d4d4d8",
+                      background: "transparent",
+                      color: "#3f3f46",
+                      borderRadius: "999px",
+                      padding: "3px 12px",
+                      cursor: "pointer",
+                      fontSize: "11.5px",
+                      fontWeight: 500,
+                    }}
+                  >
+                    + 2ª sessione
+                  </button>
+                )}
               </div>
             );
           })}
-          </div>
+        </div>
         </div>
       </div>
-
-      {/* #17 Stage B — periodization mode selector (sets the week vocabulary). */}
-      <PeriodizationModeSelector
-        weekSchedule={weekSchedule}
-        onSelect={onPreset}
-        labelStyle={labelStyle}
-      />
 
       {/* Live weekly table */}
       <div>
