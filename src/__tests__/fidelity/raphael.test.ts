@@ -162,18 +162,18 @@ describe("Raphael — TDEE ON2=3200", () => {
 // ── Hydration ───────────────────────────────────────────────────────────────
 
 describe("Raphael — Hydration", () => {
-  test("training: 3875ml water, 6.5g salt", () => {
+  test("training: 3875ml water, 3.9g salt", () => {
     // base: 37.5 * 90 = 3375, + 500 = 3875
     const h = calculateHydration(90, "training");
     expect(h.waterMl).toBe(3875);
-    expect(h.saltG).toBe(6.5);
+    expect(h.saltG).toBe(3.9);  // R5: salt = water L × 1 g
   });
 
-  test("rest: 3375ml water, 5g salt", () => {
+  test("rest: 3375ml water, 3.4g salt", () => {
     // 37.5 * 90 = 3375
     const h = calculateHydration(90, "rest");
     expect(h.waterMl).toBe(3375);
-    expect(h.saltG).toBe(5);
+    expect(h.saltG).toBe(3.4);  // R5: salt = water L × 1 g
   });
 });
 

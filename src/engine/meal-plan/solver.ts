@@ -58,10 +58,14 @@ export const REL_MIN = 0.4;
 export const REL_MAX = 2.5;
 
 /** Absolute g backstops per category (sanity; the relative band usually binds). */
-const ABS_BOUNDS: Record<SolveCategory, [number, number]> = {
+export const ABS_BOUNDS: Record<SolveCategory, [number, number]> = {
   PROTEIN: [30, 400],
   CARB: [10, 300],
-  VEG: [20, 400],
+  // D3b (R8, Roberto 2026-07-21): veggies min 100 g per meal (kills the 60 g
+  // pomodorini / 2 g broccoli). Ceiling kept at 400 — the conservative
+  // intersection of his two statements ("max 500" vs "100–400 for green
+  // sources") pending his ⚠ confirm; raising to 500 is a one-number change.
+  VEG: [100, 400],
   FAT: [3, 80], // default for fatty whole foods (nuts/seeds/nut-butter/olives)
   FRUIT: [20, 300],
   FIXED: [0, Number.POSITIVE_INFINITY],

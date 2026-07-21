@@ -208,18 +208,18 @@ describe("Marco Bellini — Macros (Rest)", () => {
 // ── Hydration ───────────────────────────────────────────────────────────────
 
 describe("Marco Bellini — Hydration", () => {
-  test("training: 3575ml water, 6.5g salt", () => {
+  test("training: 3575ml water, 3.6g salt", () => {
     const h = calculateHydration(82, "training");
     // base: 37.5 * 82 = 3075, + 500 training bonus = 3575
     expect(h.waterMl).toBe(3575);
-    expect(h.saltG).toBe(6.5);
+    expect(h.saltG).toBe(3.6);  // R5: salt = water L × 1 g
   });
 
-  test("rest: 3075ml water, 5g salt", () => {
+  test("rest: 3075ml water, 3.1g salt", () => {
     const h = calculateHydration(82, "rest");
     // 37.5 * 82 = 3075
     expect(h.waterMl).toBe(3075);
-    expect(h.saltG).toBe(5);
+    expect(h.saltG).toBe(3.1);  // R5: salt = water L × 1 g
   });
 });
 

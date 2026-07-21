@@ -397,22 +397,29 @@ describe("Macros", () => {
 // ── Hydration Tests ───────────────────────────────────────────────────────────
 
 describe("Hydration", () => {
-  test("rest day hydration", () => {
+  // D3a (R5, Roberto 2026-07-21): salt = 1 g per litre of the day's water.
+  test("rest day hydration — salt follows water (1 g/L)", () => {
     const h = calculateHydration(85, "rest");
     expect(h.waterMl).toBe(3188); // 37.5 * 85 = 3187.5 → 3188
-    expect(h.saltG).toBe(5);
+    expect(h.saltG).toBe(3.2); // 3.188 L → 3.2 g
   });
 
-  test("training day adds bonus water and salt", () => {
+  test("training day adds bonus water; salt scales with it", () => {
     const h = calculateHydration(85, "training");
     expect(h.waterMl).toBe(3688); // 3188 + 500
-    expect(h.saltG).toBe(6.5); // 5 + 1.5
+    expect(h.saltG).toBe(3.7); // 3.688 L → 3.7 g (was flat 6.5 — his complaint)
   });
 
   test("deload day also gets bonus hydration", () => {
     const h = calculateHydration(85, "deload");
     expect(h.waterMl).toBe(3688);
-    expect(h.saltG).toBe(6.5);
+    expect(h.saltG).toBe(3.7);
+  });
+
+  test("Roberto's flagged case can never recur: salt is never water-独立 flat 6.5", () => {
+    // any weight in his 30–40 mL/kg water world yields salt ≈ litres, ≤ ~4.5 g
+    const heavy = calculateHydration(110, "training");
+    expect(heavy.saltG).toBeCloseTo(heavy.waterMl / 1000, 1);
   });
 });
 

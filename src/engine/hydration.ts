@@ -16,11 +16,13 @@ const BASE_WATER_ML_PER_KG = 37.5;
 /** Additional water on training days (ml) */
 const TRAINING_WATER_BONUS_ML = 500;
 
-/** Base daily salt intake (g) */
-const BASE_SALT_G = 5;
-
-/** Additional salt on training days (g) */
-const TRAINING_SALT_BONUS_G = 1.5;
+/**
+ * D3a (R5, Roberto 2026-07-21): salt is LINKED TO WATER — 1 g of salt per
+ * litre of water for the day (his exact rule; water itself is 30–40 mL/kg,
+ * which the 37.5 base + training bonus already satisfies). The previous flat
+ * 5 g + 1.5 g training bonus produced the 6.5 g/day he flagged as wrong.
+ */
+const SALT_G_PER_WATER_L = 1;
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
@@ -41,9 +43,8 @@ export function calculateHydration(
   const baseWater = Math.round(BASE_WATER_ML_PER_KG * weightKg);
   const waterMl = isActive ? baseWater + TRAINING_WATER_BONUS_ML : baseWater;
 
-  const saltG = isActive
-    ? Math.round((BASE_SALT_G + TRAINING_SALT_BONUS_G) * 10) / 10
-    : BASE_SALT_G;
+  // Salt follows the day's water 1 g/L (R5) — rounded to 0.1 g.
+  const saltG = Math.round((waterMl / 1000) * SALT_G_PER_WATER_L * 10) / 10;
 
   return { waterMl, saltG };
 }

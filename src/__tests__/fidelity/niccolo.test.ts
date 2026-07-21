@@ -165,18 +165,18 @@ describe("Niccolo — TDEE LONG_RUN=3700", () => {
 // ── Hydration ───────────────────────────────────────────────────────────────
 
 describe("Niccolo — Hydration", () => {
-  test("training: 3313ml water, 6.5g salt", () => {
+  test("training: 3313ml water, 3.3g salt", () => {
     // base: 37.5 * 75 = 2812.5 → Math.round = 2813, + 500 = 3313
     const h = calculateHydration(75, "training");
     expect(h.waterMl).toBe(3313);
-    expect(h.saltG).toBe(6.5);
+    expect(h.saltG).toBe(3.3);  // R5: salt = water L × 1 g
   });
 
-  test("rest: 2813ml water, 5g salt", () => {
+  test("rest: 2813ml water, 2.8g salt", () => {
     // 37.5 * 75 = 2812.5 → Math.round = 2813
     const h = calculateHydration(75, "rest");
     expect(h.waterMl).toBe(2813);
-    expect(h.saltG).toBe(5);
+    expect(h.saltG).toBe(2.8);  // R5: salt = water L × 1 g
   });
 });
 
