@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="it" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fatturazione — Finanze (mock)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..600;1,9..144,400..600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f8f7f4; --card:#ffffff; --secondary:#f1efe9; --border:#e5e2da; --line-2:#eceae3;
+    --ink:#191b19; --ink-2:#575c57; --ink-3:#8b908a; --muted:#6b7069;
+    --brand:#159a6e; --brand-deep:#0c6b4d; --brand-wash:#e5f3ec; --brand-soft:#bfe0d2;
+    --amber:#a05b10; --amber-wash:#f8f0e1; --red:#b23b2e; --red-wash:#f9ece9;
+    --viz-paid:#159a6e; --viz-out:#d9b075;
+  }
+  [data-theme="dark"]{
+    --bg:#151714; --card:#1d201c; --secondary:#232622; --border:#31352f; --line-2:#282b26;
+    --ink:#f1f0ea; --ink-2:#a9aea5; --ink-3:#8b9088; --muted:#a9aea5;
+    --brand:#2fb585; --brand-deep:#7fd6b4; --brand-wash:#12352a; --brand-soft:#1e4b3b;
+    --amber:#d89a4a; --amber-wash:#33270f; --red:#e0705f; --red-wash:#39201b;
+    --viz-paid:#2fb585; --viz-out:#8a6f3f;
+  }
+  *{box-sizing:border-box;margin:0}
+  body{background:var(--bg);color:var(--ink);font:15px/1.5 "IBM Plex Sans",sans-serif;padding:44px 48px;max-width:1280px;margin:0 auto}
+  h1,h2,h3,.display{font-family:"Fraunces",serif;font-weight:500}
+  .tnum{font-variant-numeric:tabular-nums}
+  .eyebrow{font-size:11.5px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3)}
+  .chip{display:inline-block;border-radius:999px;padding:3px 10px;font-size:12px;font-weight:500;white-space:nowrap}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:14px}
+
+  header.page{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:26px}
+  header.page h1{font-size:34px;letter-spacing:-.01em;margin-top:6px}
+  header.page .sub{color:var(--ink-3);font-size:13.5px;margin-top:4px}
+  #themeBtn{border:1px solid var(--border);background:var(--card);color:var(--ink);border-radius:999px;padding:8px 18px;font-size:13px;cursor:pointer}
+
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:14px}
+  .kpi{padding:16px 18px}
+  .kpi .label{font-size:12.5px;color:var(--ink-3)}
+  .kpi .value{font-size:29px;font-weight:500;line-height:1.15;margin-top:3px}
+  .kpi .sub{font-size:12.5px;color:var(--ink-3);margin-top:2px}
+  .kpi .up{color:var(--brand-deep)} .kpi .warn{color:var(--amber)}
+
+  .row2{display:grid;grid-template-columns:320px minmax(0,1fr);gap:14px;margin-bottom:14px}
+  .arr{padding:18px}
+  .arr .value{font-size:31px;margin-top:4px}
+  .arr .note{font-size:12.5px;color:var(--ink-3);margin-top:8px;line-height:1.45}
+  .chart{padding:18px 18px 10px}
+  .chart h3{font-size:15.5px;margin-bottom:2px}
+  .chart .legend{font-size:12px;color:var(--ink-3);margin-bottom:12px}
+  .dot{display:inline-block;width:8px;height:8px;border-radius:99px;margin:0 4px 0 10px}
+  .bars{display:flex;align-items:flex-end;gap:9px;height:130px}
+  .bar{flex:1;display:flex;flex-direction:column;justify-content:flex-end;gap:2px}
+  .bar .p{background:var(--viz-paid);border-radius:3px 3px 0 0}
+  .bar .o{background:var(--viz-out);border-radius:3px}
+  .months{display:flex;gap:9px;margin-top:6px}
+  .months span{flex:1;text-align:center;font-size:10.5px;color:var(--ink-3)}
+
+  .tableCard{margin-bottom:14px;overflow:hidden}
+  .tableCard .head{display:flex;justify-content:space-between;align-items:baseline;padding:15px 22px;border-bottom:1px solid var(--line-2)}
+  .tableCard .head h2{font-size:17px}
+  .tableCard .head span{font-size:12.5px;color:var(--ink-3)}
+  table{width:100%;border-collapse:collapse;font-size:13.5px}
+  th{font-size:11px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);text-align:left;padding:10px 22px;border-bottom:1px solid var(--line-2)}
+  th.r,td.r{text-align:right}
+  td{padding:12px 22px;border-bottom:1px solid var(--line-2)}
+  tr:last-child td{border-bottom:0}
+  td .name{font-weight:500}
+  .c-camp{background:var(--red-wash);color:var(--red)}
+  .c-abbo{background:var(--brand-wash);color:var(--brand-deep)}
+  .c-cons{background:var(--secondary);color:var(--muted)}
+  .s-paid{background:var(--brand-wash);color:var(--brand-deep)}
+  .s-wait{background:var(--amber-wash);color:var(--amber)}
+  .s-late{background:var(--red-wash);color:var(--red)}
+  .nota{display:flex;gap:14px;padding:15px 22px;border-top:1px solid var(--line-2)}
+  .nota .rule{width:3px;border-radius:99px;background:var(--brand);flex:none}
+  .nota p{font-family:"Fraunces",serif;font-style:italic;font-size:15px;color:var(--muted);max-width:70ch}
+
+  .row3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:28px}
+  .mini{padding:17px 18px}
+  .mini h3{font-size:15px;margin-bottom:10px}
+  .age{display:flex;flex-direction:column;gap:9px;font-size:13px}
+  .age .lane{display:flex;align-items:center;gap:10px}
+  .age .lbl{width:64px;color:var(--ink-3);font-size:12px}
+  .age .track{flex:1;height:8px;background:var(--secondary);border-radius:99px;overflow:hidden}
+  .age .fill{height:100%;border-radius:99px}
+  .age .amt{width:70px;text-align:right;font-size:12.5px}
+  .price{font-size:13px}
+  .price .r{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--line-2)}
+  .price .r:last-child{border-bottom:0}
+  .price .k{color:var(--ink-2)} .price .v{font-weight:500}
+  .price .band{color:var(--ink-3);font-size:11.5px}
+  .mini .note{font-size:12px;color:var(--ink-3);margin-top:10px;line-height:1.45}
+  .rem{font-size:13.5px}
+  .rem .who{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line-2)}
+  .rem .who:last-child{border-bottom:0}
+  .rem a{color:var(--brand-deep);text-decoration:none;font-weight:500;font-size:13px}
+  footer{color:var(--ink-3);font-size:12px;text-align:center;padding-bottom:8px}
+</style>
+</head>
+<body>
+
+<header class="page">
+  <div>
+    <div class="eyebrow">Fatturazione · Cruscotto</div>
+    <h1>Finanze dello studio</h1>
+    <div class="sub">Anno 2026 · aggiornato al 21 luglio · solo fatture registrate</div>
+  </div>
+  <button id="themeBtn" onclick="const h=document.documentElement;h.dataset.theme=h.dataset.theme==='dark'?'light':'dark'">Tema chiaro / scuro</button>
+</header>
+
+<section class="kpis">
+  <div class="card kpi"><div class="label">Incassato 2026</div><div class="value tnum">€ 24.350</div><div class="sub"><span class="up">▲ 18%</span> vs stesso periodo 2025</div></div>
+  <div class="card kpi"><div class="label">Ultimi 12 mesi</div><div class="value tnum">€ 31.200</div><div class="sub">43 fatture pagate</div></div>
+  <div class="card kpi"><div class="label">Da incassare</div><div class="value tnum">€ 2.870</div><div class="sub"><span class="warn">€ 960 oltre i 30 giorni</span></div></div>
+  <div class="card kpi"><div class="label">Valore medio visita</div><div class="value tnum">€ 95</div><div class="sub">consulenze singole, 2026</div></div>
+</section>
+
+<section class="row2">
+  <div class="card arr">
+    <div class="eyebrow">Ricavo ricorrente</div>
+    <div class="value tnum display">€ 18.600<span style="font-size:15px;color:var(--ink-3)"> /anno</span></div>
+    <div class="note">Annualizzato dai <b>6 abbonamenti attivi</b>. I fight camp e le consulenze singole non entrano qui — li vedi nel riquadro prezzi.</div>
+  </div>
+  <div class="card chart">
+    <h3>Andamento mensile</h3>
+    <div class="legend">ultimi 12 mesi<span class="dot" style="background:var(--viz-paid)"></span>incassato<span class="dot" style="background:var(--viz-out)"></span>da incassare</div>
+    <div class="bars">
+      <div class="bar"><div class="p" style="height:38px"></div></div>
+      <div class="bar"><div class="p" style="height:52px"></div></div>
+      <div class="bar"><div class="o" style="height:8px"></div><div class="p" style="height:44px"></div></div>
+      <div class="bar"><div class="p" style="height:66px"></div></div>
+      <div class="bar"><div class="p" style="height:47px"></div></div>
+      <div class="bar"><div class="o" style="height:6px"></div><div class="p" style="height:58px"></div></div>
+      <div class="bar"><div class="p" style="height:71px"></div></div>
+      <div class="bar"><div class="p" style="height:55px"></div></div>
+      <div class="bar"><div class="o" style="height:12px"></div><div class="p" style="height:62px"></div></div>
+      <div class="bar"><div class="p" style="height:78px"></div></div>
+      <div class="bar"><div class="o" style="height:10px"></div><div class="p" style="height:84px"></div></div>
+      <div class="bar"><div class="o" style="height:22px"></div><div class="p" style="height:60px"></div></div>
+    </div>
+    <div class="months"><span>ago</span><span>set</span><span>ott</span><span>nov</span><span>dic</span><span>gen</span><span>feb</span><span>mar</span><span>apr</span><span>mag</span><span>giu</span><span>lug</span></div>
+  </div>
+</section>
+
+<section class="card tableCard">
+  <div class="head"><h2>Economia per atleta</h2><span>ordinato per spesa totale</span></div>
+  <table>
+    <thead><tr>
+      <th>Atleta</th><th>Collaborazione</th><th class="r">Spesa totale</th><th class="r">€ / visita</th><th class="r">Ricorrente / 12 mesi</th><th class="r">Ultima fattura</th>
+    </tr></thead>
+    <tbody class="tnum">
+      <tr><td><span class="name">Niccolò Ambrosi</span></td><td><span class="chip c-camp">Fight camp</span></td><td class="r">€ 6.400</td><td class="r">—</td><td class="r">€ 285 /sett</td><td class="r">12 lug <span class="chip s-paid">Pagata</span></td></tr>
+      <tr><td><span class="name">Marta Colombo</span></td><td><span class="chip c-abbo">Abbonamento</span></td><td class="r">€ 4.150</td><td class="r">—</td><td class="r">€ 2.400 /anno</td><td class="r">01 lug <span class="chip s-paid">Pagata</span></td></tr>
+      <tr><td><span class="name">Luca Ferraris</span></td><td><span class="chip c-abbo">Abbonamento</span></td><td class="r">€ 3.720</td><td class="r">—</td><td class="r">€ 1.860 /anno</td><td class="r">28 giu <span class="chip s-wait">In attesa</span></td></tr>
+      <tr><td><span class="name">Raphael Federico</span></td><td><span class="chip c-cons">Consulenze</span></td><td class="r">€ 1.140</td><td class="r">€ 95</td><td class="r">€ 760</td><td class="r">15 giu <span class="chip s-paid">Pagata</span></td></tr>
+      <tr><td><span class="name">Giulia Ricci</span></td><td><span class="chip c-cons">Consulenze</span></td><td class="r">€ 840</td><td class="r">€ 120</td><td class="r">€ 480</td><td class="r">02 mag <span class="chip s-late">Scaduta</span></td></tr>
+      <tr><td><span class="name">Andrea Moretti</span></td><td><span class="chip c-camp">Fight camp</span></td><td class="r">€ 780</td><td class="r">—</td><td class="r">€ 195 /sett</td><td class="r">19 apr <span class="chip s-paid">Pagata</span></td></tr>
+    </tbody>
+  </table>
+  <div class="nota"><div class="rule"></div><p>Il 62% dell'incassato 2026 viene da quattro atleti. A parità di settimana, un fight camp vale circa il doppio di un abbonamento.</p></div>
+</section>
+
+<section class="row3">
+  <div class="card mini">
+    <h3>Crediti per anzianità</h3>
+    <div class="age tnum">
+      <div class="lane"><span class="lbl">0–30 gg</span><div class="track"><div class="fill" style="width:66%;background:var(--brand)"></div></div><span class="amt">€ 1.910</span></div>
+      <div class="lane"><span class="lbl">31–60 gg</span><div class="track"><div class="fill" style="width:22%;background:var(--viz-out)"></div></div><span class="amt">€ 640</span></div>
+      <div class="lane"><span class="lbl">oltre 60</span><div class="track"><div class="fill" style="width:11%;background:var(--red)"></div></div><span class="amt">€ 320</span></div>
+    </div>
+    <div class="note">Solleciti dalla scheda fattura — qui vedi solo dove guardare prima.</div>
+  </div>
+  <div class="card mini">
+    <h3>I tuoi prezzi, dalle tue fatture</h3>
+    <div class="price tnum">
+      <div class="r"><span class="k">Fight camp · €/settimana</span><span><span class="v">€ 220</span> <span class="band">(180–310)</span></span></div>
+      <div class="r"><span class="k">Consulenza singola</span><span><span class="v">€ 95</span> <span class="band">(80–120)</span></span></div>
+      <div class="r"><span class="k">Abbonamento annuale</span><span><span class="v">€ 1.800</span> <span class="band">(1.400–2.400)</span></span></div>
+    </div>
+    <div class="note">Mediana e intervallo storici — un riferimento quando prezzi il prossimo incarico.</div>
+  </div>
+  <div class="card mini">
+    <h3>Da fatturare?</h3>
+    <div class="rem">
+      <div class="who"><span>Giulia Ricci — attiva, nessuna fattura da 49 gg</span><a href="#">Nuova fattura →</a></div>
+      <div class="who"><span>Andrea Moretti — camp concluso, saldo aperto</span><a href="#">Apri →</a></div>
+    </div>
+    <div class="note">Atleti attivi senza fattura recente — il lavoro fatto non resti non fatturato.</div>
+  </div>
+</section>
+
+<footer>Mock — dati di esempio. Ogni metrica deriva solo dalle fatture registrate; le etichette di collaborazione arrivano con il punto 2 (tipi di collaborazione).</footer>
+
+</body>
+</html>
