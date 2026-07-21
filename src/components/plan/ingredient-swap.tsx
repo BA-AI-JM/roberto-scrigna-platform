@@ -14,6 +14,7 @@
  */
 
 import { useState } from "react";
+import { isFoodAllowedInSlot } from "@/engine/meal-plan/slot-permissions";
 import { formatIngredientQuantity } from "../../lib/ingredient-display";
 import {
   Select,
@@ -37,13 +38,17 @@ export interface SwapIngredient {
  */
 export function getIngredientAlternatives(
   foodId: string | undefined,
-  catalogue: FoodCatalogue | undefined
+  catalogue: FoodCatalogue | undefined,
+  slot?: string | null
 ): FoodOption[] {
   if (!foodId || !catalogue) return [];
   for (const cat of Object.keys(catalogue) as (keyof FoodCatalogue)[]) {
     const list = catalogue[cat];
     if (list.some((f) => f.foodId === foodId)) {
-      return list.filter((f) => f.foodId !== foodId);
+      // B1 (#10): slot-class coherence per Model 1 (no seafood at colazione).
+      return list.filter(
+        (f) => f.foodId !== foodId && isFoodAllowedInSlot(f.foodId, cat, slot)
+      );
     }
   }
   return [];
@@ -71,6 +76,8 @@ export function buildSwapArgs(
 interface IngredientSwapListProps {
   ingredients: SwapIngredient[];
   catalogue: FoodCatalogue | undefined;
+  /** Meal slot ("breakfast" | "snack" | "lunch" | "dinner") for class coherence. */
+  slot?: string | null;
   /** Index of the ingredient whose swap is currently in flight (or null). */
   pendingIndex: number | null;
   onSwap: (ingredientIndex: number, newFoodId: string) => void;
@@ -79,6 +86,7 @@ interface IngredientSwapListProps {
 export function IngredientSwapList({
   ingredients,
   catalogue,
+  slot,
   pendingIndex,
   onSwap,
 }: IngredientSwapListProps) {
@@ -86,7 +94,7 @@ export function IngredientSwapList({
   return (
     <ul style={{ margin: "0 0 6px 0", padding: 0, listStyle: "none" }}>
       {ingredients.map((ing, idx) => {
-        const alternatives = getIngredientAlternatives(ing.foodId, catalogue);
+        const alternatives = getIngredientAlternatives(ing.foodId, catalogue, slot);
         const swappable = alternatives.length > 0;
         const pending = pendingIndex === idx;
         return (

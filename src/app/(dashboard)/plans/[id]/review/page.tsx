@@ -5,9 +5,9 @@
  * and wires the Approva and Scarica PDF actions.
  *
  * Sections (tabbed):
- * - Panoramica: body comp summary, energy balance, assumptions
- * - Macro: day-type macro cards + TDEE + editable plan narrative (#3: the
- *   "Note e strategia" fields relocated here from the removed "Guida" tab)
+ * - Panoramica: daily targets + plan summary + assumptions, followed by the
+ *   day-type macro cards + TDEE and the editable plan narrative (B5 merged the
+ *   former "Macro" tab in here; #3's "Note e strategia" fields sit at the end)
  * - Pasti: meal plan per day type
  * - Integratori: editable supplement list
  * - Monitoraggio: check-in config
@@ -65,7 +65,6 @@ interface ReviewState {
 
 type ReviewTab =
   | "overview"
-  | "macros"
   | "meals"
   | "supplements"
   | "monitoring"
@@ -73,7 +72,6 @@ type ReviewTab =
 
 const TABS: readonly { key: ReviewTab; label: string }[] = [
   { key: "overview", label: "Panoramica" },
-  { key: "macros", label: "Macro" },
   { key: "meals", label: "Pasti" },
   { key: "supplements", label: "Integratori" },
   { key: "monitoring", label: "Monitoraggio" },
@@ -818,18 +816,19 @@ export default function PlanReviewPage({
         ))}
       </div>
 
-      {/* Tab content */}
+      {/* Tab content — Panoramica now hosts the overview plus the merged macro
+          detail (B5). DailyTotalsTable renders once, from OverviewTab. */}
       {activeTab === "overview" && (
-        <OverviewTab review={review} cardStyle={cardStyle} />
-      )}
-      {activeTab === "macros" && (
-        <MacrosTab
-          dayTypePlans={review.dayTypePlans}
-          cardStyle={cardStyle}
-          guidance={review.guidance}
-          onUpdateGuidance={updateGuidance}
-          textareaStyle={textareaStyle}
-        />
+        <>
+          <OverviewTab review={review} cardStyle={cardStyle} />
+          <MacroDetailSection
+            dayTypePlans={review.dayTypePlans}
+            cardStyle={cardStyle}
+            guidance={review.guidance}
+            onUpdateGuidance={updateGuidance}
+            textareaStyle={textareaStyle}
+          />
+        </>
       )}
       {activeTab === "meals" && (
         <MealsTab dayTypePlans={review.dayTypePlans} cardStyle={cardStyle} planId={planId} trainingTime={trainingTime} />
@@ -950,7 +949,9 @@ function OverviewTab({
   );
 }
 
-function MacrosTab({
+// B5: formerly the "Macro" tab — now rendered as the second half of the
+// Panoramica tab (see OverviewTab render above). A section, not a tab.
+function MacroDetailSection({
   dayTypePlans,
   cardStyle,
   guidance,
@@ -973,7 +974,8 @@ function MacrosTab({
         </div>
       ) : (
         <>
-          <DailyTotalsTable dayTypePlans={dayTypePlans} cardStyle={cardStyle} />
+          {/* B5: DailyTotalsTable is intentionally NOT rendered here — OverviewTab
+              already shows it once at the top of the merged Panoramica tab. */}
           {dayTypePlans.map((plan) => (
         <div key={plan.dayType} style={cardStyle}>
           <h3
@@ -1391,6 +1393,7 @@ function MealsTab({
               <IngredientSwapList
                 ingredients={slot.primary.scaledIngredients}
                 catalogue={foodCatalogue}
+                slot={slot.slot}
                 pendingIndex={
                   swappingItem && swappingItem.startsWith(`${plan.dayType}::${slot.slot}::`)
                     ? Number(swappingItem.split("::")[2])

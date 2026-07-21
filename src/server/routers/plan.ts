@@ -29,6 +29,9 @@ import { ensurePortalAuthUser } from "../../services/portal-auth";
 import { parsePlanBundle } from "../../lib/plan-bundle";
 import { withinReconcileTolerance } from "../../engine/meal-plan/reconcile";
 import type { SourcePin } from "../../engine/meal-plan/types";
+import { classifyFood } from "../../engine/meal-plan/solver";
+import { isFoodAllowedInSlot } from "../../engine/meal-plan/slot-permissions";
+import type { PinnableCategory } from "../../engine/meal-plan/types";
 import { foodCatalogue } from "../../engine/meal-plan";
 import {
   recomputeSwappedIngredient,
@@ -1724,6 +1727,20 @@ export const planRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      // B1 (#10): slot-class coherence (Model 1) enforced server-side too —
+      // the UI filters, but the API must refuse an out-of-class swap.
+      {
+        const cat = classifyFood(input.newFoodId);
+        if (
+          cat !== "FIXED" &&
+          !isFoodAllowedInSlot(input.newFoodId, cat as PinnableCategory, input.slot)
+        ) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Questo alimento non è previsto per questo pasto (classi del Modello 1).",
+          });
+        }
+      }
       const { data: plan } = await ctx.supabase
         .from("plan")
         .select("id, daily_targets")

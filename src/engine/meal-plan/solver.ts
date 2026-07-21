@@ -20,6 +20,7 @@
  */
 
 import type { MealIngredient, MealTemplate, MealType, SelectedMeal, SlotMacroTargets, SourcePin, PinnableCategory } from "./types";
+import { isFoodAllowedInSlot } from "./slot-permissions";
 import { roundGrams } from "./rounding";
 import { resolveFood, FOOD_MAP } from "../../data/meals/food-map";
 
@@ -442,10 +443,18 @@ function heldMacroForCategory(cat: SolveCategory): keyof FullMacros {
  * `foodCatalogue`, excluding the ingredient itself. FIXED / zero-sentinel
  * ingredients (water, spices, honey…) have no swappable bucket → returns [].
  */
-export function getIngredientAlternatives(foodId: string): { foodId: string; name: string }[] {
+export function getIngredientAlternatives(
+  foodId: string,
+  slot?: string | null
+): { foodId: string; name: string }[] {
   const cat = classifyFood(foodId);
   if (cat === "FIXED") return [];
-  return foodCatalogue()[cat as PinnableCategory].filter((f) => f.foodId !== foodId);
+  const category = cat as PinnableCategory;
+  // B1 (#10): same-category AND slot-class-coherent (Model 1 — no octopus at
+  // breakfast). Slot omitted → category-only (back-compat).
+  return foodCatalogue()[category].filter(
+    (f) => f.foodId !== foodId && isFoodAllowedInSlot(f.foodId, category, slot)
+  );
 }
 
 export interface SwappedIngredient {
