@@ -245,7 +245,7 @@ export const onPlanDelivered = inngest.createFunction(
 <p style="margin:0;font-size:14px;color:#374151;line-height:1.6;">
   Accedi all'area clienti per visualizzare i tuoi pasti, gli obiettivi giornalieri e il protocollo integratori.
 </p>
-${btnHtml(portalUrl("/login"), "Visualizza il piano")}`
+${btnHtml(portalUrl("/login") + "?next=" + encodeURIComponent("/portal/plan"), "Visualizza il piano")}`
         );
         await sendEmail(email, "Il tuo piano nutrizionale è pronto!", html);
       }

@@ -9,6 +9,7 @@
 
 import { useState } from "react";
 import { createSupabaseBrowser } from "@/lib/supabase/client";
+import { isSafePortalPath, PORTAL_NEXT_COOKIE } from "@/lib/portal/next-path";
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
@@ -33,6 +34,17 @@ export default function PortalLoginPage() {
       typeof window !== "undefined"
         ? `${window.location.origin}/portal/auth/callback`
         : "/portal/auth/callback";
+
+    // A4 (#14): deep-link after login. The delivery email arrives as
+    // /portal/login?next=/portal/plan — stash the validated target in a
+    // short-lived cookie (NOT in emailRedirectTo: the GoTrue redirect
+    // allowlist stays untouched); the auth callback reads and clears it.
+    if (typeof window !== "undefined") {
+      const nextTarget = new URLSearchParams(window.location.search).get("next");
+      if (isSafePortalPath(nextTarget)) {
+        document.cookie = `${PORTAL_NEXT_COOKIE}=${encodeURIComponent(nextTarget)}; path=/; max-age=900; samesite=lax`;
+      }
+    }
 
     const { error } = await supabase.auth.signInWithOtp({
       email: email.trim().toLowerCase(),

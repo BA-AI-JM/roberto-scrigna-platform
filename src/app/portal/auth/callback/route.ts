@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createSupabaseServer } from "../../../../lib/supabase/server";
+import { isSafePortalPath, PORTAL_NEXT_COOKIE } from "../../../../lib/portal/next-path";
 
 /**
  * Portal auth callback handler.
@@ -15,7 +16,14 @@ export async function GET(req: NextRequest) {
     const supabase = await createSupabaseServer();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
-      return NextResponse.redirect(`${origin}/portal/dashboard`);
+      // A4 (#14): deep-link set by the login page (delivery-email flow).
+      // Validated again here — the cookie is client-writable.
+      const rawNext = req.cookies.get(PORTAL_NEXT_COOKIE)?.value;
+      const decoded = rawNext ? decodeURIComponent(rawNext) : null;
+      const target = isSafePortalPath(decoded) ? decoded : "/portal/dashboard";
+      const res = NextResponse.redirect(`${origin}${target}`);
+      res.cookies.set(PORTAL_NEXT_COOKIE, "", { path: "/", maxAge: 0 });
+      return res;
     }
   }
 
