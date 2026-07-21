@@ -36,6 +36,12 @@ interface ProfileForm {
   notes: string;
   tags: string; // comma-separated
   status: "active" | "paused" | "archived";
+  // C1 (#2) cooperation
+  cooperationType: "" | "abbonamento" | "consulenza" | "fight_camp";
+  engagementStart: string;
+  engagementEnd: string;
+  visitCount: string;
+  isFree: boolean;
 }
 
 interface SnapshotForm {
@@ -143,6 +149,11 @@ export default function ClientEditPage() {
     notes: "",
     tags: "",
     status: "active",
+    cooperationType: "",
+    engagementStart: "",
+    engagementEnd: "",
+    visitCount: "",
+    isFree: false,
   });
 
   const [snapshotForm, setSnapshotForm] = useState<SnapshotForm>({
@@ -181,6 +192,11 @@ export default function ClientEditPage() {
       sex: (c.sex as "male" | "female") ?? "",
       notes: (c.notes as string) ?? "",
       tags: ((c.tags as string[]) ?? []).join(", "),
+      cooperationType: (c.cooperation_type as ProfileForm["cooperationType"]) ?? "",
+      engagementStart: (c.engagement_start as string) ?? "",
+      engagementEnd: (c.engagement_end as string) ?? "",
+      visitCount: c.visit_count != null ? String(c.visit_count) : "",
+      isFree: c.is_free === true,
       status: (c.status as "active" | "paused" | "archived") ?? "active",
     });
 
@@ -256,6 +272,11 @@ export default function ClientEditPage() {
               .filter(Boolean)
           : [],
         status: profileForm.status,
+        cooperationType: profileForm.cooperationType || null,
+        engagementStart: profileForm.engagementStart || null,
+        engagementEnd: profileForm.engagementEnd || null,
+        visitCount: profileForm.visitCount !== "" ? Number(profileForm.visitCount) : null,
+        isFree: profileForm.isFree,
       });
 
       // 2. Optionally create a new "context" snapshot. The "Aggiorna scheda"
@@ -561,6 +582,75 @@ export default function ClientEditPage() {
                 placeholder="es. dimagrimento, postpartum, atleta"
               />
             </FormField>
+          </div>
+
+          {/* C1 (#2) — cooperation type (Roberto's model): tipo, periodo, visite, gratuito */}
+          <div style={{ marginBottom: "16px", borderTop: "1px solid #f1f5f9", paddingTop: "16px" }}>
+            <div style={{ fontSize: "13px", fontWeight: 600, color: "#374151", marginBottom: "12px" }}>
+              Collaborazione
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "12px" }}>
+              <FormField label="Tipo di collaborazione">
+                <select
+                  value={profileForm.cooperationType}
+                  onChange={(e) =>
+                    setProfileForm((f) => ({
+                      ...f,
+                      cooperationType: e.target.value as ProfileForm["cooperationType"],
+                    }))
+                  }
+                  style={selectStyle}
+                >
+                  <option value="">— non impostata —</option>
+                  <option value="abbonamento">Abbonamento</option>
+                  <option value="consulenza">Consulenza singola</option>
+                  <option value="fight_camp">Fight camp</option>
+                </select>
+              </FormField>
+              {profileForm.cooperationType === "consulenza" ? (
+                <FormField label="Numero visite (opzionale)">
+                  <input
+                    type="number"
+                    min={0}
+                    value={profileForm.visitCount}
+                    onChange={(e) => setProfileForm((f) => ({ ...f, visitCount: e.target.value }))}
+                    style={inputStyle}
+                    placeholder="es. 4"
+                  />
+                </FormField>
+              ) : (
+                <div />
+              )}
+            </div>
+            {(profileForm.cooperationType === "abbonamento" ||
+              profileForm.cooperationType === "fight_camp") && (
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "12px" }}>
+                <FormField label="Inizio collaborazione">
+                  <input
+                    type="date"
+                    value={profileForm.engagementStart}
+                    onChange={(e) => setProfileForm((f) => ({ ...f, engagementStart: e.target.value }))}
+                    style={inputStyle}
+                  />
+                </FormField>
+                <FormField label={profileForm.cooperationType === "fight_camp" ? "Fine camp (data match/peso)" : "Scadenza abbonamento"}>
+                  <input
+                    type="date"
+                    value={profileForm.engagementEnd}
+                    onChange={(e) => setProfileForm((f) => ({ ...f, engagementEnd: e.target.value }))}
+                    style={inputStyle}
+                  />
+                </FormField>
+              </div>
+            )}
+            <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", color: "#374151", cursor: "pointer" }}>
+              <input
+                type="checkbox"
+                checked={profileForm.isFree}
+                onChange={(e) => setProfileForm((f) => ({ ...f, isFree: e.target.checked }))}
+              />
+              Collaborazione gratuita (nessun costo)
+            </label>
           </div>
 
           <FormField label="Note">

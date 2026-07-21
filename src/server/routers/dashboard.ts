@@ -251,6 +251,36 @@ export const dashboardRouter = router({
       });
     }
 
+    // C1 (#2): cooperations expiring within 14 days (Roberto's reminder ask) —
+    // derived live from the engagement window; no cron, no stored notification.
+    const today14 = new Date(now.getTime() + 14 * 86_400_000).toISOString().split("T")[0]!;
+    const todayStr = now.toISOString().split("T")[0]!;
+    const { data: expiring } = await ctx.supabase
+      .from("client")
+      .select("id, full_name, cooperation_type, engagement_end")
+      .eq("partner_id", partnerId)
+      .is("deleted_at", null)
+      .eq("status", "active")
+      // gte on a DATE column already excludes NULL rows — no .not() needed
+      .gte("engagement_end", todayStr)
+      .lte("engagement_end", today14)
+      .limit(10);
+
+    for (const c of expiring ?? []) {
+      const label = c.cooperation_type === "fight_camp" ? "Fight camp" : "Abbonamento";
+      alerts.push({
+        id: `cooperation-expiring-${c.id}`,
+        type: "warning",
+        category: "Collaborazioni",
+        title: `${label} in scadenza — ${c.full_name}`,
+        description: `Termina il ${c.engagement_end}. Rinnovare o chiudere la collaborazione.`,
+        actionUrl: `/clients/${c.id}`,
+        clientId: c.id as string,
+        clientName: c.full_name as string,
+        createdAt: now.toISOString(),
+      });
+    }
+
     // 4. Overdue tasks
     const today = now.toISOString().split("T")[0]!;
     const { data: overdueTasks } = await ctx.supabase

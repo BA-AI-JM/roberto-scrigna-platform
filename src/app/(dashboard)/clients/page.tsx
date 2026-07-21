@@ -13,6 +13,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { deriveCooperation, type CooperationFields } from "@/lib/cooperation";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { trpc } from "@/lib/trpc/client";
@@ -304,6 +305,53 @@ export default function ClientsPage() {
                       {client.email}
                     </div>
                   )}
+                  {(() => {
+                    // C1 (#2): cooperation chip — type + derived engagement state.
+                    const v = deriveCooperation(client as CooperationFields);
+                    if (!v.label && !v.isFree) return null;
+                    const stateTxt =
+                      v.state === "in_scadenza" && v.daysLeft != null
+                        ? ` · scade tra ${v.daysLeft} gg`
+                        : v.state === "scaduto"
+                          ? " · scaduta"
+                          : v.state === "futuro"
+                            ? " · inizia a breve"
+                            : "";
+                    const warn = v.state === "in_scadenza" || v.state === "scaduto";
+                    return (
+                      <div style={{ marginBottom: "4px", display: "flex", gap: "6px", flexWrap: "wrap" }}>
+                        {v.label && (
+                          <span
+                            style={{
+                              fontSize: "11px",
+                              fontWeight: 600,
+                              padding: "2px 8px",
+                              borderRadius: "999px",
+                              backgroundColor: warn ? "#fef3c7" : "#eef2f0",
+                              color: warn ? "#92400e" : "#3f4b45",
+                            }}
+                          >
+                            {v.label}
+                            {stateTxt}
+                          </span>
+                        )}
+                        {v.isFree && (
+                          <span
+                            style={{
+                              fontSize: "11px",
+                              fontWeight: 600,
+                              padding: "2px 8px",
+                              borderRadius: "999px",
+                              backgroundColor: "#eef2ff",
+                              color: "#3730a3",
+                            }}
+                          >
+                            Gratuita
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })()}
                   <div style={{ fontSize: "12px", color: "#6b7280" }}>
                     Iscritto il <span className="tnum">{formatDate(client.created_at)}</span>
                   </div>
@@ -376,6 +424,32 @@ export default function ClientsPage() {
                       </td>
                       <td style={{ padding: "14px 16px" }}>
                         <StatusBadge status={client.status} />
+                        {(() => {
+                          // C1 (#2): cooperation chip in the desktop table too.
+                          const v = deriveCooperation(client as CooperationFields);
+                          if (!v.label && !v.isFree) return null;
+                          const warn = v.state === "in_scadenza" || v.state === "scaduto";
+                          const stateTxt =
+                            v.state === "in_scadenza" && v.daysLeft != null
+                              ? ` · scade tra ${v.daysLeft} gg`
+                              : v.state === "scaduto"
+                                ? " · scaduta"
+                                : "";
+                          return (
+                            <div style={{ marginTop: "4px", display: "flex", gap: "4px", flexWrap: "wrap" }}>
+                              {v.label && (
+                                <span style={{ fontSize: "11px", fontWeight: 600, padding: "2px 8px", borderRadius: "999px", backgroundColor: warn ? "#fef3c7" : "#eef2f0", color: warn ? "#92400e" : "#3f4b45", whiteSpace: "nowrap" }}>
+                                  {v.label}{stateTxt}
+                                </span>
+                              )}
+                              {v.isFree && (
+                                <span style={{ fontSize: "11px", fontWeight: 600, padding: "2px 8px", borderRadius: "999px", backgroundColor: "#eef2ff", color: "#3730a3" }}>
+                                  Gratuita
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </td>
                       <td className="tnum" style={{ padding: "14px 16px", fontSize: "14px", color: "#6b7280" }}>
                         {formatDate(client.created_at)}
