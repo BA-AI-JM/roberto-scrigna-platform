@@ -209,3 +209,74 @@ export function groupedSportOptions(): Array<{ group: SportGroup; entries: Sport
     entries: SPORT_TAXONOMY.filter((e) => e.group === g),
   }));
 }
+
+// ── Collapsed picker (Ruling 1, Roberto 2026-07-22) ──────────────────────────
+//
+// The Classe/Sparring/Drill sub-types retire from the menu — RPE now carries the
+// intra-sport intensity, so the coach picks ONE entry per sport. Everything below
+// is DERIVED from SPORT_TAXONOMY so the collapsed list can never drift from it, and
+// the underlying entries stay intact for the HR-path sessionType (Ruling 3).
+
+/** The "sport" of a display name = the part before its " — subtype" suffix. */
+export function sportKeyOf(displayIt: string): string {
+  const idx = displayIt.indexOf(" — ");
+  return idx === -1 ? displayIt : displayIt.slice(0, idx);
+}
+
+export interface CollapsedSportOption {
+  /** Clean label shown in the picker (the sport, no sub-type). */
+  label: string;
+  /** Representative taxonomy displayIt stored on the session (resolves + curve). */
+  modality: string;
+  group: SportGroup;
+}
+
+/**
+ * One option per sport. Entries are grouped by `sportKeyOf`, and the FIRST entry of
+ * each group is the representative whose `displayIt` is stored. Within a sport every
+ * sub-type shares the same No-HR curve (verified by test), so which representative
+ * is chosen never changes the calorie math — it only sets the default HR sessionType.
+ */
+export function collapsedSportOptions(): readonly CollapsedSportOption[] {
+  const seen = new Set<string>();
+  const out: CollapsedSportOption[] = [];
+  for (const e of SPORT_TAXONOMY) {
+    const key = sportKeyOf(e.displayIt);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ label: key, modality: e.displayIt, group: e.group });
+  }
+  return out;
+}
+
+/** Grouped for `<optgroup>` rendering, mirroring `groupedSportOptions()`'s shape. */
+export function groupedCollapsedSportOptions(): Array<{
+  group: SportGroup;
+  entries: CollapsedSportOption[];
+}> {
+  const order: SportGroup[] = [
+    "Grappling",
+    "Striking",
+    "MMA",
+    "Forza & ipertrofia",
+    "HIIT / Funzionale",
+    "Cardio ciclico",
+    "Sport di squadra",
+    "Sport di racchetta",
+  ];
+  const all = collapsedSportOptions();
+  return order.map((g) => ({ group: g, entries: all.filter((e) => e.group === g) }));
+}
+
+/**
+ * Map any (possibly legacy sub-type) modality to its collapsed representative, so a
+ * controlled `<select>` shows the right option for an already-stored session. An
+ * unrecognised string passes through unchanged (the select then shows unselected and
+ * the coach re-picks).
+ */
+export function toCollapsedModality(modality: string | undefined | null): string {
+  if (!modality) return "";
+  const key = sportKeyOf(modality);
+  const rep = SPORT_TAXONOMY.find((e) => sportKeyOf(e.displayIt) === key);
+  return rep?.displayIt ?? modality;
+}

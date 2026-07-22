@@ -14,9 +14,14 @@
 
 import { useCallback } from "react";
 import {
-  groupedSportOptions,
+  groupedCollapsedSportOptions,
+  toCollapsedModality,
   SPORT_TAXONOMY,
 } from "../engine/sport-taxonomy";
+import {
+  RPE_SESSION_QUESTION_IT,
+  rpeScaleLabelIt,
+} from "../engine/session-met-curves";
 import { SessionKcalRow } from "./training/session-kcal-row";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -50,7 +55,7 @@ export const TRAINING_MODALITY_OPTIONS: readonly string[] = SPORT_TAXONOMY.map(
 );
 
 const DEFAULT_NEW_SESSION: TrainingSession = {
-  modality: "Pesi — Ipertrofia",
+  modality: "Pesi — Forza", // collapsed representative of the "Pesi" sport
   duration_min: 60,
   rpe: 7,
 };
@@ -173,16 +178,16 @@ export function WeekSessionsEditor({
                       <label className={labelCls}>Modalità</label>
                       <select
                         className={selectCls}
-                        value={session.modality}
+                        value={toCollapsedModality(session.modality)}
                         onChange={(e) =>
                           updateSession(dayIndex, si, "modality", e.target.value)
                         }
                       >
-                        {groupedSportOptions().map((g) => (
+                        {groupedCollapsedSportOptions().map((g) => (
                           <optgroup key={g.group} label={g.group}>
                             {g.entries.map((entry) => (
-                              <option key={entry.displayIt} value={entry.displayIt}>
-                                {entry.displayIt}
+                              <option key={entry.modality} value={entry.modality}>
+                                {entry.label}
                               </option>
                             ))}
                           </optgroup>
@@ -209,8 +214,8 @@ export function WeekSessionsEditor({
                       />
                     </div>
 
-                    <div>
-                      <label className={labelCls}>{`RPE: ${session.rpe}`}</label>
+                    <div title={RPE_SESSION_QUESTION_IT}>
+                      <label className={labelCls}>{`RPE ${session.rpe}: ${rpeScaleLabelIt(session.rpe)}`}</label>
                       <input
                         type="range"
                         className="w-full h-2 cursor-pointer accent-zinc-900 mt-1"
@@ -227,10 +232,9 @@ export function WeekSessionsEditor({
                         max={10}
                         step={1}
                       />
-                      <div className="flex justify-between text-xs text-zinc-400 mt-0.5">
-                        <span>1</span>
-                        <span>10</span>
-                      </div>
+                      <p className="text-[11px] leading-tight text-zinc-400 mt-0.5">
+                        {RPE_SESSION_QUESTION_IT}
+                      </p>
                     </div>
 
                     {/* #18 nutrient timing — optional clock time (HH:MM). */}

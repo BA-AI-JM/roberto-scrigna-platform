@@ -111,3 +111,32 @@ export function estimateSessionKcal(
   const met = sessionMet(curveKey, rpe);
   return Math.round(met * bodyMassKg * (durationMin / 60));
 }
+
+/**
+ * Session-RPE scale descriptions (spec §6), Italian. RPE here is the WHOLE-session
+ * rating — "how demanding was the entire session, including pauses and recovery" —
+ * NOT the peak. The UI label must reinforce that meaning (spec §4), because the
+ * curves are calibrated to the whole-session reading.
+ */
+export const RPE_SESSION_SCALE_IT: Readonly<Record<number, string>> = {
+  1: "Recupero / molto leggera",
+  2: "Molto leggera",
+  3: "Facile",
+  4: "Facile-moderata",
+  5: "Moderata",
+  6: "Moderatamente impegnativa",
+  7: "Impegnativa",
+  8: "Molto impegnativa",
+  9: "Estremamente impegnativa",
+  10: "Massimale / gara",
+};
+
+/** The whole-session RPE prompt the coach reads (spec §4). */
+export const RPE_SESSION_QUESTION_IT =
+  "Quanto è stata impegnativa l'intera sessione, incluse pause e recupero?";
+
+/** Short descriptor for an RPE value (clamped to 1–10). */
+export function rpeScaleLabelIt(rpe: number): string {
+  const r = Math.min(10, Math.max(1, Math.round(rpe)));
+  return RPE_SESSION_SCALE_IT[r] ?? "";
+}
