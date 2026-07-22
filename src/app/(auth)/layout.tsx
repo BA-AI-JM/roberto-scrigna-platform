@@ -6,6 +6,8 @@
  * Photography slot: the panel background upgrades to studio-light imagery when
  * Roberto's assets land (HITL Q8) — the gradient carries it until then.
  */
+import { ScrignaMark } from "@/components/brand/scrigna-mark";
+
 export default function AuthLayout({
   children,
 }: {
@@ -17,10 +19,13 @@ export default function AuthLayout({
         className="relative hidden flex-col justify-between p-12 text-[#EDF5F0] lg:flex"
         style={{
           background:
-            "radial-gradient(120% 90% at 20% 0%, #22453A 0%, #17332B 45%, #10241E 100%)",
+            "radial-gradient(120% 90% at 20% 0%, #2b5f96 0%, #1c4470 45%, #12263f 100%)",
         }}
       >
-        <div className="font-display text-[21px] font-semibold">Scrigna</div>
+        <div className="flex items-center gap-3">
+          <ScrignaMark className="h-9 w-9 text-[#EDF5F0]" />
+          <span className="font-display text-[21px] font-semibold">Roberto Scrigna</span>
+        </div>
         <blockquote className="font-display max-w-[420px] text-[32px] font-medium italic leading-[1.35]">
           «Ogni numero che vedi qui dentro è passato dal mio giudizio.»
           <div className="mt-4 text-[13px] not-italic opacity-70">

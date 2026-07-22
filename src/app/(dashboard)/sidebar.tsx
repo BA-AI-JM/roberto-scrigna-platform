@@ -1,5 +1,6 @@
 "use client";
 
+import { ScrignaMark } from "@/components/brand/scrigna-mark";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createSupabaseBrowser } from "@/lib/supabase/client";
@@ -46,9 +47,12 @@ export function Sidebar({ partnerName, onNavigate }: SidebarProps) {
   return (
     <aside className="flex h-full w-64 flex-col border-r border-line-2 bg-secondary">
       {/* Brand */}
-      <div className="px-6 pb-6 pt-6">
-        <div className="font-display text-[18px] font-semibold text-ink">Scrigna</div>
-        <div className="text-xs text-ink-3">Nutrizione Sportiva</div>
+      <div className="flex items-center gap-2.5 px-6 pb-6 pt-6">
+        <ScrignaMark className="h-7 w-7 flex-none text-ink" />
+        <div>
+          <div className="font-display text-[16px] font-semibold leading-tight text-ink">Roberto Scrigna</div>
+          <div className="text-xs text-ink-3">Nutrizione Sportiva</div>
+        </div>
       </div>
 
       {/* Navigation */}

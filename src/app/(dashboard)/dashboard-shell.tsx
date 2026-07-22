@@ -1,5 +1,6 @@
 "use client";
 
+import { ScrignaMark } from "@/components/brand/scrigna-mark";
 import { useState, useCallback } from "react";
 import { Menu, X } from "lucide-react";
 import { Sidebar } from "./sidebar";
@@ -50,7 +51,8 @@ export function DashboardShell({ partnerName, children }: DashboardShellProps) {
           >
             {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
-          <span className="font-display text-sm font-semibold text-ink">
+          <span className="flex items-center gap-2 font-display text-sm font-semibold text-ink">
+            <ScrignaMark className="h-5 w-5 text-ink" />
             Roberto Scrigna
           </span>
         </header>

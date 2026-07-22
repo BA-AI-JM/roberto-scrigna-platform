@@ -19,20 +19,20 @@
   --card-foreground: #191b19;
   --popover: #ffffff;
   --popover-foreground: #191b19;
-  --primary: #159a6e;               /* teal is THE action color */
+  --primary: #2b7fd1;               /* blue is THE action color */
   --primary-foreground: #ffffff;
   --secondary: #f1efea;             /* panel-2: sidebars, rails */
   --secondary-foreground: #191b19;
   --muted: #f1efea;
   --muted-foreground: #575c57;      /* ink-2 */
-  --accent: #e5f3ec;                /* teal wash as interactive tint */
-  --accent-foreground: #0c6b4d;
+  --accent: #e9f2fb;                /* teal wash as interactive tint */
+  --accent-foreground: #1a5c99;
   --destructive: #b23b2e;
   --destructive-foreground: #ffffff;
   --border: #e7e5df;
   --input: #e7e5df;
   /* Branded focus ring — teal at ring-2 + ring-offset-2. */
-  --ring: #159a6e;
+  --ring: #2b7fd1;
   --ink-3: #8b908a;                 /* faint labels/eyebrows */
   --line-2: #efede8;                /* hairlines inside panels */
   --red-wash: #f9ece9;
@@ -47,11 +47,11 @@
      neutral/serious and uses teal only as an accent. Consolidates the teal that
      previously lived only inline in the signing screen + the portal navy/green.
      Text on a coloured fill uses the DARK shade of the same ramp (AA-verified). */
-  --brand: #159a6e;        /* teal core — accent, active states, patient warmth */
-  --brand-deep: #0c6b4d;   /* deep teal — text on teal tint (AA on wash) */
-  --brand-ink: #0f3d30;    /* strongest teal-ink — hero headlines */
-  --brand-wash: #e5f3ec;   /* soft teal surface (patient) */
-  --brand-soft: #bfe0d2;   /* teal border / track */
+  --brand: #2b7fd1;        /* blue core — accent, active states, patient warmth */
+  --brand-deep: #1a5c99;   /* deep blue — text on teal tint (AA on wash) */
+  --brand-ink: #123f6b;    /* strongest blue-ink — hero headlines */
+  --brand-wash: #e9f2fb;   /* soft blue surface (patient) */
+  --brand-soft: #bcd9f4;   /* blue border / track */
   --accent-blue: #185fa5;  /* secondary accent — links / info (6.5:1 on white) */
   --amber: #a05b10;        /* warm accent / kcal — deep for AA on white + wash */
   --amber-wash: #f8f0e1;
@@ -68,19 +68,19 @@
   --card-foreground: #f1f0ea;
   --popover: #1d201c;
   --popover-foreground: #f1f0ea;
-  --primary: #2fb585;
-  --primary-foreground: #0c1f18;
+  --primary: #5aa9f0;
+  --primary-foreground: #0b1c2e;
   --secondary: #232722;
   --secondary-foreground: #f1f0ea;
   --muted: #232722;
   --muted-foreground: #a9aea5;
-  --accent: #12352a;
-  --accent-foreground: #7fd6b4;
+  --accent: #122d47;
+  --accent-foreground: #9fcdf5;
   --destructive: #e0705f;
   --destructive-foreground: #1a0f0c;
   --border: #2b2f29;
   --input: #2b2f29;
-  --ring: #2fb585;
+  --ring: #5aa9f0;
   --ink-3: #8b9088;
   --line-2: #242822;
   --red-wash: #39201b;
@@ -89,11 +89,11 @@
   --viz-c: #a98fdd;
   --viz-f: #6fbe8c;
 
-  --brand: #2fb585;
-  --brand-deep: #7fd6b4;
-  --brand-ink: #baeeda;
-  --brand-wash: #12352a;
-  --brand-soft: #1e4b3b;
+  --brand: #5aa9f0;
+  --brand-deep: #9fcdf5;
+  --brand-ink: #cfe6fb;
+  --brand-wash: #122d47;
+  --brand-soft: #20456b;
   --accent-blue: #7fa6dd;
   --amber: #d89a4a;
   --amber-wash: #33270f;

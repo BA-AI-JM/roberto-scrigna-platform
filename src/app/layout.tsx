@@ -22,7 +22,7 @@ const body = IBM_Plex_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Scrigna — Nutrizione Sportiva",
+  title: "Roberto Scrigna — Nutrizione Sportiva",
   description: "La piattaforma dello studio Scrigna: piani, monitoraggio e portale atleti.",
   icons: {
     icon: "/favicon.svg",
