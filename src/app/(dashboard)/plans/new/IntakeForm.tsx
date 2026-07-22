@@ -20,7 +20,14 @@ import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { trpc } from "@/lib/trpc/client";
 import { humanizeTrpcError } from "@/lib/human-error";
-import { groupedSportOptions } from "@/engine/sport-taxonomy";
+import {
+  groupedCollapsedSportOptions,
+  toCollapsedModality,
+} from "@/engine/sport-taxonomy";
+import {
+  RPE_SESSION_QUESTION_IT,
+  rpeScaleLabelIt,
+} from "@/engine/session-met-curves";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -108,7 +115,7 @@ const DAYS_IT = ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "S
 // "Forza" / "Cardio HIIT" / "Arti marziali" are still accepted by the engine
 // via the LEGACY_DISPLAY_TO_CANONICAL map for backward-compat with existing
 // snapshots.
-const MODALITY_GROUPS = groupedSportOptions();
+const MODALITY_GROUPS = groupedCollapsedSportOptions();
 
 const GOAL_OPTIONS: { value: FormData["goal"]; label: string }[] = [
   { value: "fat_loss", label: "Dimagrimento (Fat Loss)" },
@@ -497,7 +504,7 @@ function Page5({
                       <FieldGroup label="Modalità">
                         <select
                           className={s.select}
-                          value={session.modality}
+                          value={toCollapsedModality(session.modality)}
                           onChange={(e) =>
                             updateSession(dayIndex, si, "modality", e.target.value)
                           }
@@ -505,8 +512,8 @@ function Page5({
                           {MODALITY_GROUPS.map((g) => (
                             <optgroup key={g.group} label={g.group}>
                               {g.entries.map((entry) => (
-                                <option key={entry.displayIt} value={entry.displayIt}>
-                                  {entry.displayIt}
+                                <option key={entry.modality} value={entry.modality}>
+                                  {entry.label}
                                 </option>
                               ))}
                             </optgroup>
@@ -532,7 +539,7 @@ function Page5({
                         />
                       </FieldGroup>
 
-                      <FieldGroup label={`RPE: ${session.rpe}`}>
+                      <FieldGroup label={`RPE ${session.rpe}: ${rpeScaleLabelIt(session.rpe)}`}>
                         <input
                           type="range"
                           className="w-full h-2 cursor-pointer accent-zinc-900 mt-1"
@@ -549,10 +556,9 @@ function Page5({
                           max={10}
                           step={1}
                         />
-                        <div className="flex justify-between text-xs text-zinc-400 mt-0.5">
-                          <span>1</span>
-                          <span>10</span>
-                        </div>
+                        <p className="text-[11px] leading-tight text-zinc-400 mt-0.5">
+                          {RPE_SESSION_QUESTION_IT}
+                        </p>
                       </FieldGroup>
 
                       {/* #18 nutrient timing — optional clock time (HH:MM). */}
