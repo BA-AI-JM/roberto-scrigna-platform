@@ -7,10 +7,11 @@ as its crown jewel.
 
 Two surfaces over one Postgres:
 
-- **Coach app** — client management, intake wizard, plan generation & review, monitoring,
-  invoicing, documents, tasks, guidance blocks.
+- **Coach app** — athlete management (cooperation types: abbonamento / consulenza / fight_camp,
+  plus a free flag), editable anamnesis, intake wizard, plan generation & review, monitoring,
+  courtesy invoicing (payment methods + non-fiscal PDF), documents, tasks, guidance blocks, GDPR erasure.
 - **Athlete portal** — today's plan, weight/adherence trends, weekly check-ins, food diary,
-  signatures, notifications.
+  signatures, urgent feedback, notifications; magic-link login.
 
 Canonical intent lives in [`NORTHSTAR.md`](./NORTHSTAR.md); the active work plan in
 [`docs/polish/PLAN-OF-RECORD.md`](./docs/polish/PLAN-OF-RECORD.md).
@@ -22,13 +23,14 @@ Canonical intent lives in [`NORTHSTAR.md`](./NORTHSTAR.md); the active work plan
 
 | Layer | Tech |
 |---|---|
-| Framework | Next.js 16 (App Router, RSC) · React 19 |
+| Framework | Next.js 16 (App Router, RSC, Turbopack) · React 19 |
 | API | tRPC 11 (public / protected / client procedures) · superjson |
 | Data | Supabase — Postgres + Auth + Storage; RLS on every table, service-role on server paths |
 | Jobs | Inngest (reminders, delivery reconciler) |
 | Email | Resend |
 | PDF | `@sparticuz/chromium-min` + puppeteer-core |
 | UI | Tailwind CSS 4 · Radix · lucide |
+| Brand | Roberto's hexagon mark (`public/brand/scrigna-mark.svg`); blue brand token `--brand` #2b7fd1 light / #5aa9f0 dark — WCAG-AA in both themes |
 | Runtime/PM | **Bun** |
 | Tests | Vitest (unit) · Bun test (live tier) · Playwright (browser e2e) |
 
@@ -68,19 +70,23 @@ fail fast with a named list rather than a silent runtime death.
 
 ```bash
 bun run typecheck   # tsc --noEmit
-bun run test        # vitest run  (unit tier, 1000+ tests, no external services)
+bun run test        # vitest run  (unit tier, 1230 passing across 125 files, no external services)
 bun run verify      # typecheck + test  ← run this before every commit
 ```
 
 CI (`.github/workflows/ci.yml`) runs the same three gates (typecheck · unit · build) on push
-and PR. The unit tier needs no services: `vitest` runs under `NODE_ENV=test`, and `src/env.ts`
-supplies placeholder Supabase env in that mode.
+and PR, on Bun 1.3.11. The unit tier needs no services: `vitest` runs under `NODE_ENV=test`, and
+`src/env.ts` supplies placeholder Supabase env in that mode.
+
+Design gate (not part of `verify`): `python3 scripts/check-contrast.py` proves every brand/UI
+colour pair clears WCAG-AA in both themes — currently **22/22 pairs pass**.
 
 ## Migrations
 
-SQL migrations live in `supabase/migrations/` and are governed by an applied-ledger
+There are 24 migrations (`001`–`024`) in `supabase/migrations/`, governed by an applied-ledger
 (`schema_migrations_applied`, bootstrapped by `018_migration_ledger.sql`). The runner is
-idempotent — each migration is wrapped so it is skipped once ledgered.
+idempotent — each migration is wrapped so it is skipped once ledgered. Production-apply bundles
+live in `docs/polish/deploy/` (see DEPLOYMENT-GUIDE.md for the paste process).
 
 ```bash
 bun run supabase/migrate.ts --dry-run   # list pending migrations, apply nothing

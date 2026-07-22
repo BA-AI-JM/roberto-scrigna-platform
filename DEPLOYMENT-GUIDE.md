@@ -27,7 +27,7 @@ post-deployment checklist.
 |---------|-----|---------|
 | Supabase | https://supabase.com | PostgreSQL database, auth, and storage |
 | Vercel | https://vercel.com | Next.js hosting and serverless functions |
-| Inngest | https://inngest.com | Background job queue (12 notification workflows) |
+| Inngest | https://inngest.com | Background job queue (13 registered functions) |
 | Resend | https://resend.com | Transactional email delivery |
 
 ### Plan Requirements
@@ -77,8 +77,8 @@ You will collect these as you work through each section:
 
 ### 2.2 Run the Database Migration
 
-There are 18 ordered migrations, `001_initial_schema.sql` through
-`018_migration_ledger.sql`. **Back up the database before every migration run.** In
+There are 24 ordered migrations, `001_initial_schema.sql` through
+`024_invoice_payment_method.sql`. **Back up the database before every migration run.** In
 Supabase, use **Database > Backups** and confirm that a restorable backup exists.
 Never continue past a SQL error: preserve the output and restore before retrying if
 the failed file was not transactional.
@@ -111,35 +111,31 @@ The generated bundle bootstraps an empty ledger before guarding migration 001.
 Migration 018 remains the source of record for the table, its RLS policy, and the
 001–017 backfill.
 
-#### Existing production database (current delta)
+#### Existing production database (current delta as of 2026-07-22)
 
-Production already has 001–005 but has no trustworthy migration history. After the
-backup, use the verification query below to confirm the 001–005 landmarks. In SQL
-Editor, apply these repository files individually and in this exact order:
+Production was reconciled to the ledger through two dated, operator-pasted bundles in
+`docs/polish/deploy/` (run `PREFLIGHT-PROD.sql` first to snapshot state):
 
-```text
-006_plan_versioning_and_feedback.sql
-007_placeholder_skipped.sql
-008_plan_update_suggested_trigger.sql
-009_legal_documents.sql
-010_signature_requests.sql
-011_snapshot_edit_audit.sql
-012_reminder_settings.sql
-013_urgent_feedback.sql
-014_session_kcal_override.sql
-015_partner_practice_profile.sql
-016_invoice_number_per_partner.sql
-017_checkin_token_rpc.sql
-018_migration_ledger.sql
-```
+- **`APPLY-PROD.sql`** (2026-07-20) — bootstrapped the ledger table and backfilled the
+  001–021 baseline; post-apply `SELECT count(*) FROM schema_migrations_applied` expects **21**.
+  The backfill marks 001–021 as `applied_by = 'prod-apply-2026-07-20'` with a **nullable
+  checksum** because the exact historical file bytes cannot be proven. A null checksum means
+  “accepted historical baseline,” not checksum drift.
+- **`APPLY-PROD-022.sql`** (2026-07-21) — adds migration 022 (`codice_fiscale`) plus Roberto's
+  practice identity; post-apply expects **22**.
 
-Migration 007 is an intentional no-op placeholder. Apply 018 last: its backfill marks
-001–017 as `applied_by = 'backfill-2026-07-20'` with a nullable checksum because the
-exact historical file bytes cannot be proven. A null checksum means “accepted
-historical baseline,” not checksum drift. Migrations applied by the runner thereafter
-carry their SHA-256 checksum; changing or deleting one of those files makes
-`bun run supabase/migrate.ts --verify` exit nonzero. Verification also exits nonzero
-when a repository migration is pending.
+**Migrations 023 and 024 are pending on production.** They were authored 2026-07-21
+(023 = client cooperation types, 024 = invoice payment method) and do **not** yet have a
+prod-apply bundle. Until they are applied, `client.list` errors on prod (tracked as R2 in
+`docs/polish/PLAN-2026-07-21-PRODUCT-COMPLETION.md`). To apply them: back up, then either
+generate a paste-ready bundle with `bun run supabase/migrate.ts --output apply-pending.sql`
+(against the prod URL + service-role key) and paste it into SQL Editor, or hand-apply
+`023_client_cooperation.sql` then `024_invoice_payment_method.sql` in that order; the ledger
+count should then read **24**. Migration 007 is an intentional no-op placeholder.
+
+Migrations applied by the runner (not the historical backfill) carry their SHA-256 checksum;
+changing or deleting one of those files makes `bun run supabase/migrate.ts --verify` exit
+nonzero. Verification also exits nonzero when a repository migration is pending.
 
 #### Verify one landmark per migration
 
@@ -255,8 +251,8 @@ running server-side. Never put it in client-side code or expose it publicly.
 
 ## 3. Inngest Setup
 
-Inngest powers the 12 notification workflows (plan delivery, check-in reminders,
-invoice alerts, weight deviation flags, etc.).
+Inngest powers the 13 registered functions (plan delivery, check-in reminders,
+invoice alerts, weight deviation flags, daily scanners, delivery-outbox reconciler, etc.).
 
 ### 3.1 Create an Account and App
 
@@ -285,7 +281,7 @@ step until after your first successful Vercel deploy.
 2. In the Inngest dashboard, go to **Apps > Register App**.
 3. Enter the endpoint URL: `https://your-vercel-url.vercel.app/api/inngest`
 4. Inngest will make a `GET` request to that URL to discover your functions. It should
-   return the list of 12 registered functions.
+   return the list of 13 registered functions.
 5. Confirm registration. From this point on, Inngest will route background jobs to your
    Vercel deployment.
 
@@ -342,10 +338,17 @@ sender, so make it something recognisable to clients.
 ### 5.1 Connect the GitHub Repository
 
 1. Log in at https://vercel.com and click **Add New > Project**.
-2. Import the `roberto-scrigna` GitHub repository.
+2. Import the **`agentarmy72-del/roberto-scrigna-platform`** GitHub repository and set the
+   **production branch to `main`**. This fork is the deployed remote; the `BA-AI-JM` remote is
+   kept for parity only and is **not** what Vercel builds.
 3. Vercel will auto-detect it as a Next.js project. Leave the framework preset as
    **Next.js** and the build command as `next build`.
 4. Do not deploy yet — set environment variables first.
+
+> **Remote naming, for the operator running `git remote -v`.** The deployed remote is
+> whichever URL contains `agentarmy72-del` — locally it is the remote named `fork`, while
+> `origin` points at `BA-AI-JM` (parity/upstream). Always `git remote -v` before pushing;
+> production builds from `agentarmy72-del/main`.
 
 ### 5.2 Configure the Vercel Function Timeout
 
@@ -612,7 +615,7 @@ know where to send work.
 
 **Fix:** Go to Inngest > Apps and register `https://your-app.vercel.app/api/inngest`.
 Inngest will perform a `GET` to that URL to discover functions. Confirm the response
-includes all 12 functions.
+includes all 13 functions.
 
 **Cause 2 — `INNGEST_SIGNING_KEY` mismatch.** If the signing key in Vercel does not
 match the one in Inngest, payloads will fail signature verification and be rejected.
