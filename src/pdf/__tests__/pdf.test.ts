@@ -352,9 +352,9 @@ describe("PDF peri-workout timed box (#18)", () => {
     expect(html).toContain("Post-allenamento");
   });
 
-  test("omits the box entirely when there is no training time (graceful)", () => {
-    const html = renderReportHtml(testReportData); // training day, but no trainingTime
-    expect(html).not.toContain("Timing nutrizionale peri-workout");
+  test("R9: no training time → box still present as plain guidance", () => {
+    const html = renderReportHtml(testReportData); // training day, no trainingTime
+    expect(html).toContain("Timing nutrizionale peri-workout");
   });
 
   test("a non-training day never shows the box, even if a time leaks onto it", () => {

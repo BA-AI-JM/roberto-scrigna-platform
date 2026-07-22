@@ -69,11 +69,11 @@ describe("ActivePlanView — #18 peri-workout timing card", () => {
     expect(html).toContain("Post-allenamento");
   });
 
-  test("renders NO box when the training time is absent ({} / undefined)", () => {
+  test("R9: time absent → the box still shows as plain guidance", () => {
     const html = renderToStaticMarkup(
       createElement(ActivePlanView, { plan: { ...PLAN, trainingTime: {} }, loading: false })
     );
-    expect(html).not.toContain('data-testid="peri-workout-timing"');
+    expect(html).toContain('data-testid="peri-workout-timing"');
     // The normal meal list is still rendered.
     expect(html).toContain("Pancake proteici");
   });

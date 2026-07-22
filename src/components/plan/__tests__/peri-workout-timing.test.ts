@@ -67,9 +67,11 @@ describe("buildPeriWorkout model (#18)", () => {
     expect(m.postMeal).toBe("Frullato Proteico");
   });
 
-  test("training day but NO time → hidden (graceful)", () => {
-    expect(buildPeriWorkout("training", SLOTS, {}).show).toBe(false);
-    expect(buildPeriWorkout("training_medium", SLOTS, undefined).show).toBe(false);
+  test("R9: training day with NO time → shown as plain guidance (clock null)", () => {
+    const m = buildPeriWorkout("training", SLOTS, {});
+    expect(m.show).toBe(true);
+    expect(m.clock).toBe(null);
+    expect(buildPeriWorkout("training_medium", SLOTS, undefined).show).toBe(true);
   });
 
   test("non-training day even WITH a time → hidden", () => {
@@ -87,14 +89,18 @@ describe("PeriWorkoutTimingCard render (#18)", () => {
     expect(html).toContain("Intra-allenamento");
     expect(html).toContain("Post-allenamento");
     expect(html).toContain("Frullato Proteico"); // post meal grouped in
-    expect(html).toContain("Carboidrati semplici + elettroliti"); // intra guidance prose
+    expect(html).toContain("Acqua a piccoli sorsi"); // R9: intra names water
+    expect(html).toContain("carboidrati semplici + elettroliti"); // >90-min addition
+    expect(html).toContain("120–150% del peso perso"); // R9: post water rule
   });
 
-  test("no training time → renders nothing (no empty box)", () => {
+  test("R9: no training time → plain 'Allenamento' box, no clock", () => {
     const html = renderToStaticMarkup(
       createElement(PeriWorkoutTimingCard, { dayType: "training", slots: SLOTS })
     );
-    expect(html).toBe("");
+    expect(html).toContain('data-testid="peri-workout-timing"');
+    expect(html).toContain(">Allenamento<");
+    expect(html).not.toContain("Allenamento undefined");
   });
 
   test("non-training day → renders nothing", () => {

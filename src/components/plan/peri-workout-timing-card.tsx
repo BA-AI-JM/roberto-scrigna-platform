@@ -23,11 +23,14 @@ function PeriRow({
   window,
   guidance,
   meal,
+  keepGuidance = false,
 }: {
   label: string;
   window: string;
   guidance: string;
   meal?: string;
+  /** R9: show the guidance line even when a meal is grouped in (post water rule). */
+  keepGuidance?: boolean;
 }) {
   return (
     <div className="flex items-start justify-between gap-3 py-2 border-t border-zinc-100 first:border-t-0">
@@ -36,6 +39,7 @@ function PeriRow({
           {label} <span className="text-xs font-normal text-zinc-400">· {window}</span>
         </div>
         <div className="text-xs text-zinc-500">{meal ?? guidance}</div>
+        {meal && keepGuidance && <div className="text-xs text-zinc-400">{guidance}</div>}
       </div>
     </div>
   );
@@ -58,7 +62,7 @@ export function PeriWorkoutTimingCard({
     >
       <div className="mb-2 flex items-center gap-2">
         <span className="rounded-full bg-zinc-900 px-2.5 py-0.5 text-xs font-medium text-white">
-          Allenamento {m.clock}
+          {m.clock ? `Allenamento ${m.clock}` : "Allenamento"}
         </span>
         <span className="text-xs text-zinc-400">Timing nutrizionale peri-workout</span>
       </div>
@@ -66,7 +70,7 @@ export function PeriWorkoutTimingCard({
         <PeriRow {...PERI_WORKOUT_GUIDANCE.pre} guidance={PERI_WORKOUT_GUIDANCE.pre.text} meal={m.preMeal} />
         {/* Intra is fluid/electrolyte guidance — prose only, never a generated meal. */}
         <PeriRow {...PERI_WORKOUT_GUIDANCE.intra} guidance={PERI_WORKOUT_GUIDANCE.intra.text} />
-        <PeriRow {...PERI_WORKOUT_GUIDANCE.post} guidance={PERI_WORKOUT_GUIDANCE.post.text} meal={m.postMeal} />
+        <PeriRow {...PERI_WORKOUT_GUIDANCE.post} guidance={PERI_WORKOUT_GUIDANCE.post.text} meal={m.postMeal} keepGuidance />
       </div>
     </div>
   );

@@ -18,8 +18,18 @@ export interface RawSession {
 /** Canonical peri-workout guidance (mirrors the blocks.ts prose table). */
 export const PERI_WORKOUT_GUIDANCE = {
   pre: { label: "Pre-allenamento", window: "1–2h prima", text: "Carboidrati complessi + proteine" },
-  intra: { label: "Intra-allenamento", window: ">90 min", text: "Carboidrati semplici + elettroliti" },
-  post: { label: "Post-allenamento", window: "entro 60 min", text: "Proteine + carboidrati" },
+  // R9 (Roberto 2026-07-21) — intra names WATER explicitly (Model 1: "Intra
+  // Workout: Water"); carbs+electrolytes remain the >90-min addition.
+  intra: {
+    label: "Intra-allenamento",
+    window: "durante",
+    text: "Acqua a piccoli sorsi per tutta la sessione; oltre 90 min: carboidrati semplici + elettroliti",
+  },
+  post: {
+    label: "Post-allenamento",
+    window: "entro 60 min",
+    text: "Proteine + carboidrati · reintegra acqua 120–150% del peso perso (pesati prima e dopo)",
+  },
 } as const;
 
 /** True for the base training day-type AND the #17 intensity tiers. */
@@ -83,7 +93,9 @@ export function buildPeriWorkout(
   session?: { startTime?: string; endTime?: string }
 ): PeriWorkoutModel {
   const clock = formatSessionClock(session?.startTime, session?.endTime);
-  if (!isTrainingDayType(dayType) || !clock) {
+  // R9: the pre/intra/post space shows on EVERY training day — with the clock
+  // when a time is set, as a plain guidance box otherwise (was: hidden).
+  if (!isTrainingDayType(dayType)) {
     return { show: false, clock: null };
   }
   return {
