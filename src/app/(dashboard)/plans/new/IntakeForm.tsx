@@ -28,6 +28,7 @@ import {
   RPE_SESSION_QUESTION_IT,
   rpeScaleLabelIt,
 } from "@/engine/session-met-curves";
+import { deriveEndTime } from "@/lib/training/derive-end-time";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -444,12 +445,17 @@ function Page5({
     dayIndex: number,
     sessionIndex: number,
     field: keyof TrainingSession,
-    value: string | number
+    value: string | number | undefined
   ) => {
     const existing = [...(form.weekSessions[dayIndex] ?? [])];
     const current = existing[sessionIndex];
     if (!current) return;
-    existing[sessionIndex] = { ...current, [field]: value } as TrainingSession;
+    const draft = { ...current, [field]: value } as TrainingSession;
+    // Ora fine is computed, never typed: keep it derived from start + duration.
+    if (field === "startTime" || field === "duration_min") {
+      draft.endTime = deriveEndTime(draft.startTime, draft.duration_min);
+    }
+    existing[sessionIndex] = draft;
     setSessions(dayIndex, existing);
   };
 
@@ -561,27 +567,23 @@ function Page5({
                         </p>
                       </FieldGroup>
 
-                      {/* #18 nutrient timing — optional clock time (HH:MM). */}
+                      {/* #18 nutrient timing — start is entered; end is computed
+                          from start + duration (never typed, so never invalid). */}
                       <FieldGroup label="Ora inizio">
                         <input
                           type="time"
                           className={s.input}
                           value={session.startTime ?? ""}
                           onChange={(e) =>
-                            updateSession(dayIndex, si, "startTime", e.target.value)
+                            updateSession(dayIndex, si, "startTime", e.target.value || undefined)
                           }
                         />
                       </FieldGroup>
 
-                      <FieldGroup label="Ora fine">
-                        <input
-                          type="time"
-                          className={s.input}
-                          value={session.endTime ?? ""}
-                          onChange={(e) =>
-                            updateSession(dayIndex, si, "endTime", e.target.value)
-                          }
-                        />
+                      <FieldGroup label="Ora fine (calcolata)">
+                        <div className={`${s.input} bg-zinc-50 text-zinc-600`}>
+                          {deriveEndTime(session.startTime, session.duration_min) ?? "—"}
+                        </div>
                       </FieldGroup>
                     </div>
 

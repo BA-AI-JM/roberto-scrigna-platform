@@ -39,4 +39,14 @@ describe("WeekSessionsEditor — collapsed picker + whole-session RPE", () => {
     expect(html).toContain(">BJJ</option>");
     expect(html).toContain("RPE 8: Molto impegnativa");
   });
+
+  it("computes Ora fine from start + duration, read-only (only the start is an input)", () => {
+    const html = render({
+      0: [{ modality: "BJJ — Classe", duration_min: 90, rpe: 7, startTime: "20:30" }],
+    });
+    expect(html).toContain("Ora fine (calcolata)");
+    expect(html).toContain("22:00"); // 20:30 + 90 min
+    // exactly one time input remains (start); end is a computed display, not an input
+    expect((html.match(/type="time"/g) ?? []).length).toBe(1);
+  });
 });

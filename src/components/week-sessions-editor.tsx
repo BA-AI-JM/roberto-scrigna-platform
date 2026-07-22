@@ -22,6 +22,7 @@ import {
   RPE_SESSION_QUESTION_IT,
   rpeScaleLabelIt,
 } from "../engine/session-met-curves";
+import { deriveEndTime } from "../lib/training/derive-end-time";
 import { SessionKcalRow } from "./training/session-kcal-row";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -124,6 +125,12 @@ export function WeekSessionsEditor({
       // undefined clears the key entirely — "" must never reach the server
       // (the HH:MM regex rejects it and the whole save fails as "invalid").
       if (next === undefined) delete (draft as unknown as Record<string, unknown>)[field];
+      // Ora fine is computed, never typed: keep it derived from start + duration.
+      if (field === "startTime" || field === "duration_min") {
+        const end = deriveEndTime(draft.startTime, draft.duration_min);
+        if (end) draft.endTime = end;
+        else delete (draft as unknown as Record<string, unknown>).endTime;
+      }
       existing[sessionIndex] = draft;
       setSessions(dayIndex, existing);
     },
@@ -248,13 +255,10 @@ export function WeekSessionsEditor({
                       />
                     </div>
                     <div>
-                      <label className={labelCls}>Ora fine</label>
-                      <input
-                        type="time"
-                        className={inputCls}
-                        value={session.endTime ?? ""}
-                        onChange={(e) => updateSession(dayIndex, si, "endTime", e.target.value || undefined)}
-                      />
+                      <label className={labelCls}>Ora fine (calcolata)</label>
+                      <div className={`${inputCls} bg-zinc-50 text-zinc-600`}>
+                        {deriveEndTime(session.startTime, session.duration_min) ?? "—"}
+                      </div>
                     </div>
                   </div>
 
