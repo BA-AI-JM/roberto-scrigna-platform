@@ -19,6 +19,7 @@ import type {
 } from "../engine/types";
 import { generateWeeklyPlan, estimateBodyFat, waterLoadingSchedule } from "../engine";
 import { carbLedAssumptionLines } from "../engine/carb-led-tiers";
+import { fibreRatePer1000 } from "../engine/hydration";
 import type { PlanOptions, WaterLoadingSchedule } from "../engine";
 import { createMealPlan } from "../engine/meal-plan";
 import {
@@ -368,7 +369,10 @@ export function generatePlan(
       excludeAllergens: input.excludeAllergens ?? input.mealPlanConfig?.excludeAllergens,
       preferTags: input.preferTags ?? input.mealPlanConfig?.preferTags,
       substitutionsPerSlot: input.mealPlanConfig?.substitutionsPerSlot,
-      fibreTargetPer1000: input.mealPlanConfig?.fibreTargetPer1000,
+      // N6/N7 (Roberto 2026-07-22): fibre rate defaults to his energy-inverse
+      // band (10–20 g/1000 kcal) unless explicitly overridden.
+      fibreTargetPer1000:
+        input.mealPlanConfig?.fibreTargetPer1000 ?? fibreRatePer1000(dayPlan.macros.totalKcal),
       // #11 restriction protocols → JOINT solver/reconcile constraints.
       ...(input.protocols?.fibreRestriction
         ? { fibreMode: "cap" as const, fibreCapG: FIBRE_RESTRICTION_CAP_G }

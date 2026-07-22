@@ -24,6 +24,24 @@ const TRAINING_WATER_BONUS_ML = 500;
  */
 const SALT_G_PER_WATER_L = 1;
 
+/**
+ * N6/N7 (Roberto, 2026-07-22): fibre 10–20 g per 1000 kcal, INVERSE to energy —
+ * low-energy plans sit at the top of the band (satiety), high-energy at the
+ * bottom. Anchors (engineering fill within his stated rule, visible in the
+ * assumptions for his glance): ≤1500 kcal → 20 g/1000; ≥3000 kcal → 10 g/1000;
+ * linear in between.
+ */
+export function fibreRatePer1000(targetKcal: number): number {
+  if (targetKcal <= 1500) return 20;
+  if (targetKcal >= 3000) return 10;
+  return Math.round((20 - ((targetKcal - 1500) / 1500) * 10) * 10) / 10;
+}
+
+/** Absolute daily fibre target (g) from the day's kcal target. */
+export function fibreTargetG(targetKcal: number): number {
+  return Math.round((fibreRatePer1000(targetKcal) * targetKcal) / 1000);
+}
+
 // ── Public API ────────────────────────────────────────────────────────────────
 
 /**

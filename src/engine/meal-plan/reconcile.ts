@@ -31,6 +31,12 @@ import { filterMeals } from "./selector";
 
 /** Per-macro proportional tolerance for the convergence check (kcal+protein). */
 export const RECONCILE_TOLERANCE_PCT = 5;
+/**
+ * EF4 (Roberto, 2026-07-22): single-macronutrient tolerance is ±10%
+ * ("160 g protein → ±16 g"). kcal stays ±5%. Closes G33: fat could drift
+ * 20% under while the flag blessed the day (only kcal+protein were gated).
+ */
+export const MACRO_TOLERANCE_PCT = 10;
 
 /**
  * THE single tolerance verdict for the plan flag/badge. Uses the SAME relative
@@ -46,13 +52,23 @@ export const RECONCILE_TOLERANCE_PCT = 5;
  * |actual−target|/target.
  */
 export function withinReconcileTolerance(
-  deviation: { kcal: number; proteinG: number },
+  deviation: { kcal: number; proteinG: number; carbsG?: number; fatG?: number },
   targetKcal: number,
-  targetProteinG: number
+  targetProteinG: number,
+  targetCarbsG?: number,
+  targetFatG?: number
 ): boolean {
   const rel = (d: number, t: number) => (t > 0 ? Math.abs(d) / t : d === 0 ? 0 : 1);
-  const lim = RECONCILE_TOLERANCE_PCT / 100;
-  return rel(deviation.kcal, targetKcal) <= lim && rel(deviation.proteinG, targetProteinG) <= lim;
+  const kcalLim = RECONCILE_TOLERANCE_PCT / 100;
+  const macroLim = MACRO_TOLERANCE_PCT / 100;
+  if (rel(deviation.kcal, targetKcal) > kcalLim) return false;
+  if (rel(deviation.proteinG, targetProteinG) > macroLim) return false;
+  // EF4: carbs and fat gate at ±10% too, when targets are known (older callers
+  // that pass only kcal+protein keep their previous behaviour minus the
+  // protein tightening).
+  if (targetCarbsG != null && deviation.carbsG != null && rel(deviation.carbsG, targetCarbsG) > macroLim) return false;
+  if (targetFatG != null && deviation.fatG != null && rel(deviation.fatG, targetFatG) > macroLim) return false;
+  return true;
 }
 
 /** Fibre floor used to bias selection (g per 1000 kcal). Hard floor enforced by planner. */

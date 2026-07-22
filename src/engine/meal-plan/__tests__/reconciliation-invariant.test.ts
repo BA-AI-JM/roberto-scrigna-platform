@@ -119,24 +119,25 @@ describe("Reconciliation invariant — protected pair (kcal + protein) holds gri
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
-// 2. G33 — fat under-delivery is REAL and NOT gated by withinTolerance.
-//    The money assertion: a plan ~20% under on fat is still flagged "within
-//    tolerance", because the flag is kcal+protein only. This is the hole EF4 closes.
+// 2. G33 — CLOSED by EF4 (Roberto 2026-07-22): every macro gates at ±10%.
+//    The same plan that used to be blessed 20% under on fat now flags OUT.
 // ═══════════════════════════════════════════════════════════════════════════
-describe("G33 — fat drift is unbounded by the tolerance flag (EF4-pending)", () => {
-  test("maint-train/4m: fat lands ~−20% under yet withinTolerance === true (the hole)", () => {
+describe("G33 — closed: fat drift now bounded by the ±10% macro gate (EF4)", () => {
+  test("maint-train/4m: fat ~−20% under → withinTolerance === false (hole closed)", () => {
     const r = reconcile({ label: "maint-train/4m", macros: rx(180, 80, 350, "training"), mealCount: 4 });
     // Fat is materially under target …
     expect(r.fatPct, `expected fat well under target, got ${r.fatPct.toFixed(1)}%`).toBeLessThan(-15);
     // … while the protected pair is fine …
     expect(Math.abs(r.kcalPct)).toBeLessThanOrEqual(PROTECTED_PCT);
     expect(Math.abs(r.proteinPct)).toBeLessThanOrEqual(PROTECTED_PCT);
-    // … so the plan is BLESSED as within tolerance despite the fat shortfall.
-    expect(r.withinTolerance, "withinTolerance should still be true — that is exactly G33").toBe(true);
+    // … and EF4 now flags the day honestly.
+    expect(r.withinTolerance, "EF4: a −20% fat day must flag fuori tolleranza").toBe(false);
   });
 
-  test("the flag ignores fat by construction (withinReconcileTolerance is kcal+protein only)", () => {
-    // A deviation 40 g under on fat with a perfect protected pair is STILL 'within'.
+  test("EF4: the flag gates fat when targets are supplied; legacy 2-arg calls stay kcal+protein", () => {
+    // 4-arg form: −16 g fat on an 80 g target = −20% → OUT.
+    expect(withinReconcileTolerance({ kcal: 0, proteinG: 0, carbsG: 0, fatG: -16 }, 2500, 180, 350, 80)).toBe(false);
+    // Legacy 2-arg callers keep their reduced scope (no fat target known).
     expect(withinReconcileTolerance({ kcal: 0, proteinG: 0 }, 2500, 180)).toBe(true);
     // Proof it is not just tolerant of everything: a kcal breach flips it.
     expect(withinReconcileTolerance({ kcal: 200, proteinG: 0 }, 2500, 180)).toBe(false);

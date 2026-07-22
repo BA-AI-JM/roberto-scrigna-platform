@@ -232,7 +232,7 @@ describe("tolerance single-source: flag agrees with the engine's relative verdic
       // The flag (planner) and the engine's relative verdict use the SAME source,
       // so they must be equal for every plan — reverting the flag to absolute
       // bands would make them diverge on an edge plan (mutation-probe).
-      const engineVerdict = withinReconcileTolerance(plan.deviation, t.totalKcal, t.proteinG);
+      const engineVerdict = withinReconcileTolerance(plan.deviation, t.totalKcal, t.proteinG, t.carbG, t.fatG);
       expect(plan.withinTolerance).toBe(engineVerdict);
     });
   }
@@ -243,8 +243,9 @@ describe("tolerance single-source: flag agrees with the engine's relative verdic
     expect(withinReconcileTolerance({ kcal: 110, proteinG: 0 }, 2500, 180)).toBe(true);
     // dev 130 kcal = 5.2% → OUT (relative bound bites).
     expect(withinReconcileTolerance({ kcal: 130, proteinG: 0 }, 2500, 180)).toBe(false);
-    // Protein gates too: 5% of 180 = 9 g; dev 10 g → OUT.
-    expect(withinReconcileTolerance({ kcal: 0, proteinG: 10 }, 2500, 180)).toBe(false);
+    // EF4: protein gates at ±10% — 10% of 180 = 18 g; dev 18 g in, 19 g out.
+    expect(withinReconcileTolerance({ kcal: 0, proteinG: 18 }, 2500, 180)).toBe(true);
+    expect(withinReconcileTolerance({ kcal: 0, proteinG: 19 }, 2500, 180)).toBe(false);
     expect(RECONCILE_TOLERANCE_PCT).toBe(5);
   });
 });

@@ -1989,7 +1989,7 @@ function VerdictStrip({ days }: { days: VerdictDay[] }) {
           }`}
         >
           <div className={`flex items-center gap-2 font-medium ${r.ok ? "text-brand-deep" : "text-amber"}`}>
-            {r.ok ? "✓" : "△"} {r.label} — {r.ok ? "entro tolleranza (regola motore ±5%)" : "fuori tolleranza"}
+            {r.ok ? "✓" : "△"} {r.label} — {r.ok ? "entro tolleranza (±5% kcal · ±10% macro)" : "fuori tolleranza"}
           </div>
           <div className="tnum mt-1 text-[12.5px] text-muted-foreground">
             Δ {fmt(atwaterKcalDelta(r.dev), " kcal")} · P {fmt(r.dev.proteinG, " g", 1)} · C {fmt(r.dev.carbsG, " g", 1)} · F {fmt(r.dev.fatG, " g", 1)}

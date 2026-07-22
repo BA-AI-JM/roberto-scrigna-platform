@@ -226,7 +226,9 @@ export function createMealPlan(
   const withinTolerance = withinReconcileTolerance(
     deviation,
     config.macroTargets.totalKcal,
-    config.macroTargets.proteinG
+    config.macroTargets.proteinG,
+    config.macroTargets.carbG,
+    config.macroTargets.fatG
   );
 
   return {
