@@ -92,6 +92,26 @@ describe("No-HR Session RPE-MET — invariants", () => {
       }
     }
   });
+
+  it("every curve value sits in a sane MET range [1.5, 11] (catches a fat-fingered digit)", () => {
+    for (const key of Object.keys(SESSION_MET_CURVES) as CurveKey[]) {
+      for (let rpe = 1; rpe <= 10; rpe++) {
+        const m = sessionMet(key, rpe);
+        expect(m, `${key}@${rpe}`).toBeGreaterThanOrEqual(1.5);
+        expect(m, `${key}@${rpe}`).toBeLessThanOrEqual(11);
+      }
+    }
+  });
+
+  it("decimal RPE interpolates to the exact midpoint of its integer neighbours", () => {
+    for (const key of Object.keys(SESSION_MET_CURVES) as CurveKey[]) {
+      for (let lo = 1; lo <= 9; lo++) {
+        const mid = sessionMet(key, lo + 0.5);
+        const expected = (sessionMet(key, lo) + sessionMet(key, lo + 1)) / 2;
+        expect(mid, `${key}@${lo}.5`).toBeCloseTo(expected, 6);
+      }
+    }
+  });
 });
 
 /**
@@ -123,5 +143,18 @@ describe("No-HR RPE-MET — end-to-end through the engine", () => {
   });
   it("Cyclic 70 kg / 60 min / RPE 8 → 560, uncapped (Test 8)", () => {
     expect(dayKcal("Corsa — Costante", 70, 60, 8)).toBe(560);
+  });
+
+  it("ONLY met_value (No-HR) skips the 0.85 — HR/estimate/default keep it (Ruling 3)", () => {
+    const c = ctx(80);
+    expect(
+      calculateExercise({ method: "met_value", durationMin: 60, metValue: 5 }, c).recalibrationFactor
+    ).toBe(1);
+    expect(
+      calculateExercise({ method: "session_estimate", durationMin: 60, kcalEstimate: 400 }, c).recalibrationFactor
+    ).toBe(0.85);
+    expect(
+      calculateExercise({ method: "heart_rate", durationMin: 60, avgHeartRate: 150 }, c).recalibrationFactor
+    ).toBe(0.85); // Keytel HR untouched
   });
 });
