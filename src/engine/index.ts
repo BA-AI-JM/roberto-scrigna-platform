@@ -96,6 +96,34 @@ export interface PlanOptions extends TdeeOptions {
    * different sports on different days (BJJ Mon, lifting Tue, MMA Wed…).
    */
   perDayTrainingSession?: (ExerciseSession | null | undefined)[];
+  /**
+   * B-eng2 / R14 Model B (Roberto 2026-07-22). Periodization STRATEGY chosen by
+   * the coach:
+   *  - "weekly_average": every day targets the mean weekly expenditure − goal
+   *    (flat plan).
+   *  - "differentiated" | undefined: each day targets its OWN expenditure − goal
+   *    (current behaviour), unless overridden per-day below.
+   */
+  periodizationStrategy?: "weekly_average" | "differentiated";
+  /**
+   * Per-day-of-week calorie TARGET override (length-7, Mon-Sun). When set, that
+   * day's intake target is exactly this value — and MAY EXCEED the day's
+   * expenditure (a refeed): the macro engine puts the surplus into carbs, since
+   * protein (per LBM) and fat (per BW) are body-fixed and carbs are the
+   * remainder. This is Roberto's Model-B override; it wins over the strategy.
+   */
+  perDayTargetKcalOverride?: (number | null | undefined)[];
+  /**
+   * Per-day coach LEVEL label (off/light/medium/heavy), Mon-Sun — display only,
+   * carried through for the review UI; does not change the maths.
+   */
+  perDayLevel?: (string | null | undefined)[];
+  /**
+   * Internal: an explicit resolved calorie target for a SINGLE day, injected by
+   * generateWeeklyPlan after it resolves strategy + overrides. Not set by
+   * callers of generateDailyPlan directly in normal flow.
+   */
+  targetKcalOverride?: number;
 }
 
 /**
@@ -107,7 +135,10 @@ export function generateDailyPlan(
   options: PlanOptions = {}
 ): DailyPlan {
   const tdee = calculateTdee(snapshot, dayType, options);
-  const targetKcal = tdee.totalTdeeKcal - (options.dailyDeficitKcal ?? 0);
+  // B-eng2: an explicit resolved target (from generateWeeklyPlan's Model-B
+  // resolution) wins; otherwise the classic expenditure − goal.
+  const targetKcal =
+    options.targetKcalOverride ?? tdee.totalTdeeKcal - (options.dailyDeficitKcal ?? 0);
   const macros = calculateMacros(
     targetKcal,
     tdee.bmr.bodyComposition,
@@ -128,18 +159,41 @@ export function generateWeeklyPlan(
   options: PlanOptions = {}
 ): WeeklyPlan {
   const perDay = options.perDayTrainingSession;
+  const deficit = options.dailyDeficitKcal ?? 0;
+
+  // Per-day options with the correct exercise session applied (training days).
+  const dayOptions = snapshot.weekSchedule.map((dayType, i) => {
+    const sess = perDay?.[i];
+    return sess && isTrainingLikeDayType(dayType)
+      ? { ...options, trainingSession: sess }
+      : options;
+  });
+
+  // Pass 1: each day's EXPENDITURE (TDEE) — needed before the weekly mean and
+  // before we resolve Model-B targets.
+  const tdees = snapshot.weekSchedule.map((dayType, i) =>
+    calculateTdee(snapshot, dayType, dayOptions[i]!)
+  );
+  const meanExpenditure = Math.round(
+    tdees.reduce((sum, t) => sum + t.totalTdeeKcal, 0) / tdees.length
+  );
+
+  // Pass 2: resolve each day's TARGET (B-eng2 / Model B) and generate.
+  //   per-day override  → wins (may exceed expenditure: a refeed)
+  //   weekly_average    → mean expenditure − goal, every day
+  //   else              → own expenditure − goal (classic, unchanged)
   const days = snapshot.weekSchedule.map((dayType, i) => {
-    const override = perDay?.[i];
-    // #17: per-day session override applies to training AND the intensity tiers
-    // (so a coach's per-day session flows through on tier days, not just plain
-    // "training"). tdee.ts routes all training-like types through calculateExercise.
-    if (override && isTrainingLikeDayType(dayType)) {
-      return generateDailyPlan(snapshot, dayType, {
-        ...options,
-        trainingSession: override,
-      });
-    }
-    return generateDailyPlan(snapshot, dayType, options);
+    const ovr = options.perDayTargetKcalOverride?.[i];
+    const target =
+      ovr != null
+        ? ovr
+        : options.periodizationStrategy === "weekly_average"
+          ? meanExpenditure - deficit
+          : tdees[i]!.totalTdeeKcal - deficit;
+    return generateDailyPlan(snapshot, dayType, {
+      ...dayOptions[i]!,
+      targetKcalOverride: target,
+    });
   }) as WeeklyPlan["days"];
 
   // B2 (#9): Roberto's carb-led tier rule — the kcal surplus of higher
