@@ -3,10 +3,10 @@
  * RPE) into a representative ExerciseSession the engine can use for training-day
  * energy expenditure — replacing the flat 300 kcal `default_estimate`.
  *
- * MET values come from `src/engine/sport-taxonomy.ts`, which is built from
- * v4.4 spec Appendix D. **Strength training MET is capped at 3 regardless of
- * RPE** (spec rule); other modalities use the entry's base MET with a modest
- * RPE adjustment.
+ * MET values come from the No-HR RPE-MET curves (Roberto v1.0, spec §7): RPE
+ * reads a session-average MET off the sport's curve. **Strength is flat 3.0
+ * regardless of RPE.** No 0.85 recalibration on this path — the curve value is
+ * already calibrated.
  *
  * Pure, side-effect-free; tested in __tests__/training-modality.test.ts.
  */
@@ -15,12 +15,10 @@ import type { ExerciseSession } from "../engine/types";
 import {
   findSportEntry,
   FALLBACK_MODALITY,
+  curveKeyForEntry,
   type SportEntry,
 } from "../engine/sport-taxonomy";
-
-/** Mirrors RECALIBRATION_FACTOR in engine/exercise.ts — MET estimates are
- *  discounted ×0.85; a coach's manual kcal is his real burn and is NOT. */
-const MET_RECALIBRATION = 0.85;
+import { sessionMet } from "../engine/session-met-curves";
 
 /**
  * Legacy display-name mapping. Earlier versions of the intake form used a
@@ -81,23 +79,18 @@ export function resolveSportEntry(displayIt: string | undefined | null): SportEn
 }
 
 /**
- * RPE → MET multiplier. RPE 1 → 0.84×, RPE 5 → 1.0×, RPE 10 → 1.2×.
- *
- * NOT applied to strength entries (the spec caps strength MET at 3 regardless
- * of RPE — that's encoded by SportEntry.rpeAdjusts = false).
+ * Effective (session-average) MET for a session — Roberto's No-HR RPE-MET model
+ * (spec §2/§3): RPE reads a session-average MET off the sport's curve. Strength is
+ * flat 3.0 regardless of RPE (handled inside sessionMet). No 0.85 here — the curve
+ * value is already the calibrated number. Missing RPE defaults to 7 (moderate-
+ * demanding) for legacy sessions logged before RPE became required.
  */
-export function rpeFactor(rpe: number | undefined): number {
-  const r = rpe == null || Number.isNaN(rpe) ? 7 : Math.min(10, Math.max(1, rpe));
-  return 0.8 + 0.04 * r;
-}
-
-/** Effective MET for a session: entry MET, with RPE adjustment only when allowed. */
 export function effectiveMet(
   entry: SportEntry,
   rpe: number | undefined
 ): number {
-  if (!entry.rpeAdjusts) return entry.metGross;
-  return entry.metGross * rpeFactor(rpe);
+  const r = rpe == null || Number.isNaN(rpe) ? 7 : rpe;
+  return sessionMet(curveKeyForEntry(entry), r);
 }
 
 /**
@@ -119,7 +112,8 @@ function anyOverride(sessions: IntakeTrainingSession[]): boolean {
 }
 
 /** A day's FINAL exercise kcal: manual override as-is (his real burn) + MET
- *  sessions recalibrated ×0.85. Needs bodyweight for the MET part. */
+ *  sessions via the No-HR session-average curve (no 0.85). Needs bodyweight for
+ *  the MET part. */
 function dayFinalKcal(sessions: IntakeTrainingSession[], weightKg: number): { minutes: number; kcal: number } {
   let minutes = 0;
   let kcal = 0;
@@ -130,7 +124,7 @@ function dayFinalKcal(sessions: IntakeTrainingSession[], weightKg: number): { mi
       kcal += s.kcal_override; // final — no recalibration
     } else {
       const met = effectiveMet(resolveSportEntry(s.modality), s.rpe);
-      kcal += met * weightKg * (min / 60) * MET_RECALIBRATION;
+      kcal += met * weightKg * (min / 60); // No-HR curve MET already calibrated — no 0.85
     }
   }
   return { minutes, kcal };

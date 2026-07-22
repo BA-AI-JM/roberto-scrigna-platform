@@ -4,7 +4,9 @@
  * Method priority system (spec v4.4 / v4.4.1):
  * 0. Sport Correction Protocol (SCP) — HR zones + sport profile (highest accuracy)
  * 1. Heart rate-based (Keytel formula — average HR, no zone breakdown)
- * 2. MET value × weight × duration
+ * 2. MET value × weight × duration — Roberto's No-HR session-average RPE-MET
+ *    model (spec v1.0); MET is already the calibrated session average, so this
+ *    path does NOT get the 0.85 recalibration
  * 3. Per-session kcal estimate (from trainer)
  * 4. Default 300kcal fallback
  *
@@ -79,7 +81,8 @@ export interface ExerciseContext {
  * is attempted first. SCP handles its own correction; no 0.85 factor applied.
  * If SCP returns null (Tier 2/3), falls through to Method 1.
  *
- * Methods 1–4: Apply v4.4.1 recalibration factor (×0.85) to the raw kcal.
+ * Methods 1, 3, 4: Apply the ×0.85 recalibration. Method 2 (met_value, No-HR
+ * RPE-MET) does NOT — its curve MET is already the session average.
  *
  * @param session - Exercise session data with method and parameters
  * @param ctx - Client context (weight, age, sex)
@@ -127,7 +130,7 @@ export function calculateExercise(
     };
   }
 
-  // ── Methods 1–4: Legacy path (applies 0.85 recalibration) ────────────────────
+  // ── Methods 1–4: Legacy path (met_value skips 0.85; HR/estimate/default apply it) ──
   let rawKcal: number;
   let methodUsed: ExerciseMethod;
 
@@ -159,12 +162,15 @@ export function calculateExercise(
     methodUsed = "default_estimate";
   }
 
-  const exerciseKcal = Math.round(rawKcal * RECALIBRATION_FACTOR);
+  // No-HR RPE-MET path (met_value) is Roberto's session-average curve — already
+  // calibrated, so no 0.85. HR (Keytel), manual estimate, and default keep it.
+  const recalibration = methodUsed === "met_value" ? 1 : RECALIBRATION_FACTOR;
+  const exerciseKcal = Math.round(rawKcal * recalibration);
 
   return {
     exerciseKcal,
     methodUsed,
-    recalibrationFactor: RECALIBRATION_FACTOR,
+    recalibrationFactor: recalibration,
   };
 }
 

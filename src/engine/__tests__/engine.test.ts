@@ -205,8 +205,9 @@ describe("Exercise", () => {
     };
     const result = calculateExercise(session, ctx);
     expect(result.methodUsed).toBe("met_value");
-    // Raw: 6 * 85 * 1 = 510, after 0.85: 433.5 ≈ 434
-    expect(result.exerciseKcal).toBeCloseTo(434, 0);
+    // No-HR RPE-MET path skips 0.85: 6 * 85 * 1 = 510
+    expect(result.exerciseKcal).toBeCloseTo(510, 0);
+    expect(result.recalibrationFactor).toBe(1);
   });
 
   test("session estimate method", () => {

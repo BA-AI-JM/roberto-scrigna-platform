@@ -6,6 +6,8 @@ import {
   SESSION_MET_CURVES,
   type CurveKey,
 } from "../session-met-curves";
+import { buildTrainingSessionForDay } from "../../services/training-modality";
+import { calculateExercise } from "../exercise";
 
 /**
  * Roberto's §15 acceptance tests — THE gate for the whole No-HR RPE-MET model.
@@ -94,5 +96,37 @@ describe("No-HR Session RPE-MET — invariants", () => {
         );
       }
     }
+  });
+});
+
+/**
+ * End-to-end: the SAME acceptance numbers must survive the full engine wiring
+ * (intake builder → ExerciseSession → calculateExercise, no 0.85 on met_value),
+ * not just the curve module in isolation. This is the Phase-1 integration gate —
+ * it proves the taxonomy→curve resolver + effectiveMet + the exercise path all
+ * agree with Roberto's §15 numbers.
+ */
+describe("No-HR RPE-MET — end-to-end through the engine", () => {
+  const ctx = (kg: number) => ({ weightKg: kg, ageYears: 30, sex: "male" as const });
+  const dayKcal = (modality: string, kg: number, min: number, rpe: number) => {
+    const s = buildTrainingSessionForDay([{ modality, duration_min: min, rpe }], kg)!;
+    expect(s.method).toBe("met_value");
+    return calculateExercise(s, ctx(kg)).exerciseKcal;
+  };
+
+  it("BJJ 82 kg / 90 min / RPE 6 → 369 (Test 1)", () => {
+    expect(dayKcal("BJJ — Classe", 82, 90, 6)).toBe(369);
+  });
+  it("BJJ 82 kg / 90 min / RPE 7 → 394 (Test 2)", () => {
+    expect(dayKcal("BJJ — Classe", 82, 90, 7)).toBe(394);
+  });
+  it("Kickboxing 70 kg / 60 min / RPE 7 → 350 (Test 3)", () => {
+    expect(dayKcal("Kickboxing", 70, 60, 7)).toBe(350);
+  });
+  it("Strength 82 kg / 75 min / RPE 5 → 308, no 0.85 on the path (Test 5)", () => {
+    expect(dayKcal("Pesi — Forza", 82, 75, 5)).toBe(308);
+  });
+  it("Cyclic 70 kg / 60 min / RPE 8 → 560, uncapped (Test 8)", () => {
+    expect(dayKcal("Corsa — Costante", 70, 60, 8)).toBe(560);
   });
 });

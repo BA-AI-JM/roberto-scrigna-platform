@@ -26,7 +26,7 @@ describe("R15 — manual kcal feeds expenditure", () => {
   });
 
   test("mixed day: override session + MET session sum correctly", () => {
-    // Pesi — Forza MET 3.0 (no RPE adj) → 3.0×80×1×0.85 = 204; + override 900.
+    // Pesi — Forza strength curve MET 3.0 → 3.0×80×1 = 240 (no 0.85); + override 900.
     const s = buildTrainingSessionForDay(
       [
         { modality: "BJJ — Classe", duration_min: 120, rpe: 7, kcal_override: 900 },
@@ -34,7 +34,7 @@ describe("R15 — manual kcal feeds expenditure", () => {
       ],
       80,
     );
-    expect(s?.finalExerciseKcal).toBeCloseTo(1104, 0);
+    expect(s?.finalExerciseKcal).toBeCloseTo(1140, 0);
     expect(s?.durationMin).toBe(180);
   });
 
@@ -51,8 +51,8 @@ describe("R15 — manual kcal feeds expenditure", () => {
       80,
     );
     expect(withOverride?.method).toBe("session_estimate");
-    // avg of day0 final (700) and day2 final (204) = 452
-    expect(withOverride?.finalExerciseKcal).toBeCloseTo(452, 0);
+    // avg of day0 final (700) and day2 final (240 = 3.0×80×1, no 0.85) = 470
+    expect(withOverride?.finalExerciseKcal).toBeCloseTo(470, 0);
     // same week WITHOUT weight → MET path (unchanged)
     const noWeight = buildTrainingSessionFromIntake(
       { "0": [{ modality: "BJJ — Classe", duration_min: 90, rpe: 7, kcal_override: 700 }], "2": [{ modality: "Pesi — Forza", duration_min: 60, rpe: 5 }] },

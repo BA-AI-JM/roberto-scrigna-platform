@@ -17,6 +17,7 @@
  */
 
 import type { CategoryId, SessionType } from "./sport-correction/types";
+import type { CurveKey } from "./session-met-curves";
 
 /** Coarse grouping for `<optgroup>` rendering. */
 export type SportGroup =
@@ -130,6 +131,53 @@ export const SPORT_TAXONOMY: readonly SportEntry[] = [
 export function findSportEntry(displayIt: string | undefined | null): SportEntry | undefined {
   if (!displayIt) return undefined;
   return SPORT_TAXONOMY.find((e) => e.displayIt === displayIt);
+}
+
+/**
+ * Map a taxonomy entry to its No-HR RPE-MET curve (Roberto v1.0, spec §5/§7).
+ * Most categories map 1:1; GRAPPLING and STRIKING split by sport. Keyed on the
+ * stable `displayIt` primary key.
+ *
+ * Note (spec §5.D/E): the current taxonomy files "Pesi — Circuito" under STRENGTH,
+ * but Roberto's spec puts resistance circuits under HIIT/Functional. That
+ * reclassification is a clinical call held for Roberto — NOT applied silently here;
+ * flagged in the plan. Combat Sambo (spec: → mma) is likewise a future taxonomy
+ * addition — today's "Sambo" entry is Sport Sambo → sport_sambo.
+ */
+const GRAPPLING_CURVE: Record<string, CurveKey> = {
+  "Wrestling / Lotta libera": "wrestling",
+  Judo: "judo",
+  Sambo: "sport_sambo",
+};
+const STRIKING_CURVE: Record<string, CurveKey> = {
+  "Muay Thai — Classe": "muay_thai",
+  "Muay Thai — Sparring": "muay_thai",
+  Kickboxing: "kickboxing",
+  Karate: "karate",
+  Taekwondo: "taekwondo",
+};
+
+export function curveKeyForEntry(entry: SportEntry): CurveKey {
+  switch (entry.categoryId) {
+    case "MMA":
+      return "mma";
+    case "STRENGTH":
+      return "strength_hypertrophy";
+    case "HIIT":
+      return "hiit_functional";
+    case "CYCLIC":
+      return "cyclic_cardio";
+    case "TEAM":
+      return "team_sports";
+    case "RACKET":
+      return "racquet_sports";
+    case "GRAPPLING":
+      return GRAPPLING_CURVE[entry.displayIt] ?? "bjj"; // BJJ variants default here
+    case "STRIKING":
+      return STRIKING_CURVE[entry.displayIt] ?? "boxing"; // Boxe variants default here
+    default:
+      return "team_sports"; // neutral intermittent fallback (matches FALLBACK_MODALITY)
+  }
 }
 
 /** A safe fallback MET for unknown modality strings (e.g. "Altro" or legacy free-text). */

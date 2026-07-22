@@ -1,20 +1,21 @@
 /**
  * Provisional session kcal estimate — must match the engine's MET path
- * (resolveSportEntry + effectiveMet → met×kg×min/60 × 0.85 recalibration).
+ * (resolveSportEntry + effectiveMet → met×kg×min/60), Roberto's No-HR RPE-MET
+ * model. No 0.85: the curve MET is already the session average.
  */
 import { describe, test, expect } from "vitest";
 import { estimateSessionKcal } from "../estimate-session-kcal";
 
 describe("estimateSessionKcal", () => {
-  test("strength session uses the capped MET 3.0 → round(3.0 × 80 × 1 × 0.85) = 204", () => {
-    expect(estimateSessionKcal({ modality: "Pesi — Forza", duration_min: 60, rpe: 5 }, 80)).toBe(204);
+  test("strength uses the flat MET 3.0 → round(3.0 × 80 × 1) = 240", () => {
+    expect(estimateSessionKcal({ modality: "Pesi — Forza", duration_min: 60, rpe: 5 }, 80)).toBe(240);
   });
 
   test("strength MET is RPE-independent (same estimate at RPE 1 and 10)", () => {
     const low = estimateSessionKcal({ modality: "Pesi — Forza", duration_min: 60, rpe: 1 }, 80);
     const high = estimateSessionKcal({ modality: "Pesi — Forza", duration_min: 60, rpe: 10 }, 80);
     expect(low).toBe(high);
-    expect(low).toBe(204);
+    expect(low).toBe(240);
   });
 
   test("non-strength modality scales with RPE", () => {
@@ -36,7 +37,7 @@ describe("estimateSessionKcal", () => {
   });
 
   test("missing/zero duration defaults to 60 min", () => {
-    expect(estimateSessionKcal({ modality: "Pesi — Forza", duration_min: 0, rpe: 5 }, 80)).toBe(204);
-    expect(estimateSessionKcal({ modality: "Pesi — Forza", rpe: 5 }, 80)).toBe(204);
+    expect(estimateSessionKcal({ modality: "Pesi — Forza", duration_min: 0, rpe: 5 }, 80)).toBe(240);
+    expect(estimateSessionKcal({ modality: "Pesi — Forza", rpe: 5 }, 80)).toBe(240);
   });
 });

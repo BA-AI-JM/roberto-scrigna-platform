@@ -1,19 +1,24 @@
 /**
  * Tests for the intake-schedule → ExerciseSession mapping.
  *
- * Spec rule under test: strength training MET is capped at 3 regardless of
- * RPE (v4.4 spec §Step 5 + Appendix C checklist). Non-strength modalities
- * use their canonical MET (Appendix D) with a modest RPE adjustment.
+ * Under test: Roberto's No-HR RPE-MET model (spec v1.0) — RPE reads a
+ * session-average MET off the sport's curve; strength is flat 3.0 regardless of
+ * RPE (spec §7.11). No 0.85 recalibration on this path.
  */
 
 import { describe, it, expect } from "vitest";
 import {
   buildTrainingSessionFromIntake,
-  rpeFactor,
   effectiveMet,
   resolveSportEntry,
 } from "../training-modality";
-import { findSportEntry, FALLBACK_MODALITY } from "../../engine/sport-taxonomy";
+import {
+  findSportEntry,
+  FALLBACK_MODALITY,
+  SPORT_TAXONOMY,
+  curveKeyForEntry,
+} from "../../engine/sport-taxonomy";
+import { SESSION_MET_CURVES } from "../../engine/session-met-curves";
 
 const SCHEDULE_4ON_3OFF = [
   "training",
@@ -25,36 +30,24 @@ const SCHEDULE_4ON_3OFF = [
   "rest",
 ] as const;
 
-// ── rpeFactor ────────────────────────────────────────────────────────────────
+// ── effectiveMet — Roberto's No-HR RPE-MET curves ────────────────────────────
 
-describe("rpeFactor", () => {
-  it("is 1.0 at RPE 5 and clamps RPE to [1, 10]", () => {
-    expect(rpeFactor(5)).toBeCloseTo(1.0, 6);
-    expect(rpeFactor(10)).toBeCloseTo(1.2, 6);
-    expect(rpeFactor(1)).toBeCloseTo(0.84, 6);
-    expect(rpeFactor(99)).toBeCloseTo(1.2, 6); // clamped to 10
-    expect(rpeFactor(0)).toBeCloseTo(0.84, 6); // clamped to 1
-    expect(rpeFactor(undefined)).toBeCloseTo(0.8 + 0.04 * 7, 6); // default RPE 7
-  });
-});
-
-// ── effectiveMet — the spec's strength cap ───────────────────────────────────
-
-describe("effectiveMet — strength MET is capped at 3 regardless of RPE", () => {
+describe("effectiveMet — session-average MET from the sport's curve", () => {
   const strength = findSportEntry("Pesi — Forza")!;
-  const running = findSportEntry("Corsa — Costante")!;
+  const running = findSportEntry("Corsa — Costante")!; // → cyclic_cardio curve
 
-  it("strength returns the base MET 3 at any RPE", () => {
+  it("strength is flat 3.0 at any RPE (spec §7.11)", () => {
     expect(effectiveMet(strength, 1)).toBe(3.0);
     expect(effectiveMet(strength, 5)).toBe(3.0);
     expect(effectiveMet(strength, 10)).toBe(3.0);
     expect(effectiveMet(strength, undefined)).toBe(3.0);
   });
 
-  it("non-strength scales with RPE", () => {
-    expect(effectiveMet(running, 5)).toBeCloseTo(running.metGross * 1.0, 6);
-    expect(effectiveMet(running, 10)).toBeCloseTo(running.metGross * 1.2, 6);
-    expect(effectiveMet(running, 1)).toBeCloseTo(running.metGross * 0.84, 6);
+  it("non-strength reads the curve and rises with RPE (cyclic §7.13)", () => {
+    expect(effectiveMet(running, 5)).toBe(5.0);
+    expect(effectiveMet(running, 10)).toBe(11.0);
+    expect(effectiveMet(running, 1)).toBe(2.5);
+    expect(effectiveMet(running, undefined)).toBe(7.0); // default RPE 7 → 7.0
   });
 });
 
@@ -131,9 +124,9 @@ describe("buildTrainingSessionFromIntake", () => {
   });
 
   it("sums duration and duration-weights the MET for a mixed day", () => {
-    // Day 0: Pesi — Forza 40min @ RPE5 (MET 3.0, no RPE adjust)
-    //      + HIIT / Intervalli 20min @ RPE5 (MET 9.0 × 1.0 = 9.0)
-    // weighted MET = (3*40 + 9*20) / 60 = (120 + 180) / 60 = 5.0
+    // Day 0: Pesi — Forza 40min @ RPE5 (strength flat MET 3.0)
+    //      + HIIT / Intervalli 20min @ RPE5 (hiit_functional curve → MET 4.0)
+    // weighted MET = (3.0*40 + 4.0*20) / 60 = (120 + 80) / 60 = 3.333 → 3.3
     const sessions = {
       "0": [
         { modality: "Pesi — Forza", duration_min: 40, rpe: 5 },
@@ -141,7 +134,7 @@ describe("buildTrainingSessionFromIntake", () => {
       ],
     };
     const result = buildTrainingSessionFromIntake(sessions, SCHEDULE_4ON_3OFF);
-    expect(result).toEqual({ method: "met_value", durationMin: 60, metValue: 5.0 });
+    expect(result).toEqual({ method: "met_value", durationMin: 60, metValue: 3.3 });
   });
 
   it("averages across multiple training days", () => {
@@ -175,5 +168,20 @@ describe("buildTrainingSessionFromIntake", () => {
       SCHEDULE_4ON_3OFF
     );
     expect(r2!.durationMin).toBe(60);
+  });
+});
+
+// ── curveKeyForEntry — taxonomy → curve coverage ─────────────────────────────
+
+describe("curveKeyForEntry — every taxonomy entry maps to a real curve", () => {
+  it("resolves every sport in the taxonomy to a defined curve", () => {
+    for (const entry of SPORT_TAXONOMY) {
+      const key = curveKeyForEntry(entry);
+      expect(SESSION_MET_CURVES[key], `${entry.displayIt} → ${key}`).toBeDefined();
+    }
+  });
+
+  it("resolves the neutral fallback to a real curve too", () => {
+    expect(SESSION_MET_CURVES[curveKeyForEntry(FALLBACK_MODALITY)]).toBeDefined();
   });
 });
