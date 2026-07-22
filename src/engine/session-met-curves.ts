@@ -60,19 +60,6 @@ export const SESSION_MET_CURVES: Record<CurveKey, Readonly<Record<number, number
   racquet_sports:       { 1: 2.0, 2: 2.5, 3: 3.0, 4: 3.5, 5: 4.0, 6: 4.5, 7: 5.0, 8: 5.5, 9: 6.0, 10: 6.5 },
 };
 
-const CURVE_KEYS = new Set<string>(Object.keys(SESSION_MET_CURVES));
-
-/**
- * Resolve a raw sport/curve string to a canonical CurveKey.
- * Combat Sambo borrows the MMA curve (spec §8/§11). Unknown keys return null so the
- * caller runs the explicit "other" workflow (spec §10) — ask for the closest
- * category — rather than silently defaulting an unknown sport to a combat curve.
- */
-export function resolveCurveKey(raw: string): CurveKey | null {
-  if (raw === "combat_sambo") return "mma";
-  return CURVE_KEYS.has(raw) ? (raw as CurveKey) : null;
-}
-
 const clampRpe = (rpe: number): number => Math.min(10, Math.max(1, rpe));
 
 /**
@@ -95,21 +82,6 @@ export function sessionMet(curveKey: CurveKey, rpe: number): number {
   const upperMet = curve[upper]!;
   const fraction = r - lower;
   return lowerMet + fraction * (upperMet - lowerMet);
-}
-
-/**
- * Full No-HR estimate (spec §3/§11): kcal = MET × body_mass_kg × hours, rounded.
- * The caller resolves the curve key first (see resolveCurveKey) so the "other"
- * workflow is handled at the boundary, not silently here.
- */
-export function estimateSessionKcal(
-  curveKey: CurveKey,
-  bodyMassKg: number,
-  durationMin: number,
-  rpe: number
-): number {
-  const met = sessionMet(curveKey, rpe);
-  return Math.round(met * bodyMassKg * (durationMin / 60));
 }
 
 /**
