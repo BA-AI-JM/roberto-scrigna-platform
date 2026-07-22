@@ -12,6 +12,68 @@ per-session override is preserved as the escape hatch.
 
 ---
 
+## BUILD STATUS — 2026-07-22 (read this FIRST if picking up)
+
+**The model is functionally complete + verified. Not deployed (local branch only).**
+`bunx tsc --noEmit` → 0 · `bunx vitest run` → 1272 pass. The gate is the acceptance
+suite `src/engine/__tests__/no-hr-rpe-met.acceptance.test.ts` (Roberto's §15 numbers).
+
+### DONE (commit SHAs)
+- **Phase 0** `32e82c7` — the 15 RPE→MET curves + `sessionMet`/interpolation in
+  `src/engine/session-met-curves.ts`; §15 acceptance + invariants.
+- **Phase 1** `b197241` — `effectiveMet` (`src/services/training-modality.ts`) reads
+  the curve via `curveKeyForEntry` (`src/engine/sport-taxonomy.ts`); `rpeFactor`
+  deleted; `exercise.ts` drops the ×0.85 on `met_value` ONLY (HR/estimate/default
+  keep it — Ruling 3); the badge (`src/lib/training-kcal/estimate-session-kcal.ts`)
+  + `dayFinalKcal` also drop 0.85.
+- **Phase 2** `72822c2` + `a08b559` — collapsed sport picker (one entry per sport:
+  `collapsedSportOptions`/`groupedCollapsedSportOptions`/`toCollapsedModality`) +
+  whole-session RPE wording (`RPE_SESSION_SCALE_IT`/`_QUESTION_IT`, spec §6), wired
+  into `WeekSessionsEditor` + `IntakeForm`.
+- **Golden** `f3da0f0` — full-plan end-to-end fidelity
+  (`src/__tests__/fidelity/no-hr-curve-plan.test.ts`): BJJ RPE7 82kg → 394 exercise →
+  TDEE 2766 → P172/F74/C353.
+- **Cleanup** `1cacbc4` — removed 2 unused spec helpers (`resolveCurveKey`, 4-arg
+  `estimateSessionKcal`); the app never called them (drift removal).
+- **Tests** `b58ffd3` — range-sanity, interpolation-midpoint, Ruling-3 (0.85) property.
+
+### REMAINING
+- **Phase 3 — recompute past clients** (NOT built; operator-gated). CONFIRMED a real
+  migration: plans are STORED bundles (`daily_targets.plan_bundle` JSONB, generated
+  once by `plan-generator.ts` then read by review/portal/PDF), so old plans carry the
+  old MET numbers. Recompute = regenerate active clients' plans through the new engine
+  (inputs unchanged; `generateWeeklyPlan` already exists). Build test-first: dry-run
+  reporter (writes nothing) → floor-safety guard (no plan under-fuels) → idempotency →
+  backup. **Blocked on:** (1) boundary ruling — active roster only vs also archived
+  sent-PDFs; (2) explicit go-ahead to touch client data.
+- **Phase 4 — display note** (optional; spec §13 "recommended"). The estimate already
+  displays honestly ("stimato"); the "average demand of the whole session" note is
+  transparency polish. Build or skip per operator.
+- **Phase 2 wizard consumers** — `plans/generate/page.tsx` + `plan-wizard/cards.tsx`
+  still use the full `groupedSportOptions()`; they collapse during Model B **B-ui**
+  (see `MODEL-B-HANDOFF.md`), not here. `monitoring/training` was deliberately NOT
+  collapsed (actuals log, out of model scope).
+
+### OPEN DECISIONS (Roberto's)
+- **Boundary** (Phase 3): active roster vs also archived sent-PDFs.
+- **RPE-wording DISCONFIRM:** the curves assume RPE = WHOLE-SESSION demand. Confirm
+  Roberto's testing used that meaning, not "peak," before any recompute. A live smoke
+  (`:3001`, roberto@test.com) closes it.
+
+### GOTCHAS
+- The ×0.85 lived in THREE places (`exercise.ts`, `estimate-session-kcal.ts`,
+  `training-modality` `dayFinalKcal`) — all handled. Keytel HR keeps its 0.85
+  (Ruling 3); its test is the regression proof.
+- The picker collapse is DISPLAY-ONLY and proven calorie-safe (every sub-type under a
+  collapsed sport shares one curve — `collapsed-sports.test.ts`). The full taxonomy
+  stays intact for the HR-path sessionType.
+- MET-only flows changed BY DESIGN (this is a value change): combat ~−50%, strength
+  +18%, cardio ±15%. The gate is "matches Roberto's §15", NOT "byte-identical".
+- Not deployed. Deploy remote = `fork` (agentarmy72-del) `main` via Vercel — pushing
+  THIS branch does not deploy.
+
+---
+
 ## 1. The model (what we're building)
 
 For a session with **no heart-rate trace**: RPE reads a **session-average effective
