@@ -116,6 +116,17 @@ export function calculateExercise(
     // SCP returned null (Tier 2/3) — fall through to legacy methods below
   }
 
+  // ── R15: coach-supplied FINAL kcal — return directly, no recalibration
+  // (his manual per-session burn already IS the answer). Mirrors the SCP
+  // "return directly" precedent above.
+  if (session.finalExerciseKcal != null) {
+    return {
+      exerciseKcal: Math.round(session.finalExerciseKcal),
+      methodUsed: "session_estimate",
+      recalibrationFactor: 1,
+    };
+  }
+
   // ── Methods 1–4: Legacy path (applies 0.85 recalibration) ────────────────────
   let rawKcal: number;
   let methodUsed: ExerciseMethod;

@@ -319,7 +319,8 @@ export const clientRouter = router({
       const snapshot = buildEngineSnapshot(snapshotRecord, clientSex);
       const trainingSession = buildTrainingSessionFromIntake(
         intakeTrainingSessions(snapshotRecord),
-        snapshot.weekSchedule
+        snapshot.weekSchedule,
+        snapshot.weightKg
       );
       const opts = trainingSession ? { trainingSession } : {};
 

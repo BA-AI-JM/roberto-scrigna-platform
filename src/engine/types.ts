@@ -117,6 +117,13 @@ export interface ExerciseSession {
   metValue?: number;
   /** Direct kcal estimate (for session_estimate method) */
   kcalEstimate?: number;
+  /**
+   * B-eng1 / R15: the FINAL exercise kcal for this (representative) session —
+   * used directly by calculateExercise WITHOUT the 0.85 recalibration (it
+   * already accounts for a coach's manual per-session kcal, which is his real
+   * measured burn). Set by the intake builders when a manual kcal is present.
+   */
+  finalExerciseKcal?: number;
   /** SCP inputs — when present, SCP is attempted before Keytel fallback */
   scpData?: {
     hrZoneData: import("./sport-correction/types").HRZoneData;

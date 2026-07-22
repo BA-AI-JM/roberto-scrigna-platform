@@ -450,11 +450,12 @@ function buildPlanArtifacts(
 
   const trainingSession = buildTrainingSessionFromIntake(
     intakeTrainingSessions(snapshotRecord),
-    snapshot.weekSchedule
+    snapshot.weekSchedule,
+    snapshot.weightKg
   );
   const perDayTrainingSession =
     params.perDayTrainingSession?.map((daySessions) =>
-      buildTrainingSessionForDay(daySessions ?? null)
+      buildTrainingSessionForDay(daySessions ?? null, snapshot.weightKg)
     ) ?? undefined;
 
   const engineOptions: PlanGenerationInput["engineOptions"] = {};
@@ -973,7 +974,8 @@ export const planRouter = router({
       const snapshot = buildEngineSnapshot(snapshotRecord, clientSex);
       const trainingSession = buildTrainingSessionFromIntake(
         intakeTrainingSessions(snapshotRecord),
-        snapshot.weekSchedule
+        snapshot.weekSchedule,
+        snapshot.weightKg
       );
       const { generateWeeklyPlan } = await import("../../engine");
       const weeklyPlan = generateWeeklyPlan(
@@ -1057,12 +1059,13 @@ export const planRouter = router({
 
       const fallbackTraining = buildTrainingSessionFromIntake(
         intakeTrainingSessions(snapshotRecord),
-        snapshot.weekSchedule
+        snapshot.weekSchedule,
+        snapshot.weightKg
       );
 
       const perDayTrainingSession =
         input.perDayTrainingSession?.map((daySessions) =>
-          buildTrainingSessionForDay(daySessions ?? null)
+          buildTrainingSessionForDay(daySessions ?? null, snapshot.weightKg)
         ) ?? undefined;
 
       const cleanedMacroOverrides = (() => {

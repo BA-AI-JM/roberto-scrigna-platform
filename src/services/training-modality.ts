@@ -18,6 +18,10 @@ import {
   type SportEntry,
 } from "../engine/sport-taxonomy";
 
+/** Mirrors RECALIBRATION_FACTOR in engine/exercise.ts — MET estimates are
+ *  discounted ×0.85; a coach's manual kcal is his real burn and is NOT. */
+const MET_RECALIBRATION = 0.85;
+
 /**
  * Legacy display-name mapping. Earlier versions of the intake form used a
  * shorter Italian list (Forza, Ipertrofia, Cardio LISS, …). Existing snapshots
@@ -42,6 +46,13 @@ export interface IntakeTrainingSession {
   modality?: string;
   duration_min?: number;
   rpe?: number;
+  /**
+   * B-eng1 / R15 (Roberto 2026-07-22): coach's manual kcal for this session.
+   * When present it IS the session's final exercise kcal (his actual measured
+   * burn) — used directly, WITHOUT the 0.85 recalibration the MET estimate
+   * gets, and it feeds the day's expenditure (no longer display-only).
+   */
+  kcal_override?: number;
   /**
    * #18 nutrient timing — optional clock time of the session (24h "HH:MM",
    * e.g. "18:00"). Display-only: it powers the timed training-session box +
@@ -103,35 +114,70 @@ export function effectiveMet(
  * @returns A `met_value` ExerciseSession, or null when there's no usable data
  *          (caller should then let the engine use its default).
  */
+function anyOverride(sessions: IntakeTrainingSession[]): boolean {
+  return sessions.some((s) => s.kcal_override != null);
+}
+
+/** A day's FINAL exercise kcal: manual override as-is (his real burn) + MET
+ *  sessions recalibrated ×0.85. Needs bodyweight for the MET part. */
+function dayFinalKcal(sessions: IntakeTrainingSession[], weightKg: number): { minutes: number; kcal: number } {
+  let minutes = 0;
+  let kcal = 0;
+  for (const s of sessions) {
+    const min = Math.min(480, Math.max(1, Number(s.duration_min) || 60));
+    minutes += min;
+    if (s.kcal_override != null) {
+      kcal += s.kcal_override; // final — no recalibration
+    } else {
+      const met = effectiveMet(resolveSportEntry(s.modality), s.rpe);
+      kcal += met * weightKg * (min / 60) * MET_RECALIBRATION;
+    }
+  }
+  return { minutes, kcal };
+}
+
 export function buildTrainingSessionFromIntake(
   sessionsByDay: Record<string, IntakeTrainingSession[]> | undefined | null,
-  weekSchedule: readonly string[]
+  weekSchedule: readonly string[],
+  weightKg?: number
 ): ExerciseSession | null {
   if (!sessionsByDay) return null;
 
-  const perDay: Array<{ minutes: number; weightedMet: number }> = [];
+  const trainingDays: IntakeTrainingSession[][] = [];
   for (let i = 0; i < weekSchedule.length; i++) {
     if (weekSchedule[i] !== "training") continue;
     const sessions = sessionsByDay[String(i)];
-    if (!sessions || sessions.length === 0) continue;
+    if (sessions && sessions.length > 0) trainingDays.push(sessions);
+  }
+  if (trainingDays.length === 0) return null;
 
+  // R15: if any session carries a manual kcal AND we know bodyweight, the
+  // representative day is the AVERAGE of each training day's FINAL kcal
+  // (override-aware, recalibration-correct). Returned as a final-kcal session
+  // so calculateExercise uses it directly. Otherwise: unchanged MET path.
+  if (weightKg != null && trainingDays.some(anyOverride)) {
+    const finals = trainingDays.map((d) => dayFinalKcal(d, weightKg));
+    const avgMinutes = Math.round(finals.reduce((a, d) => a + d.minutes, 0) / finals.length);
+    const avgKcal = Math.round((finals.reduce((a, d) => a + d.kcal, 0) / finals.length) * 10) / 10;
+    return { method: "session_estimate", durationMin: avgMinutes, finalExerciseKcal: avgKcal };
+  }
+
+  const perDay: Array<{ minutes: number; weightedMet: number }> = [];
+  for (const sessions of trainingDays) {
     let totalMin = 0;
     let metMinSum = 0;
     for (const s of sessions) {
       const minutes = Math.min(480, Math.max(1, Number(s.duration_min) || 60));
-      const entry = resolveSportEntry(s.modality);
       totalMin += minutes;
-      metMinSum += effectiveMet(entry, s.rpe) * minutes;
+      metMinSum += effectiveMet(resolveSportEntry(s.modality), s.rpe) * minutes;
     }
     if (totalMin > 0) perDay.push({ minutes: totalMin, weightedMet: metMinSum / totalMin });
   }
-
   if (perDay.length === 0) return null;
 
   const avgMinutes = Math.round(perDay.reduce((sum, d) => sum + d.minutes, 0) / perDay.length);
   const avgMet =
     Math.round((perDay.reduce((sum, d) => sum + d.weightedMet, 0) / perDay.length) * 10) / 10;
-
   return { method: "met_value", durationMin: avgMinutes, metValue: avgMet };
 }
 
@@ -143,20 +189,27 @@ export function buildTrainingSessionFromIntake(
  * weekly default or treat the day as a rest day.
  */
 export function buildTrainingSessionForDay(
-  sessions: IntakeTrainingSession[] | undefined | null
+  sessions: IntakeTrainingSession[] | undefined | null,
+  weightKg?: number
 ): ExerciseSession | null {
   if (!sessions || sessions.length === 0) return null;
+
+  // R15: manual kcal present + bodyweight known → final-kcal session (direct,
+  // no recalibration). Otherwise unchanged MET path (byte-identical).
+  if (weightKg != null && anyOverride(sessions)) {
+    const { minutes, kcal } = dayFinalKcal(sessions, weightKg);
+    if (minutes <= 0) return null;
+    return { method: "session_estimate", durationMin: minutes, finalExerciseKcal: Math.round(kcal * 10) / 10 };
+  }
 
   let totalMin = 0;
   let metMinSum = 0;
   for (const s of sessions) {
     const minutes = Math.min(480, Math.max(1, Number(s.duration_min) || 60));
-    const entry = resolveSportEntry(s.modality);
     totalMin += minutes;
-    metMinSum += effectiveMet(entry, s.rpe) * minutes;
+    metMinSum += effectiveMet(resolveSportEntry(s.modality), s.rpe) * minutes;
   }
   if (totalMin <= 0) return null;
-
   const avgMet = Math.round((metMinSum / totalMin) * 10) / 10;
   return { method: "met_value", durationMin: totalMin, metValue: avgMet };
 }

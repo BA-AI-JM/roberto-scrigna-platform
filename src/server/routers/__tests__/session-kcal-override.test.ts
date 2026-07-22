@@ -150,6 +150,10 @@ describe("trainingLog.list read surface", () => {
 //   • invariant — attaching a kcal_override to those same consumed session objects
 //     leaves the bundle byte-identical, proving the engine ignores the column.
 // If someone wired training_log.kcal_override into generation, the invariant FAILS.
+// NOTE (R15, 2026-07-22): this guards the LOGGED-workout column on a consumed
+// ExerciseSession — still ignored. The distinct PLANNED-session override
+// (IntakeTrainingSession.kcal_override) DOES feed expenditure via the intake
+// builders → finalExerciseKcal (see r15-manual-kcal.test.ts). Different layer.
 describe("invariant: a session kcal override does NOT move the plan", () => {
   const snap: ClientSnapshot = {
     sex: "male",
