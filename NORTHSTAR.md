@@ -21,9 +21,10 @@ This is NOT (anti-goals — each one falsifiable):
 3. **Our craft.** AAA doctrine, design-critique gates, 10/10 ambition — real, but never at the expense of 1 or 2. Polish on top of a broken journey is a violation, not an achievement.
 
 ## Clinical covenant
+- **The engine measures; Roberto prescribes**: the calculation surfaces the numbers — expenditure, deviation, convergence — but the clinical *decision* stays his. Model B is the sharpest form: the engine measures each day's expenditure; Roberto designates the day-type and its target (a refeed may sit *above* what the day burned), and the surplus resolves to carbs by construction. The engine never picks the day-type to make the week tidy.
 - **The freeze extends to the seam**: engine values AND every serialize/decode/render consumer round-trip them unchanged, proven by value-diff oracles.
-- **Reconciliation is an invariant**: what was prescribed ≈ what the plan delivers, gated at generation time, tolerance ruled by Roberto (EF4).
-- **Provenance or absence**: every band, threshold, target, and interpretation traces to an engine output or a Roberto input. Engineering never picks a clinical number to make a chart look right.
+- **Reconciliation is an invariant**: what was prescribed ≈ what the plan delivers, gated at generation time, at Roberto's ruled tolerance — EF4, now answered: kcal within ±5%, every single macronutrient within ±10% (a 160 g protein target flags outside ±16 g). No macro drifts unbounded to let a day pass.
+- **Provenance or absence**: every band, threshold, target, and interpretation traces to an engine output or a Roberto input. The clinical rules are his encoded numbers, not engineering conveniences — the fibre floor (10 g per 1000 kcal), the vegetable minimum (100 g a meal), the combat-sport sodium cap — each traces to a dated Roberto ruling and a test. Engineering never picks a clinical number to make a chart look right.
 - **Disclosure over polish**: assumptions (method, estimates, overrides) stay visible to the coach, as the review page already does well.
 
 ## Engineering covenant
