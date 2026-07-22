@@ -1,6 +1,12 @@
 # Roberto feedback — round 2 (2026-07-21, typed list via Liam)
 
-Status: AWAITING confirmation. Tags: [BUG]/[CHANGE]/[NEW]/[EF]/[SHIPPED-VERIFY]/[PROD-STATE].
+Status: CONFIRMED + answers 2026-07-22 folded:
+- R14 SIGNED (5/5 ✅) + day-level classification rule: ≥250–300 kcal step = higher class (2000/2300/2550/2800 example). Media settimanale survives as target policy.
+- R8 REFRAMED BY ROBERTO: veggie portions are FIBER-DRIVEN — 10–20 g fiber per 1000 kcal, inverse to energy (low kcal → 20 end, high kcal → 10 end). Gram bounds become sanity rails only.
+- R4/13 addition confirmed: NEW check-in question "Qualità dell'allenamento 0–10" (digestion 1–10 exists).
+- EF4 ANSWERED: tolerance = ±5% kcal, ±10% single macronutrient (160 g protein → ±16 g).
+- Logo incoming from Roberto (brand application task when the asset arrives).
+- MET review: separate session after everything else (still parked). Tags: [BUG]/[CHANGE]/[NEW]/[EF]/[SHIPPED-VERIFY]/[PROD-STATE].
 
 ## Nuovo cliente
 | # | Tag | Item |

@@ -31,5 +31,9 @@ Struttura settimana = 7 giorni, ciascuno OFF o con 1–3 sessioni reali (attivit
 durata, RPE o kcal manuali). Il riepilogo mostra il dispendio per giorno e i
 target che ne derivano. Nessun'altra scelta da fare.
 
-**Firma:** rispondi ai 5 ✅/❌ (e alla domanda sulla Media settimanale) e la
-build parte. — 2026-07-22
+**FIRMATO — 2026-07-22, tutte ✅:**
+1 ✅ + REGOLA DI CLASSIFICAZIONE: il livello del giorno deriva dal dispendio; una
+differenza ≥250–300 kcal tra giorni = classe superiore (es. 2000/2300/2550/2800
+→ riposo/leggero/moderato/intenso). 2 ✅ refeed/deload ritirati. 3 ✅ Media
+settimanale RESTA come opzione. 4 ✅ regola cereali generalizzata. 5 ✅ kcal
+manuali entrano nel motore. Build D5 autorizzata.
