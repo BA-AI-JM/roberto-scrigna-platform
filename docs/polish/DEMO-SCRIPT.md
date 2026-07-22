@@ -1,6 +1,11 @@
-# DEMO SCRIPT — Scrigna new UI (Wave A)
+# DEMO SCRIPT — Scrigna product demo (Waves A–D shipped)
 
-State: 2026-07-20. Branch `polish/audit-arc-2026-07`. Everything below verified live on this machine.
+State: 2026-07-22. Branch `polish/audit-arc-2026-07`. Brand is now **blue** — Roberto's logo re-tune,
+teal→blue ramp + hexagon mark (`8456825`, `src/app/globals.css:22,50`). Shipped since the Wave-A cut:
+the clinical model (B1–B5), client & practice management (C1–C5: cooperation types, anamnesis, payments),
+and round-2 correctness (D1–D4: fibre display, daily macro recap, salt = 1 g/L, Harris-Benedict fallback,
+check-in reply loop). The Model-B day-type wizard is **engine-done, UI pending** — so demo the current
+four-mode periodization wizard, not the OFF/1/2/3 model. Everything below verified live on this machine.
 
 ## Pre-flight (5 minutes before)
 
@@ -41,12 +46,26 @@ Dual-theme is live on: login, dashboard frame/sidebar, dashboard, wizard, plan r
 ## The walk (8–10 min)
 
 1. **Login** — split identity panel, Fraunces quote, «Area professionista». Log in as Roberto.
-2. **Oggi (dashboard)** — calm register: date eyebrow, Buongiorno, three stats, athletes with status chips, la nota (teal rule) composed from live numbers.
-3. **Nuovo piano (wizard)** — the star. 4 steps with the rail: Cliente (pick Niccolò — snapshot data loads) → Obiettivo (leave Mantenimento) → Struttura settimana (preset) → Rivedi e genera. Point at the ⌘↵ hint. **Genera** runs the real engine (~10 s) and lands on the new plan's review.
-4. **Review (new draft)** — verdict strip: the ENGINE's own ±5% tolerance verdicts with exact macro deltas — "nothing invented, nothing hidden" in one glance. Tabs (Panoramica → Macro → Pasti). Scarica PDF works live. **Do NOT click Approva** — approving would archive Niccolò's current active plan (one-active-per-athlete invariant; say it out loud, it's a feature).
+2. **Oggi (dashboard)** — calm register: date eyebrow, Buongiorno, three stats, athletes with status chips, la nota (brand-blue rule) composed from live numbers.
+3. **Nuovo piano (wizard)** — the star. 4 steps with the rail: Cliente (pick Niccolò — snapshot data loads; if a client has no skinfolds, the engine falls back to **Harris-Benedict** and can take a **manual body-fat %**, D4) → Obiettivo (leave Mantenimento) → Struttura settimana (the four periodization modes) → Rivedi e genera. Point at the ⌘↵ hint. **Genera** runs the real engine (~10 s) and lands on the new plan's review.
+4. **Review (new draft)** — verdict strip: the ENGINE's own tolerance verdicts (**±5% kcal / ±10% macro**, EF4) with exact macro deltas — "nothing invented, nothing hidden" in one glance. **Two tabs now**: Panoramica (targets + macro cards — B5 merged the old "Macro" tab in) → Pasti (per-day meals, now with **fibre per meal/day** and a **daily macro recap line**, D1/D3). Scarica PDF works live. **Do NOT click Approva** — approving would archive Niccolò's current active plan (one-active-per-athlete invariant; say it out loud, it's a feature).
 5. **Review (active plan)** — open Piani → the existing active plan: post-approval state (Approvato chip, Condividi con cliente).
-6. **Portal (light, pre-authed tab)** — Ciao Niccolò, weight band with variazione, active plan card, last check-in (91.7 / 88% / 90%), Registra peso (submit one live if you like), Statistiche Rapide + descending weight chart, Storico piani v1.
+6. **Portal (light, pre-authed tab)** — Ciao Niccolò, weight band with variazione, active plan card, last check-in (91.7 / 88% / 90%), Registra peso (submit one live if you like), Statistiche Rapide + descending weight chart, Storico piani v1. If a check-in carries a coach reply, the portal shows a **"Note del nutrizionista"** block (D2/R3).
 7. **Dark mode (optional close)** — flip the toggle on the coach dashboard and the review page. Same content, first-class dark.
+
+## Also shipped — Wave B/C/D surfaces (show on request)
+
+These are live and demoable beyond the core walk; pull them up if Roberto asks about a specific area.
+
+| Surface | Where | What to show |
+|---|---|---|
+| Cooperation types (C1) | Atleti → client detail | «Abbonamento» / «Consulenza singola» / «Fight camp» + free collaborations, date-bounded with live expiry alerts. |
+| Anamnesis editable (C2) | Client detail → Anamnesi | Post-intake edits incl. new surgeries / injuries fields. |
+| Payments & invoicing (C4/C5) | Fatturazione + client detail → «Nuova fattura» | Client-prefilled invoice, payment methods, mark-paid, practice-identity courtesy footer on the PDF. |
+| Check-in reply loop (D2) | Monitoraggio / client detail | Coach writes a note on a check-in → client notified → shows in portal; full-detail review renders every 0–10 scale + free text. |
+| Hydration + fibre (D3) | Plan review / PDF | Salt = 1 g per L water (not the old flat 6.5 g); fibre 10–20 g/1000 kcal inverse to energy. |
+
+**Not yet built (say so if asked):** Model-B OFF/1/2/3 day-type wizard (engine done, UI pending — `MODEL-B-HANDOFF.md`); financial dashboard (branded mock only); fight-week module (designed, not built); the new "Qualità dell'allenamento 0–10" check-in question; i18n; data import.
 
 ## If something breaks
 
@@ -59,4 +78,6 @@ Dual-theme is live on: login, dashboard frame/sidebar, dashboard, wizard, plan r
 - Portal dark theme + icon cleanup: next lane (T3.5), pattern proven on coach side.
 - Secondary pages (Atleti list, Fatturazione, Monitoraggio, Impostazioni): still the old light style; token migration is mechanical (hex→token sweep, same as review page).
 - Theme toggle UI: pending; tokens make it a one-liner.
-- Production deploy: branch is local; deploy is a separate gated step (A2).
+- Production deploy: A2 pre-flight + APPLY-PROD.sql were executed against prod (ledger 21/21, `92c6ae5`);
+  this demo runs the full A–D branch on the local stack. Bringing prod to branch parity — incl. the C1/C5
+  migrations 023/024 (R2) — is the remaining gated deploy step.

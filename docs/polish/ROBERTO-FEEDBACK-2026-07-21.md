@@ -3,7 +3,29 @@
 Source: voice transcript, poor auto-transcription; reconstructed against the app's real
 surfaces. Items marked ⚠ carry a transcription ambiguity Roberto should confirm.
 2026-07-21 update: item 1 data supplied by Liam; items 15–17 added (Fatturazione findings + financial dashboard); item 3 folded into 17.
-Status: AWAITING ROBERTO'S CONFIRMATION — no fixes actioned from this list yet.
+Status (updated 2026-07-22): **CONFIRMED and largely SHIPPED.** 13 of 17 items shipped across Waves A/B/C; item 6 folded into the R14/Model-B rebuild (engine done, wizard pending); items 3+17 (finance dashboard) are mocked, not built; item 13's new "training quality 0–10" question is confirmed but not yet built (digestion 0–10 already exists). Ledger below; each ✅ cites a commit on `polish/audit-arc-2026-07`.
+
+## Status ledger (2026-07-22)
+
+| # | Wave | Status | Evidence (sha) |
+|---|------|--------|----------------|
+| 1 | A6 practice identity | ✅ SHIPPED | `ade9ed3` (codice fiscale + practice identity end-to-end) |
+| 2 | C1 cooperation types | ✅ SHIPPED | `3d9b04d` (schema/mig 023) + `1739aa9` (UI, expiry alerts) |
+| 3 | → #17 finance | ◻ MOCK ONLY | folded into #17; branded mock `c96d364`, not built |
+| 4 | C2 anamnesis editable | ✅ SHIPPED | `3174321` + `d714975` (surgeries/injuries fields) |
+| 5 | A1 training-edit "invalid" | ✅ SHIPPED | `0fcd0fc` (session save + kcal override re-homed) |
+| 6 | → R14 / Model B | ◐ ENGINE DONE, WIZARD PENDING | four-mode B3 `aeaa720` superseded by R14; engine `47f93b0`+`bb97583`; B-ui rebuild delivers "remove presets" + per-day edit |
+| 7 | B4 two sessions/day | ✅ SHIPPED | `aeaa720` (= R11) |
+| 8 | A2 tolerance-delta math | ✅ SHIPPED | `feb20d2`; EF4 tolerance ±5%/±10% `098cfdb` |
+| 9 | B2 carbs-over-fats rule | ✅ SHIPPED | `beaec7d` (carb-led tier rule) |
+| 10 | B1 slot-class substitution | ✅ SHIPPED | `b4aab54` (Model 1 slot classes) |
+| 11 | B5 merge Panoramica/Macro | ✅ SHIPPED | `b4aab54` |
+| 12 | C3 check-in frequency home | ✅ SHIPPED | `17592cd` (single home; C3 follow-up = J2 pointer) |
+| 13 | check-in questionnaire | ◐ PARTIAL | digestion 0–10 exists (`checkin.ts:378`); NEW "Qualità dell'allenamento 0–10" confirmed 2026-07-22, **not yet built** |
+| 14 | A4 email→login deep-link | ✅ SHIPPED | `9b7f49e` (cookie-carried next, open-redirect guarded) |
+| 15 | A5 invoice dropdown | ✅ SHIPPED | `0fcd0fc` (client list wired) |
+| 16 | C4 invoice-from-client | ✅ SHIPPED | `17592cd` (Nuova fattura action) |
+| 17 | G finance dashboard | ◻ MOCK ONLY | branded mock `c96d364`, dashboard not built |
 
 | # | Type | Item |
 |---|---|---|

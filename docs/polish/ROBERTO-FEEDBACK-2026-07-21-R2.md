@@ -8,6 +8,30 @@ Status: CONFIRMED + answers 2026-07-22 folded:
 - Logo incoming from Roberto (brand application task when the asset arrives).
 - MET review: separate session after everything else (still parked). Tags: [BUG]/[CHANGE]/[NEW]/[EF]/[SHIPPED-VERIFY]/[PROD-STATE].
 
+## Status ledger (2026-07-22) — 13 of 16 shipped
+
+Verdict: **R1, R3–R9, R13, R16 fully shipped; R14/R15 engine core shipped, wizard UI pending; R10/R11/R12 ride the same pending Model-B wizard; R2 is a prod-SQL action, not code.** Each "shipped" row cites the commit on `polish/audit-arc-2026-07`.
+
+| R | Status | Evidence (sha · file:line) |
+|---|--------|----------------------------|
+| R1 | ✅ SHIPPED | `d60350f` — `harrisBenedictBmr` at `src/engine/bmr.ts:21`; manual BF% override → Katch-McArdle + wizard field |
+| R2 | ◻ PROD-STATE (no code) | Migrations 023/024 (023 created in `3d9b04d`); resolved by SQL paste on prod — verify-after only, not a code deliverable |
+| R3 | ✅ SHIPPED | `245eee4` — coach reply loop → `checkin.markReviewed` + portal display + `checkin/reviewed` notify |
+| R4 | ✅ SHIPPED | `245eee4` — full-detail review shows every 0–10 scale + free text (not the 4-field card) |
+| R5 | ✅ SHIPPED | `d10168d` — salt = 1 g/L water at `src/engine/hydration.ts:65` (replaces flat 6.5 g) |
+| R6 | ✅ SHIPPED | `d4a78df` — fibre surfaced per meal / per day |
+| R7 | ✅ SHIPPED | `d4a78df` — daily macro recap line above each day's meals |
+| R8 | ✅ SHIPPED | `d10168d` veg floor 100 g (`solver.ts:68` `VEG: [100, 400]` — **ceiling = 400, Roberto's number, ambiguity resolved**) + `098cfdb` fibre-driven band 10–20 g/1000 kcal inverse (`hydration.ts:34` `fibreRatePer1000`) |
+| R9 | ✅ SHIPPED | `d1d1566` — peri-workout pre/intra space + explicit intra-session water |
+| R10 | ◐ REMAINING | Rides Model-B wizard rebuild (B-ui); routine-prefill verify pending through the new model |
+| R11 | ✅ SHIPPED / re-verify | 2-sessions/day shipped in B4 `aeaa720`; re-verify through the B-ui rebuild |
+| R12 | ◐ REMAINING | Closed by the B-ui rebuild (no mode template left to wipe) — B-ui not yet shipped |
+| R13 | ✅ SHIPPED | `d4a78df` — Durata/RPE column headers on session rows |
+| R14 | ✅ SIGNED + engine core / UI pending | Sign-off `3a6abc3`; engine `47f93b0`+`bb97583`; wizard/seam/cleanup remaining — see `docs/polish/MODEL-B-HANDOFF.md` |
+| R15 | ✅ SHIPPED (engine) / UI pending | `47f93b0` — manual per-session kcal feeds expenditure (`src/engine/exercise.ts`, bypasses ×0.85); UI wiring rides B-ui |
+| R16 | ✅ SHIPPED | `d4a78df` — supplement double-assign guard + assigned item leaves the picker |
+| MET | ⏸ PARKED | Operator-deferred post-fix review (structural fix = R15) |
+
 ## Nuovo cliente
 | # | Tag | Item |
 |---|---|---|

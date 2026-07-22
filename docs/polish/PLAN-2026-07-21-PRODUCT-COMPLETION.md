@@ -4,13 +4,40 @@ Source inputs: round-2 feedback R1–R16 (docs/polish/ROBERTO-FEEDBACK-2026-07-2
 operator-confirmed "happy with this list"); round-1 items 1–17 (docs/polish/ROBERTO-FEEDBACK-2026-07-21.md,
 all closed or superseded — cross-reference only); Model 1 reference (docs/reference/MODEL-1-ENG.md);
 NORTHSTAR.md + DIRECTION.md (governing); the not-yet-done tail of the prior plan (old waves D–J).
-Status: AWAITING two Roberto inputs (R8 ⚠×2, R14 sign-off) — every other item is build-ready.
+Status (updated 2026-07-22): **Waves A/B/C/D1–D4 SHIPPED; brand re-tuned to blue; D5 (Model B) engine core shipped + Roberto-signed, wizard/seam/cleanup remaining; E–J remaining.** Both prior blockers resolved: R8 confirmed fibre-driven (10–20 g/1000 kcal, veg ceiling **400**); R14 SIGNED (`3a6abc3`). See the shipped ledger below; every DONE row cites a commit on `polish/audit-arc-2026-07`.
 
 Tags: `[S/M/L/XL]` size · `[EF]` clinical / engine-adjacent / value-equivalence-gated per
 NORTHSTAR (the engine never invents a clinical value) · `[R-confirm]` needs a Roberto decision
 before build · `[PROD-STATE]` operational, no code · `[SHIPPED]` in code, verify-only ·
 `[PARKED]` operator-deferred, not work · `[DONE]` shipped this arc. Round-2 ids in **(Rn)**;
 prior-plan ids in **(old Xn)**.
+
+## SHIPPED ledger (2026-07-22)
+
+| Wave / item | Status | Evidence (sha) |
+|-------------|--------|----------------|
+| A1–A6 correctness | ✅ DONE | `0fcd0fc` (A1+A5), `feb20d2` (A2+A3), `9b7f49e` (A4), `ade9ed3` (A6), `0c1ebe2` (adversarial F1/F2/F3/F5) |
+| B1–B5 clinical + wizard | ✅ DONE | `b4aab54` (B1+B5), `beaec7d` (B2), `aeaa720` (B3+B4) — ⚠ B3 four-mode tier **superseded by D5/Model B** |
+| C1–C5 client & practice | ✅ DONE | `3d9b04d`+`1739aa9` (C1), `3174321`+`d714975` (C2), `17592cd` (C3+C4), `d10e275`+`db0237d` (C5 payments) |
+| D1 quick wins (R13/R16/R7/R6) | ✅ DONE | `d4a78df` |
+| D2 check-in reply loop (R3/R4) | ✅ DONE | `245eee4` |
+| D3a/D3b (R5 salt=1g/L · R8 veg floor 100 g) | ✅ DONE | `d10168d` |
+| D3c (R9 peri-workout + intra water) | ✅ DONE | `d1d1566` |
+| D4 (R1 manual BF% + Harris-Benedict) | ✅ DONE | `d60350f` |
+| EF4 tolerance ±5%/±10% (G33) + R8 fibre band | ✅ DONE | `098cfdb` |
+| Brand re-tune teal→blue (Workstream A) | ✅ DONE | `8456825` (`src/app/globals.css:22,50`) |
+| D5 sign-off (R14) | ✅ SIGNED | `3a6abc3`; one-pager `e8ec319`; design `docs/polish/D5-DESIGN-DAY-TYPES.md` |
+| D5 engine core (R15 + Model B targets) | ✅ DONE | `47f93b0` (B-eng1/R15), `bb97583` (B-eng2), handoff `7408530` |
+| **D5 B-ui / B-seam / B-cleanup** | ◐ REMAINING | wizard rebuild + serialization v3 + label retire — see `docs/polish/MODEL-B-HANDOFF.md` |
+| D6 client-side day checker | ◻ REMAINING | not started |
+| D7a/D7b portal residuals | ◻ REMAINING | weekly-average weight + dark/a11y pass |
+| E fight-week | ◻ DESIGNED, NOT BUILT | model confirmed `639af04`, build notes `6f4a287` |
+| F protocol blocks | ◻ REMAINING | not started |
+| G finance dashboard | ◻ MOCK ONLY | branded mock `c96d364` (`concepts/finance-dashboard-mock.html`) — not built |
+| H i18n | ◻ NOT STARTED | — |
+| I data import | ◻ NOT STARTED | — |
+| J hardening | ◐ PARTIAL | J2 note `4c7d4d0`; rest remaining |
+| MET retuning | ⏸ PARKED | operator-deferred |
 
 ## Sequencing (the intelligence, stated once)
 
@@ -47,27 +74,29 @@ Load-bearing ordering decisions:
 6. **Quick wins front-loaded** (small, independent, Roberto is live-testing): R13, R16, R7, R6 →
    **D1**. R13 touches the same editor R14 rebuilds — it ships now as a display-only header add and
    R14 preserves it (coupling noted at D1a).
-7. **The only open Roberto inputs** besides R14 sign-off are R8's two ⚠ confirms (veg ceiling 500
-   vs 400; inverse-energy-scaling shape). R5's numbers are given; R1's method (Harris-Benedict) is
-   named. Everything else is unblocked.
+7. **All Roberto inputs are now closed (2026-07-22).** R14 signed (`3a6abc3`); R8's two ⚠ resolved —
+   veg ceiling = **400** (`d10168d`) and portions are **fibre-driven** 10–20 g/1000 kcal inverse
+   (`098cfdb`), not a raw scaling shape. R5's numbers shipped; R1's Harris-Benedict shipped. Nothing blocks.
 
 ---
 
 ## DONE — Waves A/B/C (context; not re-planned)
 
-- **A** correctness bugs (A1 training-edit · A2 tolerance-delta math · A3 swap equivalence ·
-  A4 plan-email deep-link · A5 invoice dropdown · A6 practice identity) — **shipped**.
-- **B** clinical model + plan-builder UX (B1 slot-class substitution · B2 carb-led tiers ·
-  **B3 four periodization modes** · B4 two-sessions/day · B5 merged review tabs) — **shipped**.
-  ⚠ **B3 is superseded by R14/D5** (partial unbuild — see D5).
-- **C** client & practice management (C1 cooperation types · C2 anamnesis · C3 check-in freq ·
-  C4 invoice-from-client · C5 payments) — **shipped**.
+- **A** correctness bugs (A1 training-edit + A5 invoice dropdown `0fcd0fc` · A2 tolerance + A3 swap
+  equivalence `feb20d2` · A4 plan-email deep-link `9b7f49e` · A6 practice identity `ade9ed3` ·
+  adversarial F1/F2/F3/F5 `0c1ebe2`) — **shipped**.
+- **B** clinical model + plan-builder UX (B1 slot-class + B5 merged tabs `b4aab54` · B2 carb-led tiers
+  `beaec7d` · **B3 four periodization modes** + B4 two-sessions/day `aeaa720`) — **shipped**.
+  ⚠ **B3 is superseded by R14/D5** (Model B retires the four-mode tier system — see D5).
+- **C** client & practice management (C1 cooperation types `3d9b04d`+`1739aa9` · C2 anamnesis
+  `3174321`+`d714975` · C3 check-in freq + C4 invoice-from-client `17592cd` · C5 payments
+  `d10e275`+`db0237d`) — **shipped**.
 
 ---
 
 ## Wave D — Round-2 correctness & clinical feedback (R1–R16)
 
-### D1 — Quick wins (front-loaded; independent) [S each]
+### D1 — Quick wins (front-loaded; independent) [S each] — ✅ DONE `d4a78df`
 
 **D1a [S] (R13) Column headers on the week-structure session rows.**
 - File: `src/components/week-sessions-editor.tsx` — sessions render as cards with inline per-field
@@ -96,7 +125,7 @@ Load-bearing ordering decisions:
 - Surface it in the review page, portal, and PDF alongside the macro figures.
 - Accept: fibre grams shown per meal and per day total; no engine change (display-only).
 
-### D2 — Check-in review loop (R3, R4) [M]
+### D2 — Check-in review loop (R3, R4) [M] — ✅ DONE `245eee4`
 
 **D2a [M] (R3) Reply to a check-in.** *(absorbs old D1 check-in questionnaire — already collected)*
 - Column exists; write + read paths exist: `checkin.markReviewed` writes `review_notes`
@@ -121,7 +150,7 @@ Load-bearing ordering decisions:
 - Accept: review shows all scales (energy/sleep/stress/hunger/digestive) + training adherence +
   free-text notes.
 
-### D3 — EF macro & hydration retune (R5, R8, R9) [EF]
+### D3 — EF macro & hydration retune (R5, R8, R9) [EF] — ✅ DONE `d10168d` (D3a/D3b) · `d1d1566` (D3c) · fibre band `098cfdb`
 
 **D3a [M][EF] (R5) Salt = 1 g per 1 L water; water 30–40 mL/kg.**
 - File: `src/engine/hydration.ts:14-48`. Current rule is the flat `BASE_SALT_G = 5` (L20) +
@@ -132,15 +161,13 @@ Load-bearing ordering decisions:
 - EF: clinical constant; value-diff golden required.
 - Accept: 85 kg training day → water ~3.7 L, salt ~3.7 g (not 6.5); golden fixtures pin the ratio.
 
-**D3b [M/L][EF][R-confirm] (R8) Veggie portions.**
-- File: `src/engine/meal-plan/solver.ts:62-64` — `CATEGORY_BOUNDS.VEG = [20, 400]`. The min of **20 g
-  is the culprit** behind "2 g broccoli / 60 g pomodorini". Raise to `[100, 500]` **(⚠ Roberto says
-  "100–400" for green sources — CONFIRM which ceiling)**. Add a **max 1–2 green-source cap per meal**
-  and **inverse-energy scaling** (lower kcal day → more veg) **(⚠ scaling shape needs one confirm)**;
-  the veg-growing path is at `solver.ts:610-626`.
-- EF: two clinical parameters; goldens required. **Open Roberto inputs: (1) ceiling 500 vs 400;
-  (2) inverse-scaling shape.**
-- Accept: no veg portion < 100 g; ≤ 2 green sources/meal; low-kcal day yields more veg; goldens green.
+**D3b [M/L][EF] (R8) Veggie portions.** — ✅ DONE `d10168d` (floor) + `098cfdb` (fibre band). Both ⚠ resolved.
+- Shipped: `CATEGORY_BOUNDS.VEG` now `[100, 400]` (`src/engine/meal-plan/solver.ts:68`) — floor 100 g kills
+  "2 g broccoli / 60 g pomodorini"; **ceiling = 400 (Roberto's "100–400" confirmed, not 500)**. R8 was
+  REFRAMED to **fibre-driven**: `fibreRatePer1000` (`src/engine/hydration.ts:34`) yields 10–20 g fibre per
+  1000 kcal **inverse to energy** (low kcal → 20 end → more veg), with gram bounds as sanity rails. The
+  fibre floor drives the planner (`src/engine/meal-plan/planner.ts:120-125`). Tests: `ef4-tolerance.test.ts`.
+- Accept (met): no veg portion < 100 g; fibre band inverse to kcal; goldens green (`ef4-tolerance.test.ts`).
 
 **D3c [S] (R9) Peri-workout intra water + pre/intra space in the meal plan.**
 - The peri-workout box partially exists (`src/components/plan/peri-workout-timing-card.tsx`;
@@ -148,7 +175,7 @@ Load-bearing ordering decisions:
   in the plan.
 - Accept: pre/intra/post shown with the intra water line; display-only.
 
-### D4 — BMR fallback + manual body-fat (R1) [M][EF]
+### D4 — BMR fallback + manual body-fat (R1) [M][EF] — ✅ DONE `d60350f`
 
 **D4 [M][EF] (R1) Manual BF% + Harris-Benedict fallback (Roberto's method, named).**
 - Manual BF% ALREADY has an engine path: `estimateBodyFat` consumes `snapshot.bodyFatPctOverride`
@@ -163,11 +190,11 @@ Load-bearing ordering decisions:
 - Accept: no measurements → Harris-Benedict BMR (not BMI heuristic); manual BF% flows to
   Katch-McArdle; method visible to the coach; goldens green.
 
-### D5 — Unified day-type + manual-kcal engine change (R14 + R15; absorbs R12 + R11) [XL][EF][R-confirm]
+### D5 — Unified day-type + manual-kcal engine change (R14 + R15; absorbs R12 + R11) [XL][EF] — ◐ ENGINE CORE DONE, WIZARD/SEAM/CLEANUP REMAINING
 
-**THE BIG ONE — one engine change, two facets, gated on Roberto's sign-off. Design doc first.**
+**THE BIG ONE — Roberto SIGNED (`3a6abc3`); engine core shipped (`47f93b0` R15, `bb97583` Model-B targets, handoff `7408530`). Remaining work = the wizard rebuild (B-ui), serialization v3 (B-seam, GATED), and label retirement (B-cleanup) — the full continuation lives in `docs/polish/MODEL-B-HANDOFF.md`. Suite at handoff: 125 files / 1230 pass, tsc 0.**
 
-**D5-design [M][R-confirm] Consequence sign-off before any build.**
+**D5-design [M] Consequence sign-off before any build.** — ✅ SIGNED `3a6abc3` (`docs/polish/D5-DESIGN-DAY-TYPES.md`)
 - New DayType model: **OFF / 1-session / 2-session / 3-session** days only. Author the consequence
   ledger Roberto must sign: retires `refeed`, `deload`, `training_light/medium/intense/double` from
   the `DayType` union (`src/engine/types.ts:20-28`); deletes periodization modes 3–4
@@ -175,9 +202,10 @@ Load-bearing ordering decisions:
   `deload` branch in `hydration.ts:39`. Energy level **emerges** from the scheduled workouts' per-day
   session TDEE (existing `perDayTrainingSession` path) — refeed/deload params retire because they no
   longer have a home.
-- **Gate: Roberto signs the retirement list before D5a starts.**
+- **Gate: PASSED — Roberto signed the retirement list (`3a6abc3`, 2026-07-22).** Day-level rule added:
+  ≥250–300 kcal step = higher class; "Media settimanale" survives as a target policy.
 
-**D5a [XL][EF] (R14 + R15) The engine seam — two facets.**
+**D5a [XL][EF] (R14 + R15) The engine seam — two facets.** — ◐ ENGINE DONE (`47f93b0`, `bb97583`); UI wiring rides B-ui
 - Seam: `src/server/routers/plan.ts:452-466` (`intakeTrainingSessions` → `perDayTrainingSession` →
   `engineOptions.perDayTrainingSession`) + the engine's day-TDEE assembly + the DayType model.
   - **Facet R14:** day type = session count; the day's energy emerges from the scheduled sessions'
@@ -196,21 +224,21 @@ Load-bearing ordering decisions:
 - **Absorb R11 [SHIPPED-verify]:** two sessions/day already works (`WeekSessionsEditor.addSession`,
   L89-95); re-verify through the new model + after the R2 SQL.
 
-**D5b [L] Wizard rebuild.**
+**D5b [L] Wizard rebuild.** — ◻ REMAINING (this is B-ui in `MODEL-B-HANDOFF.md` — the testable deliverable; deploy after)
 - Replace the four-mode selector (`periodization-modes.ts`) with OFF/1/2/3-session day affordances;
   per-day edit visible (round-1 #6 intent preserved under the new model).
 - Accept: golden plan fixtures pass under the new model; setting/clearing a per-session kcal moves
   that day's plan; changing day type preserves entered sessions; the inverted invariant test is
   green; a value-diff oracle covers the seam.
 
-### D6 — Client-side day checker (old D3, renumbered) [L][EF]
+### D6 — Client-side day checker (old D3, renumbered) [L][EF] — ◻ REMAINING (not started)
 
 **D6 [L][EF] (old D3 / round-1 Q3) Day checker.**
 - Client-side meal-structure changes/swaps validated against assigned daily targets using the B1
   slot classes (Model 1 §1, shipped); shows the resulting macro state.
 - Accept: portal swap validated vs targets; macro delta shown; DB stays macro-value source of truth.
 
-### D7 — Portal experience residuals (old D2, old D4) [M]
+### D7 — Portal experience residuals (old D2, old D4) [M] — ◻ REMAINING (not started)
 
 **D7a [S] (old D2) Weekly-average weight auto-computed + shown** (portal + coach). Not shipped
 (no rolling-average surface found). Accept: 7-day average weight rendered on both surfaces.
@@ -221,7 +249,7 @@ Coordinates with H (i18n) + J (hardening).
 
 ---
 
-## Wave E — Fight-week module (Q4) [XL][EF] — model CONFIRMED by Roberto 2026-07-21 (+ planned-weight amendment)
+## Wave E — Fight-week module (Q4) [XL][EF] — ◻ DESIGNED, NOT BUILT (model CONFIRMED `639af04`; build notes `6f4a287`)
 
 Reference: docs/reference/fight-week/ (two real protocols; variance notes in its README).
 Principle: the app NEVER computes a cut — only arithmetic (countdowns, rehydration totals from
@@ -260,29 +288,29 @@ entered cut at editable 150%/70% coefficients, ÷3 refuel helper).
   date-anchored, edited daily; a bundle blob would force regeneration semantics on every edit.
   Existing waterLoading/fibre/sodium engine output stays as-is and links INTO the protocol view.
 
-## Wave F — Protocol blocks (Q5) [L]
+## Wave F — Protocol blocks (Q5) [L] — ◻ REMAINING (not started)
 
 **F1** Reusable content blocks (cold, heat, supplements, refeed, cutting kit — seeded from Model 1 §2–3)
 attachable to plans; rendered in portal + PDF; coach-editable.
 
-## Wave G — Financial dashboard (#17) [L]
+## Wave G — Financial dashboard (#17) [L] — ◻ MOCK ONLY, NOT BUILT (branded mock `c96d364`)
 
 **G1** Build per approved mock (docs/polish/concepts/finance-dashboard-mock.html): KPIs, 12-month chart,
 per-athlete economics, aging, pricing intelligence, "da fatturare". Cooperation-type segmentation
 consumes C1 (shipped). Invoice-derived metrics are complete (all work invoiced through the app).
 
-## Wave H — Internationalization (Q7) [XL]
+## Wave H — Internationalization (Q7) [XL] — ◻ NOT STARTED
 
 **H1** i18n framework + string-extraction pattern (built early so new features are translatable);
 per-user language (coach + per-client portal).
 **H2** Full IT/EN translation pass incl. PDFs/emails.
 
-## Wave I — Data import (Q6) [M][R]
+## Wave I — Data import (Q6) [M][R] — ◻ NOT STARTED
 
 **I1** Import path for last-year clients: minimal fields (anagrafica) via assisted CSV/manual;
 optional measurements; recent clients first.
 
-## Wave J — Hardening & release (arc backlog)
+## Wave J — Hardening & release (arc backlog) — ◐ PARTIAL (J2 note `4c7d4d0`; rest remaining)
 
 **J1** Wave B hex→token sweep (remaining coach pages) + theme toggle UI.
 **J2** T3.3 async-state primitives; T3.9 a11y (labels, role=tab); charts polish; C3 follow-up:
@@ -304,25 +332,25 @@ updated DEMO-SCRIPT.
 
 ## Coverage — round-2 R1–R16 → new plan ids
 
-| R-id | Type | New id | Disposition |
-|------|------|--------|-------------|
-| R1 | NEW+EF | **D4** | Manual BF% (override path exists, add wizard field) + Harris-Benedict BMR fallback in `bmr.ts`. |
-| R2 | PROD-STATE | **verify-only** | Migrations 023/024 on prod; SQL paste/rollback resolves. No code. Re-verify after SQL. |
-| R3 | NEW | **D2a** | Coach reply UI → `markReviewed` (exists) + portal display + `checkin/reviewed` notification. |
-| R4 | CHANGE | **D2b** | Expand `getLatestCompleted` select + review surface to all answers (data already stored). |
-| R5 | BUG+EF | **D3a** | Salt = water-L × 1 g/L in `hydration.ts` (replaces flat 5+1.5=6.5); water 30–40 mL/kg confirmed. |
-| R6 | NEW | **D1d** | Surface `fibreG` (engine tracks it) per meal/day in review + portal + PDF. |
-| R7 | CHANGE | **D1c** | Daily macro recap line above each day's meals (coach + portal). |
-| R8 | BUG+EF | **D3b** | `CATEGORY_BOUNDS.VEG` 20→100 min; ceiling ⚠500/400; ≤2 green sources; inverse-energy scaling. |
-| R9 | CHANGE | **D3c** | Pre/intra space + intra-session water in the meal plan (box partially exists). |
-| R10 | BUG | **D5a (verify)** | Wizard prefill of updated routine — verified through the rebuilt editor/model. |
-| R11 | SHIPPED-VERIFY | **D5a (absorb)** | Two sessions/day shipped in B4; re-verify through new model + after SQL. |
-| R12 | BUG | **D5a (absorb)** | Mode-change wipe removed by R14's rebuild (no template overwrite to wipe). |
-| R13 | CHANGE | **D1a** | Column headers (Durata min / RPE) on session rows; preserved through D5 rebuild. |
-| R14 | CHANGE+EF | **D5-design + D5a/D5b** | New OFF/1/2/3-session model; supersedes B3; gated on sign-off. |
-| R15 | CHANGE+EF | **D5a** | Manual kcal feeds the engine; inverts `session-kcal-override.test.ts:179-186`. |
-| R16 | BUG | **D1b** | Supplement dedupe: guard add + remove assigned from picker. |
-| — | (chat) | **PARKED** | MET-value retuning deferred to post-fix Roberto review. |
+| R-id | New id | Status | Disposition (sha) |
+|------|--------|--------|-------------------|
+| R1 | **D4** | ✅ | Manual BF% override + Harris-Benedict BMR fallback in `bmr.ts` — `d60350f`. |
+| R2 | **verify-only** | ◻ | Migrations 023/024 on prod; SQL paste resolves. No code deliverable; verify after SQL. |
+| R3 | **D2a** | ✅ | Coach reply UI → `markReviewed` + portal display + `checkin/reviewed` notify — `245eee4`. |
+| R4 | **D2b** | ✅ | Review surface shows every answer (all scales + free text) — `245eee4`. |
+| R5 | **D3a** | ✅ | Salt = water-L × 1 g/L in `hydration.ts:65` — `d10168d`. |
+| R6 | **D1d** | ✅ | `fibreG` surfaced per meal/day — `d4a78df`. |
+| R7 | **D1c** | ✅ | Daily macro recap line above each day's meals — `d4a78df`. |
+| R8 | **D3b** | ✅ | `VEG` floor 100 (ceiling 400) `d10168d` + fibre-driven band 10–20 g/1000 kcal `098cfdb`. |
+| R9 | **D3c** | ✅ | Pre/intra space + intra-session water — `d1d1566`. |
+| R10 | **D5a (verify)** | ◐ | Wizard prefill — verify through the B-ui rebuild (pending). |
+| R11 | **D5a (absorb)** | ✅/verify | Two sessions/day shipped in B4 `aeaa720`; re-verify through B-ui. |
+| R12 | **D5a (absorb)** | ◐ | Mode-change wipe removed by the B-ui rebuild (no template to wipe) — B-ui pending. |
+| R13 | **D1a** | ✅ | Durata/RPE column headers on session rows — `d4a78df`. |
+| R14 | **D5-design + D5a/D5b** | ✅ signed / ◐ UI | Signed `3a6abc3`; engine `47f93b0`+`bb97583`; B-ui/B-seam/B-cleanup pending. |
+| R15 | **D5a** | ✅ engine / ◐ UI | Manual kcal feeds the engine — `47f93b0`; UI wiring rides B-ui. |
+| R16 | **D1b** | ✅ | Supplement dedupe: guard add + remove assigned from picker — `d4a78df`. |
+| — | **PARKED** | ⏸ | MET-value retuning deferred to post-fix Roberto review. |
 
 ## Coverage — prior not-yet-done items (old D–J) → new plan ids
 
@@ -340,4 +368,5 @@ updated DEMO-SCRIPT.
 | old J | Hardening & release | **J** | Kept. |
 
 Every R1–R16 id and every not-yet-done prior item (old D–J) is accounted for above.
-Open Roberto inputs: **R8 ⚠ ceiling (500 vs 400)**, **R8 ⚠ inverse-scaling shape**, **R14 consequence sign-off**.
+Open Roberto inputs: **NONE** — all three prior blockers closed 2026-07-22 (R8 ceiling = 400 `d10168d`;
+R8 reframed fibre-driven `098cfdb`; R14 signed `3a6abc3`). Next build = Model-B wizard (B-ui), then E–J.
