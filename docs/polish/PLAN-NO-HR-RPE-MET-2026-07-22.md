@@ -12,10 +12,12 @@ per-session override is preserved as the escape hatch.
 
 ---
 
-## BUILD STATUS — 2026-07-22 (read this FIRST if picking up)
+## BUILD STATUS — 2026-07-23 · ✅ DEPLOYED (read this FIRST if picking up)
 
-**The model is functionally complete + verified. Not deployed (local branch only).**
-`bunx tsc --noEmit` → 0 · `bunx vitest run` → 1272 pass. The gate is the acceptance
+**LIVE in production. `main` @ `3fa3252` on the agentarmy72-del fork; Vercel build
+Ready (58s). scrignanutrition.app serves the new model.** Deployed 2026-07-23 after
+Roberto live-validated it (whole-session RPE confirmed, plan generation confirmed).
+`bunx tsc --noEmit` → 0 · `bunx vitest run` → 1279 pass. The gate is the acceptance
 suite `src/engine/__tests__/no-hr-rpe-met.acceptance.test.ts` (Roberto's §15 numbers).
 
 ### DONE (commit SHAs)
@@ -36,16 +38,18 @@ suite `src/engine/__tests__/no-hr-rpe-met.acceptance.test.ts` (Roberto's §15 nu
 - **Cleanup** `1cacbc4` — removed 2 unused spec helpers (`resolveCurveKey`, 4-arg
   `estimateSessionKcal`); the app never called them (drift removal).
 - **Tests** `b58ffd3` — range-sanity, interpolation-midpoint, Ruling-3 (0.85) property.
+- **Time-field fix** `3fa3252` — Ora fine is derived from start + duration
+  (`src/lib/training/derive-end-time.ts`), read-only; an empty time never reaches the
+  server (fixes the "invalid value" save). Applied to `IntakeForm` + `WeekSessionsEditor`.
+- **Deploy** — `main` fast-forwarded `bb97583..3fa3252`; Vercel production build Ready.
 
 ### REMAINING
-- **Phase 3 — recompute past clients** (NOT built; operator-gated). CONFIRMED a real
-  migration: plans are STORED bundles (`daily_targets.plan_bundle` JSONB, generated
-  once by `plan-generator.ts` then read by review/portal/PDF), so old plans carry the
-  old MET numbers. Recompute = regenerate active clients' plans through the new engine
-  (inputs unchanged; `generateWeeklyPlan` already exists). Build test-first: dry-run
-  reporter (writes nothing) → floor-safety guard (no plan under-fuels) → idempotency →
-  backup. **Blocked on:** (1) boundary ruling — active roster only vs also archived
-  sent-PDFs; (2) explicit go-ahead to touch client data.
+- **Phase 3 — recompute past clients: CANCELLED** (Roberto ruling 2026-07-22, revised).
+  Decision is **forward-only**: existing plans stay frozen (STORED bundles in
+  `daily_targets.plan_bundle`); only NEW plan generations use the new curves — which is
+  the shipped default, so NO migration is needed. An existing client moves to the new
+  numbers only when their coach next generates a plan. This removed the biggest
+  remaining piece.
 - **Phase 4 — display note** (optional; spec §13 "recommended"). The estimate already
   displays honestly ("stimato"); the "average demand of the whole session" note is
   transparency polish. Build or skip per operator.
@@ -54,11 +58,10 @@ suite `src/engine/__tests__/no-hr-rpe-met.acceptance.test.ts` (Roberto's §15 nu
   (see `MODEL-B-HANDOFF.md`), not here. `monitoring/training` was deliberately NOT
   collapsed (actuals log, out of model scope).
 
-### OPEN DECISIONS (Roberto's)
-- **Boundary** (Phase 3): active roster vs also archived sent-PDFs.
-- **RPE-wording DISCONFIRM:** the curves assume RPE = WHOLE-SESSION demand. Confirm
-  Roberto's testing used that meaning, not "peak," before any recompute. A live smoke
-  (`:3001`, roberto@test.com) closes it.
+### OPEN DECISIONS — all resolved
+- **RPE-wording DISCONFIRM: CLOSED** — Roberto confirmed (2026-07-22) he reads RPE as
+  whole-session demand, matching the curves. Live-validated on screen.
+- **Recompute boundary: moot** — recompute cancelled (forward-only, above).
 
 ### GOTCHAS
 - The ×0.85 lived in THREE places (`exercise.ts`, `estimate-session-kcal.ts`,
@@ -69,8 +72,11 @@ suite `src/engine/__tests__/no-hr-rpe-met.acceptance.test.ts` (Roberto's §15 nu
   stays intact for the HR-path sessionType.
 - MET-only flows changed BY DESIGN (this is a value change): combat ~−50%, strength
   +18%, cardio ±15%. The gate is "matches Roberto's §15", NOT "byte-identical".
-- Not deployed. Deploy remote = `fork` (agentarmy72-del) `main` via Vercel — pushing
-  THIS branch does not deploy.
+- DEPLOYED 2026-07-23 via `fork` (agentarmy72-del) `main` → Vercel (auto-deploy on
+  `main`). The `main` push is gated by the auto-mode classifier — a human runs it with
+  `! git push fork <branch>:main`. Rollback: `push fork bb97583:main --force-with-lease`.
+- Known separate issue: Vercel **Preview** builds have been erroring for 2+ days
+  (Production is healthy) — likely a missing preview-env var; unrelated to this model.
 
 ---
 
