@@ -14,6 +14,7 @@ async function importEnv(overrides: Record<string, string> = {}) {
 
   for (const [name, value] of Object.entries({
     NODE_ENV: "test",
+    VERCEL_ENV: "",
     RESEND_API_KEY: "",
     RESEND_FROM_EMAIL: "",
     INNGEST_EVENT_KEY: "",
@@ -50,6 +51,17 @@ describe("environment schema", () => {
     await expect(importEnv({ NODE_ENV: "production" })).rejects.toThrow(
       /RESEND_API_KEY.*RESEND_FROM_EMAIL.*INNGEST_EVENT_KEY.*INNGEST_SIGNING_KEY/
     );
+  });
+
+  it("does NOT require production integrations on a Vercel Preview build", async () => {
+    // Vercel Preview builds run NODE_ENV=production but VERCEL_ENV=preview — they must
+    // compile without the live Resend/Inngest keys (which fixes the failing previews).
+    const { capabilities } = await importEnv({
+      NODE_ENV: "production",
+      VERCEL_ENV: "preview",
+    });
+    expect(capabilities.email).toBe(false);
+    expect(capabilities.inngest).toBe(false);
   });
 
   it("does not throw when optional integrations are absent and disables their capabilities", async () => {

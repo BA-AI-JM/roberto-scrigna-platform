@@ -31,6 +31,11 @@ const envSchema = z
   })
   .superRefine((values, context) => {
     if (values.NODE_ENV !== "production") return;
+    // Vercel runs ALL builds (incl. Preview) with NODE_ENV=production. A Preview
+    // build shouldn't need the live Resend/Inngest keys just to compile, so only
+    // enforce these on a TRUE production build. Real production is unchanged
+    // (VERCEL_ENV="production", or unset on a self-hosted prod server).
+    if (process.env.VERCEL_ENV === "preview") return;
 
     for (const name of productionRequiredNames) {
       if (!values[name]) {
